@@ -1,0 +1,679 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// PHÂN HỆ A: QUẢN TRỊ HỆ THỐNG & NỀN TẢNG
+// ==========================================
+
+// 1. [A.1] Cơ cấu tổ chức phòng ban (Cây phân cấp)
+model Department {
+  id          String        @id @default(uuid())
+  code        String        @unique // Mã đơn vị duy nhất
+  name        String        @map("name")
+  parentId    String?       @map("parent_id")
+  parent      Department?   @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Department[]  @relation("DepartmentHierarchy")
+  managerId   String?       @map("manager_id")
+  manager     User?         @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: SetNull)
+  address     String?
+  mission     String?       @db.Text
+  avatarUrl   String?       @map("avatar_url")
+  status      String        @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  staff       User[]        @relation("DepartmentStaff")
+  warehouses  Warehouse[]
+  salesPlans  SalesPlan[]
+
+  @@map("departments")
+}
+
+// 2. [A.3] Danh mục Vai trò
+model Role {
+  id          String           @id @default(uuid())
+  code        String           @unique // ADMIN, CEO, SALES_DIR, SALES, ACCOUNTANT, WAREHOUSE
+  name        String
+  description String?
+  isSystem    Boolean          @default(false) @map("is_system") // Khóa không cho xóa vai trò cốt lõi
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  userRoles   UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+// 3. [A.2] Quản lý Người dùng / Nhân viên
+model User {
+  id            String       @id @default(uuid())
+  code          String       @unique // Mã NV: NV001, NV002...
+  fullName      String       @map("full_name")
+  email         String       @unique // Gmail SSO
+  passwordHash  String       @map("password_hash")
+  phone         String?      @unique
+  dob           DateTime?    @db.Date
+  departmentId  String?      @map("department_id")
+  department    Department?  @relation("DepartmentStaff", fields: [departmentId], references: [id], onDelete: SetNull)
+  managerId     String?      @map("manager_id")
+  manager       User?        @relation("DirectManager", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates  User[]       @relation("DirectManager")
+  avatarUrl     String?      @map("avatar_url")
+  basicSalary   Decimal?     @map("basic_salary") @db.Decimal(15, 2) // Bảo mật phân quyền
+  allowance     Decimal?     @map("allowance") @db.Decimal(15, 2)
+  status        String       @default("ACTIVE") // ACTIVE ("Đang làm việc"), INACTIVE ("Ngừng làm việc")
+  startDate     DateTime?    @map("start_date") @db.Date
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  userRoles          UserRole[]
+  managedDepts       Department[]              @relation("DepartmentManager")
+  documents          LegalDocument[]
+  auditLogs          AuditLog[]
+  managedCustomers   Customer[]                @relation("CustomerManager")
+  handoversFrom      CustomerHandoverHistory[] @relation("HandoverFromUser")
+  handoversTo        CustomerHandoverHistory[] @relation("HandoverToUser")
+  quotations         Quotation[]               @relation("QuotationManager")
+  orders             Order[]                   @relation("OrderManager")
+  orderHandoversFrom OrderHandoverHistory[]    @relation("OrderHandoverFromUser")
+  orderHandoversTo   OrderHandoverHistory[]    @relation("OrderHandoverToUser")
+  salesPlans         SalesPlan[]               @relation("SalesPlanCreator")
+  createdPaymentVouchers  PaymentVoucher[]     @relation("PaymentVoucherCreator")
+  approvedPaymentVouchers PaymentVoucher[]     @relation("PaymentVoucherApprover")
+  createdReceiptVouchers  ReceiptVoucher[]     @relation("ReceiptVoucherCreator")
+  approvedReceiptVouchers ReceiptVoucher[]     @relation("ReceiptVoucherApprover")
+  createdOrderReturns     OrderReturn[]        @relation("OrderReturnCreator")
+
+  @@map("users")
+}
+
+// Bảng liên kết User - Role (Nhiều - Nhiều)
+model UserRole {
+  userId    String   @map("user_id")
+  roleId    String   @map("role_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// 4. [A.4] Ma trận phân quyền RBAC & Data Scope
+model RolePermission {
+  id         String   @id @default(uuid())
+  roleId     String   @map("role_id")
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  moduleCode String   @map("module_code") // Mã phân hệ (A_DEPARTMENTS, A_USERS, B_CUSTOMERS, ...)
+  canCreate  Boolean  @default(false) @map("can_create")
+  canRead    Boolean  @default(false) @map("can_read")
+  canUpdate  Boolean  @default(false) @map("can_update")
+  canDelete  Boolean  @default(false) @map("can_delete")
+  dataScope  String   @default("PERSONAL") @map("data_scope") // ALL, DEPARTMENT, PERSONAL
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([roleId, moduleCode])
+  @@map("role_permissions")
+}
+
+// 5. [A.5] Hồ sơ giấy tờ mẫu & Chứng chỉ CO-CQ
+model LegalDocument {
+  id           String    @id @default(uuid())
+  code         String    @unique // Mã tài liệu / Mã chứng chỉ
+  title        String
+  type         String    // CONTRACT ("Hợp đồng mẫu"), CERTIFICATE ("Chứng chỉ CO-CQ")
+  fileUrl      String    @map("file_url")
+  fileName     String    @map("file_name")
+  fileSize     Int       @map("file_size") // Dung lượng bytes
+  mimeType     String    @map("mime_type")
+  uploadedById String?   @map("uploaded_by_id")
+  uploadedBy   User?     @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("legal_documents")
+}
+
+// 6. Nhật ký hệ thống (Audit Logs)
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?  @map("user_id")
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      String   // CREATE, UPDATE, DELETE, OVERRIDE, LOGIN
+  entityType  String   @map("entity_type") // Department, User, Role, Document, etc.
+  entityId    String   @map("entity_id")
+  oldValue    Json?    @map("old_value")
+  newValue    Json?    @map("new_value")
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+// ==========================================
+// PHÂN HỆ C: KHO & HÀNG HÓA (MASTER DATA & INVENTORY)
+// ==========================================
+
+// C.2 Quản lý Kho vật lý
+model Warehouse {
+  id           String       @id @default(uuid())
+  code         String       @unique // KHO-TONG, KHO-TRUNG-TAM...
+  name         String
+  address      String?
+  phone        String?
+  departmentId String?      @map("department_id")
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  status       String       @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  categories   Category[]
+  products     Product[]
+
+  @@map("warehouses")
+}
+
+// C.3 Danh mục hàng hóa (Cấp 1)
+model Category {
+  id          String        @id @default(uuid())
+  code        String        @unique // DM01, DM02...
+  name        String        // Giấy in văn phòng, Bút viết & Mực...
+  warehouseId String?       @map("warehouse_id")
+  warehouse   Warehouse?    @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  description String?       @db.Text
+  status      String        @default("ACTIVE")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  productTypes ProductType[]
+  products     Product[]
+
+  @@map("categories")
+}
+
+// C.4 Loại hàng hóa (Cấp 2)
+model ProductType {
+  id          String    @id @default(uuid())
+  code        String    @unique // LH01, LH02...
+  name        String    // Giấy in A4, Giấy in A3, Bút bi, Bút lông dầu, Bìa còng 5cm...
+  categoryId  String    @map("category_id")
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  unit        String?   // Ream, Hộp, Cây, Chiếc
+  description String?   @db.Text
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  products    Product[]
+
+  @@map("product_types")
+}
+
+// C.6 Danh sách Nhà cung cấp
+model Supplier {
+  id            String    @id @default(uuid())
+  code          String    @unique // NCC001, NCC002...
+  name          String    // Tên công ty / nhà phân phối
+  phone         String?
+  email         String?
+  address       String?
+  taxCode       String?   @map("tax_code")
+  contactPerson String?   @map("contact_person")
+  notes         String?   @db.Text
+  status        String    @default("ACTIVE")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  products      Product[]
+
+  @@map("suppliers")
+}
+
+// C.5 Master Data: Sản phẩm / SKU Hàng hóa chi tiết
+model Product {
+  id            String          @id @default(uuid())
+  code          String          @unique // SP001, SP-GIAY-01...
+  barcode       String?         @unique // Mã vạch
+  name          String
+  category      String          // Giấy in văn phòng, Bút viết & Mực...
+  unit          String          // Ream, Hộp, Cây, Thùng, Cuộn, Cái
+  costPrice     Decimal         @default(0) @map("cost_price") @db.Decimal(15, 2)
+  sellingPrice  Decimal         @default(0) @map("selling_price") @db.Decimal(15, 2)
+  vatRate       Int             @default(8) @map("vat_rate") // 8% hoặc 10%
+  stockQuantity Int             @default(100) @map("stock_quantity")
+  minStockLevel Int             @default(20) @map("min_stock_level") // Định mức tồn kho tối thiểu
+  
+  warehouseId   String?         @map("warehouse_id")
+  warehouse     Warehouse?      @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  categoryId    String?         @map("category_id")
+  categoryRel   Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  productTypeId String?         @map("product_type_id")
+  productType   ProductType?    @relation(fields: [productTypeId], references: [id], onDelete: SetNull)
+  supplierId    String?         @map("supplier_id")
+  supplier      Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  // Quy cách thông số kỹ thuật VPP
+  color         String?
+  length        Decimal?        @db.Decimal(10, 2) // mm
+  width         Decimal?        @db.Decimal(10, 2) // mm
+  height        Decimal?        @db.Decimal(10, 2) // mm
+  weight        Decimal?        @db.Decimal(10, 2) // kg
+  imageUrl      String?         @map("image_url")
+  description   String?         @db.Text
+  status        String          @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  quotationItems QuotationItem[]
+  orderItems     OrderItem[]
+  returnItems    OrderReturnItem[]
+
+  @@map("products")
+}
+
+// ==========================================
+// PHÂN HỆ B: KINH DOANH & BÁN HÀNG
+// ==========================================
+
+// B.1 Quản lý Khách hàng
+model Customer {
+  id              String                    @id @default(uuid())
+  code            String                    @unique // KH001, KH002...
+  name            String                    // Tên công ty / khách hàng
+  phone           String                    @unique // Check trùng SĐT
+  taxCode         String?                   @unique @map("tax_code") // Check trùng MST
+  address         String?
+  deliveryAddress String?                   @map("delivery_address")
+  customerType    String                    @default("ENTERPRISE") @map("customer_type") // ENTERPRISE, HOUSEHOLD, ORGANIZATION, SCHOOL, INDIVIDUAL
+  source          String                    @default("SELF_FOUND") // SELF_FOUND, REFERRAL, SOCIAL, EXHIBITION, OTHER
+  contactPerson   String?                   @map("contact_person")
+  email           String?
+  notes           String?                   @db.Text
+  managerId       String?                   @map("manager_id")
+  manager         User?                     @relation("CustomerManager", fields: [managerId], references: [id], onDelete: SetNull)
+  status          String                    @default("ACTIVE") // ACTIVE, INACTIVE
+  creditBalance   Decimal                   @default(0) @map("credit_balance") @db.Decimal(15, 2) // Số dư ký quỹ / Tiền trả trước (Mục IX)
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
+
+  quotations      Quotation[]
+  orders          Order[]
+  handovers       CustomerHandoverHistory[]
+  paymentVouchers PaymentVoucher[]
+  receiptVouchers ReceiptVoucher[]
+
+  @@index([phone])
+  @@index([taxCode])
+  @@index([managerId])
+  @@map("customers")
+}
+
+// Lịch sử bàn giao khách hàng (B.1)
+model CustomerHandoverHistory {
+  id         String   @id @default(uuid())
+  customerId String   @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  fromUserId String?  @map("from_user_id")
+  toUserId   String   @map("to_user_id")
+  fromUser   User?    @relation("HandoverFromUser", fields: [fromUserId], references: [id], onDelete: SetNull)
+  toUser     User     @relation("HandoverToUser", fields: [toUserId], references: [id], onDelete: Cascade)
+  reason     String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("customer_handover_histories")
+}
+
+// B.3 Quản lý Báo giá
+model Quotation {
+  id          String          @id @default(uuid())
+  code        String          @unique // BG-2026-0001
+  customerId  String          @map("customer_id")
+  customer    Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  managerId   String?         @map("manager_id")
+  manager     User?           @relation("QuotationManager", fields: [managerId], references: [id], onDelete: SetNull)
+  date        DateTime        @default(now()) @db.Date
+  validUntil  DateTime?       @map("valid_until") @db.Date
+  status      String          @default("DRAFT") // DRAFT, NEGOTIATING, SENT, CONFIRMED, CANCELLED
+  subtotal    Decimal         @default(0) @db.Decimal(15, 2)
+  vatRate     Int             @default(8) @map("vat_rate")
+  vatAmount   Decimal         @default(0) @map("vat_amount") @db.Decimal(15, 2)
+  totalAmount Decimal         @default(0) @map("total_amount") @db.Decimal(15, 2)
+  notes       String?         @db.Text
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  items       QuotationItem[]
+  orders      Order[]
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String    @id @default(uuid())
+  quotationId String    @map("quotation_id")
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  productId   String?   @map("product_id")
+  product     Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productCode String    @map("product_code")
+  productName String    @map("product_name")
+  unit        String
+  quantity    Int       @default(1)
+  unitPrice   Decimal   @map("unit_price") @db.Decimal(15, 2)
+  amount      Decimal   @default(0) @db.Decimal(15, 2) // SL * DonGia
+  vatRate     Int       @default(8) @map("vat_rate")
+  total       Decimal   @default(0) @db.Decimal(15, 2) // amount + vat
+
+  @@map("quotation_items")
+}
+
+// B.4 Quản lý Đơn hàng
+model Order {
+  id              String                 @id @default(uuid())
+  code            String                 @unique // DH-2026-0001
+  customerId      String                 @map("customer_id")
+  customer        Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  quotationId     String?                @map("quotation_id")
+  quotation       Quotation?             @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  managerId       String?                @map("manager_id")
+  manager         User?                  @relation("OrderManager", fields: [managerId], references: [id], onDelete: SetNull)
+  orderDate       DateTime               @default(now()) @map("order_date") @db.Date
+  deliveryDate    DateTime?              @map("delivery_date") @db.Date
+  deliveryAddress String?                @map("delivery_address")
+  contactPerson   String?                @map("contact_person")
+  phone           String?
+  deliveryStatus  String                 @default("PENDING") @map("delivery_status") // PENDING, PARTIAL, DELIVERING, DELIVERED, CANCELLED
+  paymentStatus   String                 @default("UNPAID") @map("payment_status") // UNPAID, PARTIAL_PAID, PAID
+  invoiceStatus   String                 @default("NOT_ISSUED") @map("invoice_status") // NOT_ISSUED, ISSUING, ISSUED
+  subtotal        Decimal                @default(0) @db.Decimal(15, 2)
+  vatRate         Int                    @default(8) @map("vat_rate")
+  vatAmount       Decimal                @default(0) @map("vat_amount") @db.Decimal(15, 2)
+  totalAmount     Decimal                @default(0) @map("total_amount") @db.Decimal(15, 2)
+  paidAmount      Decimal                @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  remainingAmount Decimal                @default(0) @map("remaining_amount") @db.Decimal(15, 2) // Backend calculated
+  refundAmount    Decimal                @default(0) @map("refund_amount") @db.Decimal(15, 2) // Tiền hoàn cọc (Mục IX)
+  adjustedAmount  Decimal                @default(0) @map("adjusted_amount") @db.Decimal(15, 2) // Điều chỉnh (+/-) tiền sau bán (Mục IX)
+  adjustmentReason String?               @map("adjustment_reason") @db.Text // Lý do điều chỉnh
+  notes           String?                @db.Text
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  items           OrderItem[]
+  handovers       OrderHandoverHistory[]
+  paymentVouchers PaymentVoucher[]
+  receiptVouchers ReceiptVoucher[]
+  allocations     ReceiptVoucherAllocation[]
+  returns         OrderReturn[]
+
+  @@index([deliveryStatus])
+  @@index([paymentStatus])
+  @@index([orderDate])
+  @@index([customerId])
+  @@index([managerId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String   @map("order_id")
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String?  @map("product_id")
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productCode String   @map("product_code")
+  productName String   @map("product_name")
+  unit        String
+  quantity    Int      @default(1)
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(15, 2)
+  amount      Decimal  @default(0) @db.Decimal(15, 2)
+  vatRate     Int      @default(8) @map("vat_rate")
+  total       Decimal  @default(0) @db.Decimal(15, 2)
+
+  @@map("order_items")
+}
+
+// Lịch sử bàn giao đơn hàng (B.4)
+model OrderHandoverHistory {
+  id         String   @id @default(uuid())
+  orderId    String   @map("order_id")
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromUserId String?  @map("from_user_id")
+  toUserId   String   @map("to_user_id")
+  fromUser   User?    @relation("OrderHandoverFromUser", fields: [fromUserId], references: [id], onDelete: SetNull)
+  toUser     User     @relation("OrderHandoverToUser", fields: [toUserId], references: [id], onDelete: Cascade)
+  reason     String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("order_handover_histories")
+}
+
+// B.6 Lập kế hoạch kinh doanh
+model SalesPlan {
+  id           String          @id @default(uuid())
+  title        String
+  periodType   String          @default("MONTH") @map("period_type") // MONTH, QUARTER, YEAR
+  periodValue  String          @map("period_value") // e.g. "T03/2026", "Q1/2026", "2026"
+  year         Int             @default(2026)
+  departmentId String?         @map("department_id")
+  department   Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdById  String?         @map("created_by_id")
+  createdBy    User?           @relation("SalesPlanCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  notes        String?         @db.Text
+  status       String          @default("ACTIVE")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  items        SalesPlanItem[]
+
+  @@map("sales_plans")
+}
+
+model SalesPlanItem {
+  id             String    @id @default(uuid())
+  salesPlanId    String    @map("sales_plan_id")
+  salesPlan      SalesPlan @relation(fields: [salesPlanId], references: [id], onDelete: Cascade)
+  category       String    // Giấy in, Bút viết, File bìa còng, Thiết bị VP
+  unit           String    // Ream, Hộp, Cái...
+  targetQuantity Int       @default(0) @map("target_quantity")
+  targetRevenue  Decimal   @default(0) @map("target_revenue") @db.Decimal(15, 2)
+  actualQuantity Int       @default(0) @map("actual_quantity")
+  actualRevenue  Decimal   @default(0) @map("actual_revenue") @db.Decimal(15, 2)
+
+  @@map("sales_plan_items")
+}
+
+// ==========================================
+// PHÂN HỆ E: QUẢN LÝ THU - CHI & TÀI CHÍNH
+// ==========================================
+
+// E.I.1 Danh mục chi phí (Cấp 1)
+model ExpenseCategory {
+  id          String           @id @default(uuid())
+  code        String           @unique // CP01, CP02...
+  name        String           // Chi phí văn phòng, Chi phí tiếp khách, Chi phí vận chuyển...
+  description String?          @db.Text
+  status      String           @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  types       ExpenseType[]
+  vouchers    PaymentVoucher[]
+
+  @@map("expense_categories")
+}
+
+// E.I.1 Loại chi phí (Cấp 2)
+model ExpenseType {
+  id          String          @id @default(uuid())
+  code        String          @unique // LCP01, LCP02...
+  name        String          // Tiền thuê nhà, Tiền điện nước, Xăng xe, Tiếp khách...
+  categoryId  String          @map("category_id")
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  description String?         @db.Text
+  status      String          @default("ACTIVE")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  vouchers    PaymentVoucher[]
+
+  @@map("expense_types")
+}
+
+// E.II.1 Nhóm loại khoản thu
+model RevenueType {
+  id          String           @id @default(uuid())
+  code        String           @unique // KT01, KT02...
+  name        String           // Thu bán hàng VPP, Thu dịch vụ in ấn, Thu hoàn ứng, Khác...
+  description String?          @db.Text
+  status      String           @default("ACTIVE")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  vouchers    ReceiptVoucher[]
+
+  @@map("revenue_types")
+}
+
+// E.I.2 Quản lý Phiếu chi tiền
+model PaymentVoucher {
+  id             String           @id @default(uuid())
+  code           String           @unique // PC-2026-0001
+  voucherDate    DateTime         @default(now()) @map("voucher_date") @db.Date
+  categoryId     String?          @map("category_id")
+  category       ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  typeId         String?          @map("type_id")
+  type           ExpenseType?     @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  recipient      String           // Họ tên người nhận tiền
+  phone          String?
+  address        String?
+  reason         String           @db.Text // Nội dung chi
+  amount         Decimal          @db.Decimal(15, 2) // Số tiền chi
+  paymentMethod  String           @default("CASH") @map("payment_method") // CASH (Tiền mặt), BANK_TRANSFER (Chuyển khoản)
+  invoiceNumber  String?          @map("invoice_number") // Số chứng từ / hóa đơn đỏ đính kèm
+  invoiceDate    DateTime?        @map("invoice_date") @db.Date
+  fileUrl        String?          @map("file_url")
+  fileName       String?          @map("file_name")
+  status         String           @default("PENDING") // PENDING ("Đề nghị chi"), APPROVED ("Đã duyệt chi"), PAID ("Đã chi"), REJECTED ("Từ chối chi")
+  
+  // Liên kết tùy chọn phục vụ Hoàn tiền khách hàng / đơn hủy (Mục IX)
+  customerId     String?          @map("customer_id")
+  customer       Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  orderId        String?          @map("order_id")
+  order          Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  createdById    String?          @map("created_by_id")
+  createdBy      User?            @relation("PaymentVoucherCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedById   String?          @map("approved_by_id")
+  approvedBy     User?            @relation("PaymentVoucherApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?        @map("approved_at")
+  rejectedReason String?          @map("rejected_reason") @db.Text
+  notes          String?          @db.Text
+
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([voucherDate])
+  @@map("payment_vouchers")
+}
+
+// E.II.2 Quản lý Phiếu thu tiền
+model ReceiptVoucher {
+  id             String       @id @default(uuid())
+  code           String       @unique // PT-2026-0001
+  voucherDate    DateTime     @default(now()) @map("voucher_date") @db.Date
+  typeId         String?      @map("type_id")
+  type           RevenueType? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  payer          String       // Họ tên người nộp tiền
+  phone          String?
+  address        String?
+  reason         String       @db.Text // Nội dung thu
+  amount         Decimal      @db.Decimal(15, 2) // Số tiền thu
+  paymentMethod  String       @default("BANK_TRANSFER") @map("payment_method") // CASH (Tiền mặt), BANK_TRANSFER (Chuyển khoản)
+  invoiceNumber  String?      @map("invoice_number")
+  invoiceDate    DateTime?    @map("invoice_date") @db.Date
+  fileUrl        String?      @map("file_url")
+  fileName       String?      @map("file_name")
+  status         String       @default("PENDING") // PENDING ("Đề nghị thu"), APPROVED ("Đã duyệt thu"), PAID ("Đã thu"), REJECTED ("Từ chối thu")
+
+  // Liên kết công nợ Khách hàng & Đơn hàng
+  customerId     String?      @map("customer_id")
+  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  orderId        String?      @map("order_id")
+  order          Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  createdById    String?      @map("created_by_id")
+  createdBy      User?        @relation("ReceiptVoucherCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedById   String?      @map("approved_by_id")
+  approvedBy     User?        @relation("ReceiptVoucherApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?    @map("approved_at")
+  rejectedReason String?      @map("rejected_reason") @db.Text
+  notes          String?      @db.Text
+
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  allocations    ReceiptVoucherAllocation[]
+
+  @@index([status])
+  @@index([voucherDate])
+  @@index([customerId])
+  @@map("receipt_vouchers")
+}
+
+// Bảng trung gian phân bổ gạch nợ đa đơn hàng (Mục IX.3)
+model ReceiptVoucherAllocation {
+  id          String         @id @default(uuid())
+  voucherId   String         @map("voucher_id")
+  voucher     ReceiptVoucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  orderId     String         @map("order_id")
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount      Decimal        @db.Decimal(15, 2)
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  @@map("receipt_voucher_allocations")
+}
+
+// Phân hệ Đổi trả hàng / Nhập kho hoàn trả từng phần (Mục IX.1)
+model OrderReturn {
+  id                String            @id @default(uuid())
+  code              String            @unique // TH-2026-0001
+  orderId           String            @map("order_id")
+  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  returnDate        DateTime          @default(now()) @map("return_date") @db.Date
+  reason            String            @db.Text
+  totalRefundAmount Decimal           @default(0) @map("total_refund_amount") @db.Decimal(15, 2)
+  refundMethod      String            @default("DEDUCT_DEBT") @map("refund_method") // DEDUCT_DEBT, CASH_REFUND, CREDIT_BALANCE
+  status            String            @default("COMPLETED") // COMPLETED, CANCELLED
+  createdById       String?           @map("created_by_id")
+  createdBy         User?             @relation("OrderReturnCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  items             OrderReturnItem[]
+
+  @@map("order_returns")
+}
+
+model OrderReturnItem {
+  id          String      @id @default(uuid())
+  returnId    String      @map("return_id")
+  orderReturn OrderReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  productId   String?     @map("product_id")
+  product     Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productCode String      @map("product_code")
+  productName String      @map("product_name")
+  unit        String
+  quantity    Int         @default(1)
+  unitPrice   Decimal     @map("unit_price") @db.Decimal(15, 2)
+  amount      Decimal     @default(0) @db.Decimal(15, 2)
+
+  @@map("order_return_items")
+}
+
