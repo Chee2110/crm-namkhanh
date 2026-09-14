@@ -246,136 +246,81 @@ async function main() {
 
   console.log('✓ Đã tạo Cây cơ cấu tổ chức 3 cấp & Hệ thống Tổng kho VPP Nam Khánh');
 
-  // 4. Tạo Tài khoản Người dùng mẫu
-  const passwordHash = await bcrypt.hash('123456', 10);
+  // 4. Tạo Tài khoản Người dùng duy nhất: Admin
+  const targetEmail = 'dinhhchi2110@gmail.com';
+  const passwordHash = await bcrypt.hash('Dhc2110@', 10);
 
-  const users = [
-    {
-      code: 'NV001',
+  const adminRole = roleMap.get('ADMIN')!;
+  const ceoRole = roleMap.get('CEO')!;
+
+  const adminUser = await prisma.user.upsert({
+    where: { email: targetEmail },
+    update: {
+      code: 'ADMIN',
       fullName: 'Quản Trị Viên Hệ Thống',
-      email: 'admin@namkhanh.vn',
-      phone: '0988111222',
+      passwordHash,
       departmentId: bgd.id,
-      roleCode: 'ADMIN',
+      status: 'ACTIVE'
+    },
+    create: {
+      code: 'ADMIN',
+      fullName: 'Quản Trị Viên Hệ Thống',
+      email: targetEmail,
+      phone: '0988111222',
+      passwordHash,
+      departmentId: bgd.id,
       basicSalary: 30000000,
       allowance: 5000000,
-      status: 'ACTIVE'
-    },
-    {
-      code: 'NV002',
-      fullName: 'Nguyễn Nam Khánh',
-      email: 'ceo@namkhanh.vn',
-      phone: '0988000999',
-      departmentId: bgd.id,
-      roleCode: 'CEO',
-      basicSalary: 50000000,
-      allowance: 10000000,
-      status: 'ACTIVE'
-    },
-    {
-      code: 'NV003',
-      fullName: 'Trần Văn Mạnh',
-      email: 'sales.dir@namkhanh.vn',
-      phone: '0912345678',
-      departmentId: kkd.id,
-      roleCode: 'SALES_DIR',
-      basicSalary: 20000000,
-      allowance: 3000000,
-      status: 'ACTIVE'
-    },
-    {
-      code: 'NV004',
-      fullName: 'Lê Thị Mai',
-      email: 'sales1@namkhanh.vn',
-      phone: '0934567890',
-      departmentId: pkd1.id,
-      roleCode: 'SALES',
-      basicSalary: 10000000,
-      allowance: 2000000,
-      status: 'ACTIVE'
-    },
-    {
-      code: 'NV005',
-      fullName: 'Phạm Thu Trang',
-      email: 'accountant@namkhanh.vn',
-      phone: '0977888999',
-      departmentId: pkt.id,
-      roleCode: 'ACCOUNTANT',
-      basicSalary: 15000000,
-      allowance: 2500000,
-      status: 'ACTIVE'
-    },
-    {
-      code: 'NV006',
-      fullName: 'Vũ Đức Thành',
-      email: 'warehouse@namkhanh.vn',
-      phone: '0966555444',
-      departmentId: pkho.id,
-      roleCode: 'WAREHOUSE',
-      basicSalary: 12000000,
-      allowance: 2000000,
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      startDate: new Date('2024-01-01')
     }
-  ];
+  });
 
-  for (const u of users) {
-    const roleId = roleMap.get(u.roleCode)!;
-    const user = await prisma.user.upsert({
-      where: { email: u.email },
-      update: {
-        code: u.code,
-        fullName: u.fullName,
-        phone: u.phone,
-        departmentId: u.departmentId,
-        basicSalary: u.basicSalary,
-        allowance: u.allowance,
-        status: u.status
-      },
-      create: {
-        code: u.code,
-        fullName: u.fullName,
-        email: u.email,
-        phone: u.phone,
-        passwordHash,
-        departmentId: u.departmentId,
-        basicSalary: u.basicSalary,
-        allowance: u.allowance,
-        status: u.status,
-        startDate: new Date('2024-01-01')
+  // Gán role ADMIN & CEO
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: adminUser.id,
+        roleId: adminRole
       }
-    });
+    },
+    update: {},
+    create: {
+      userId: adminUser.id,
+      roleId: adminRole
+    }
+  });
 
-    // Gán role
+  if (ceoRole) {
     await prisma.userRole.upsert({
       where: {
         userId_roleId: {
-          userId: user.id,
-          roleId
+          userId: adminUser.id,
+          roleId: ceoRole
         }
       },
       update: {},
       create: {
-        userId: user.id,
-        roleId
+        userId: adminUser.id,
+        roleId: ceoRole
       }
     });
-    console.log(`✓ Đã tạo User: ${u.fullName} (${u.email}) - Vai trò: ${u.roleCode}`);
   }
 
-  // Cập nhật Trưởng phòng cho các đơn vị
-  const adminUser = await prisma.user.findUnique({ where: { email: 'admin@namkhanh.vn' } });
-  const ceoUser = await prisma.user.findUnique({ where: { email: 'ceo@namkhanh.vn' } });
-  const salesDirUser = await prisma.user.findUnique({ where: { email: 'sales.dir@namkhanh.vn' } });
-  const accUser = await prisma.user.findUnique({ where: { email: 'accountant@namkhanh.vn' } });
-  const whUser = await prisma.user.findUnique({ where: { email: 'warehouse@namkhanh.vn' } });
+  // Xoá mọi tài khoản demo khác nếu có
+  await prisma.user.deleteMany({
+    where: { email: { not: targetEmail } }
+  });
 
-  if (ceoUser) await prisma.department.update({ where: { id: bgd.id }, data: { managerId: ceoUser.id } });
-  if (salesDirUser) {
-    await prisma.department.update({ where: { id: kkd.id }, data: { managerId: salesDirUser.id } });
-    await prisma.department.update({ where: { id: pkd1.id }, data: { managerId: salesDirUser.id } });
-  }
-  if (accUser) await prisma.department.update({ where: { id: pkt.id }, data: { managerId: accUser.id } });
-  if (whUser) await prisma.department.update({ where: { id: pkho.id }, data: { managerId: whUser.id } });
+  console.log(`✓ Đã thiết lập duy nhất 1 tài khoản Admin: ${adminUser.fullName} (${adminUser.email})`);
+
+  // Cập nhật Trưởng phòng / Người quản lý cho các đơn vị
+  await prisma.department.update({ where: { id: bgd.id }, data: { managerId: adminUser.id } });
+  await prisma.department.update({ where: { id: kkd.id }, data: { managerId: adminUser.id } });
+  await prisma.department.update({ where: { id: pkd1.id }, data: { managerId: adminUser.id } });
+  await prisma.department.update({ where: { id: pkd2.id }, data: { managerId: adminUser.id } });
+  await prisma.department.update({ where: { id: pkt.id }, data: { managerId: adminUser.id } });
+  await prisma.department.update({ where: { id: pkho.id }, data: { managerId: adminUser.id } });
 
   // 5. Tạo Hồ sơ giấy tờ mẫu (A.5)
   const sampleDocs = [
@@ -795,8 +740,8 @@ async function main() {
   console.log('✓ Đã cập nhật 10 Sản phẩm VPP liên kết đầy đủ Kho, Danh mục, Loại hàng & Nhà cung cấp');
 
   // 7. Tạo Khách hàng mẫu (B.1)
-  const salesUser = await prisma.user.findUnique({ where: { email: 'sales1@namkhanh.vn' } });
-  const salesDir = await prisma.user.findUnique({ where: { email: 'sales.dir@namkhanh.vn' } });
+  const salesUser = adminUser;
+  const salesDir = adminUser;
 
   const sampleCustomers = [
     {
@@ -1292,9 +1237,9 @@ async function main() {
 
   console.log('✓ Đã tạo Nhóm loại khoản thu (E.II.1)');
 
-  // Lấy tài khoản kế toán và admin để gán người lập/duyệt
-  const financeKetoan = await prisma.user.findFirst({ where: { email: 'ketoan@namkhanh.vn' } });
-  const financeCeo = await prisma.user.findFirst({ where: { email: 'giamdoc@namkhanh.vn' } });
+  // Lấy tài khoản admin để gán người lập/duyệt
+  const financeKetoan = adminUser;
+  const financeCeo = adminUser;
   const sampleCustomer = await prisma.customer.findFirst();
   const sampleOrder = await prisma.order.findFirst();
 

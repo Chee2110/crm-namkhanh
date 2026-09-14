@@ -225,128 +225,70 @@ async function main() {
     }
   });
   console.log("\u2713 \u0110\xE3 t\u1EA1o C\xE2y c\u01A1 c\u1EA5u t\u1ED5 ch\u1EE9c 3 c\u1EA5p & H\u1EC7 th\u1ED1ng T\u1ED5ng kho VPP Nam Kh\xE1nh");
-  const passwordHash = await bcrypt.hash("123456", 10);
-  const users = [
-    {
-      code: "NV001",
+  const targetEmail = "dinhhchi2110@gmail.com";
+  const passwordHash = await bcrypt.hash("Dhc2110@", 10);
+  const adminRole = roleMap.get("ADMIN");
+  const ceoRole = roleMap.get("CEO");
+  const adminUser = await prisma.user.upsert({
+    where: { email: targetEmail },
+    update: {
+      code: "ADMIN",
       fullName: "Qu\u1EA3n Tr\u1ECB Vi\xEAn H\u1EC7 Th\u1ED1ng",
-      email: "admin@namkhanh.vn",
-      phone: "0988111222",
+      passwordHash,
       departmentId: bgd.id,
-      roleCode: "ADMIN",
+      status: "ACTIVE"
+    },
+    create: {
+      code: "ADMIN",
+      fullName: "Qu\u1EA3n Tr\u1ECB Vi\xEAn H\u1EC7 Th\u1ED1ng",
+      email: targetEmail,
+      phone: "0988111222",
+      passwordHash,
+      departmentId: bgd.id,
       basicSalary: 3e7,
       allowance: 5e6,
-      status: "ACTIVE"
-    },
-    {
-      code: "NV002",
-      fullName: "Nguy\u1EC5n Nam Kh\xE1nh",
-      email: "ceo@namkhanh.vn",
-      phone: "0988000999",
-      departmentId: bgd.id,
-      roleCode: "CEO",
-      basicSalary: 5e7,
-      allowance: 1e7,
-      status: "ACTIVE"
-    },
-    {
-      code: "NV003",
-      fullName: "Tr\u1EA7n V\u0103n M\u1EA1nh",
-      email: "sales.dir@namkhanh.vn",
-      phone: "0912345678",
-      departmentId: kkd.id,
-      roleCode: "SALES_DIR",
-      basicSalary: 2e7,
-      allowance: 3e6,
-      status: "ACTIVE"
-    },
-    {
-      code: "NV004",
-      fullName: "L\xEA Th\u1ECB Mai",
-      email: "sales1@namkhanh.vn",
-      phone: "0934567890",
-      departmentId: pkd1.id,
-      roleCode: "SALES",
-      basicSalary: 1e7,
-      allowance: 2e6,
-      status: "ACTIVE"
-    },
-    {
-      code: "NV005",
-      fullName: "Ph\u1EA1m Thu Trang",
-      email: "accountant@namkhanh.vn",
-      phone: "0977888999",
-      departmentId: pkt.id,
-      roleCode: "ACCOUNTANT",
-      basicSalary: 15e6,
-      allowance: 25e5,
-      status: "ACTIVE"
-    },
-    {
-      code: "NV006",
-      fullName: "V\u0169 \u0110\u1EE9c Th\xE0nh",
-      email: "warehouse@namkhanh.vn",
-      phone: "0966555444",
-      departmentId: pkho.id,
-      roleCode: "WAREHOUSE",
-      basicSalary: 12e6,
-      allowance: 2e6,
-      status: "ACTIVE"
+      status: "ACTIVE",
+      startDate: /* @__PURE__ */ new Date("2024-01-01")
     }
-  ];
-  for (const u of users) {
-    const roleId = roleMap.get(u.roleCode);
-    const user = await prisma.user.upsert({
-      where: { email: u.email },
-      update: {
-        code: u.code,
-        fullName: u.fullName,
-        phone: u.phone,
-        departmentId: u.departmentId,
-        basicSalary: u.basicSalary,
-        allowance: u.allowance,
-        status: u.status
-      },
-      create: {
-        code: u.code,
-        fullName: u.fullName,
-        email: u.email,
-        phone: u.phone,
-        passwordHash,
-        departmentId: u.departmentId,
-        basicSalary: u.basicSalary,
-        allowance: u.allowance,
-        status: u.status,
-        startDate: /* @__PURE__ */ new Date("2024-01-01")
+  });
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: adminUser.id,
+        roleId: adminRole
       }
-    });
+    },
+    update: {},
+    create: {
+      userId: adminUser.id,
+      roleId: adminRole
+    }
+  });
+  if (ceoRole) {
     await prisma.userRole.upsert({
       where: {
         userId_roleId: {
-          userId: user.id,
-          roleId
+          userId: adminUser.id,
+          roleId: ceoRole
         }
       },
       update: {},
       create: {
-        userId: user.id,
-        roleId
+        userId: adminUser.id,
+        roleId: ceoRole
       }
     });
-    console.log(`\u2713 \u0110\xE3 t\u1EA1o User: ${u.fullName} (${u.email}) - Vai tr\xF2: ${u.roleCode}`);
   }
-  const adminUser = await prisma.user.findUnique({ where: { email: "admin@namkhanh.vn" } });
-  const ceoUser = await prisma.user.findUnique({ where: { email: "ceo@namkhanh.vn" } });
-  const salesDirUser = await prisma.user.findUnique({ where: { email: "sales.dir@namkhanh.vn" } });
-  const accUser = await prisma.user.findUnique({ where: { email: "accountant@namkhanh.vn" } });
-  const whUser = await prisma.user.findUnique({ where: { email: "warehouse@namkhanh.vn" } });
-  if (ceoUser) await prisma.department.update({ where: { id: bgd.id }, data: { managerId: ceoUser.id } });
-  if (salesDirUser) {
-    await prisma.department.update({ where: { id: kkd.id }, data: { managerId: salesDirUser.id } });
-    await prisma.department.update({ where: { id: pkd1.id }, data: { managerId: salesDirUser.id } });
-  }
-  if (accUser) await prisma.department.update({ where: { id: pkt.id }, data: { managerId: accUser.id } });
-  if (whUser) await prisma.department.update({ where: { id: pkho.id }, data: { managerId: whUser.id } });
+  await prisma.user.deleteMany({
+    where: { email: { not: targetEmail } }
+  });
+  console.log(`\u2713 \u0110\xE3 thi\u1EBFt l\u1EADp duy nh\u1EA5t 1 t\xE0i kho\u1EA3n Admin: ${adminUser.fullName} (${adminUser.email})`);
+  await prisma.department.update({ where: { id: bgd.id }, data: { managerId: adminUser.id } });
+  await prisma.department.update({ where: { id: kkd.id }, data: { managerId: adminUser.id } });
+  await prisma.department.update({ where: { id: pkd1.id }, data: { managerId: adminUser.id } });
+  await prisma.department.update({ where: { id: pkd2.id }, data: { managerId: adminUser.id } });
+  await prisma.department.update({ where: { id: pkt.id }, data: { managerId: adminUser.id } });
+  await prisma.department.update({ where: { id: pkho.id }, data: { managerId: adminUser.id } });
   const sampleDocs = [
     {
       code: "HD-MAU-01",
@@ -746,9 +688,8 @@ async function main() {
     });
     productMap.set(p.code, prod);
   }
-  console.log("\u2713 \u0110\xE3 c\u1EADp nh\u1EADt 10 S\u1EA3n ph\u1EA9m VPP li\xEAn k\u1EBFt \u0111\u1EA7y \u0111\u1EE7 Kho, Danh m\u1EE5c, Lo\u1EA1i h\xE0ng & Nh\xE0 cung c\u1EA5p");
-  const salesUser = await prisma.user.findUnique({ where: { email: "sales1@namkhanh.vn" } });
-  const salesDir = await prisma.user.findUnique({ where: { email: "sales.dir@namkhanh.vn" } });
+  const salesUser = adminUser;
+  const salesDir = adminUser;
   const sampleCustomers = [
     {
       code: "KH001",
@@ -1213,9 +1154,8 @@ async function main() {
       description: "Nh\xE2n vi\xEAn ho\xE0n \u1EE9ng sau khi ho\xE0n t\u1EA5t c\xF4ng t\xE1c"
     }
   });
-  console.log("\u2713 \u0110\xE3 t\u1EA1o Nh\xF3m lo\u1EA1i kho\u1EA3n thu (E.II.1)");
-  const financeKetoan = await prisma.user.findFirst({ where: { email: "ketoan@namkhanh.vn" } });
-  const financeCeo = await prisma.user.findFirst({ where: { email: "giamdoc@namkhanh.vn" } });
+  const financeKetoan = adminUser;
+  const financeCeo = adminUser;
   const sampleCustomer = await prisma.customer.findFirst();
   const sampleOrder = await prisma.order.findFirst();
   await prisma.paymentVoucher.upsert({

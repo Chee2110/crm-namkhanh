@@ -828,8 +828,8 @@ export const QuotationsPage: React.FC = () => {
 
       {/* MODAL TẠO BÁO GIÁ MỚI */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '900px' }}>
+        <div className="modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1001] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '900px' }}>
             <div className="modal-header">
               <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: '700', color: '#111827' }}>
                 Lập Báo giá Văn phòng phẩm mới
@@ -1053,8 +1053,8 @@ export const QuotationsPage: React.FC = () => {
 
       {/* MODAL TẠO NHANH KHÁCH HÀNG MỚI */}
       {isQuickCustomerModalOpen && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
-          <div className="modal-content" style={{ maxWidth: '540px' }}>
+        <div className="modal-overlay fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" style={{ zIndex: 1100 }}>
+          <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1101] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '540px' }}>
             <div className="modal-header">
               <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <UserPlus size={18} color="#E53935" />

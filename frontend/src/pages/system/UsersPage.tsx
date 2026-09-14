@@ -615,8 +615,8 @@ export const UsersPage: React.FC = () => {
 
       {/* MODAL THÊM / SỬA NHÂN SỰ VỚI 3 TABS QUY CHUẨN */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '720px' }}>
+        <div className="modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1001] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '720px' }}>
             <div className="modal-header">
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#111827' }}>
                 {editingUser ? `Chỉnh sửa nhân sự: ${editingUser.fullName}` : 'Thêm mới nhân viên'}

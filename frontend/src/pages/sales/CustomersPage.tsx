@@ -1097,8 +1097,8 @@ export const CustomersPage: React.FC = () => {
 
       {/* MODAL THÊM MỚI / CHỈNH SỬA KHÁCH HÀNG */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '680px' }}>
+        <div className="modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1001] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '680px' }}>
             <div className="modal-header">
               <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: '700', color: '#111827' }}>
                 {editingId ? 'Chỉnh sửa thông tin khách hàng' : 'Thêm mới khách hàng doanh nghiệp / đại lý'}
@@ -1298,8 +1298,8 @@ export const CustomersPage: React.FC = () => {
 
       {/* MODAL BÀN GIAO KHÁCH HÀNG */}
       {isHandoverModalOpen && selectedCustomer && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '480px' }}>
+        <div className="modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1001] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '480px' }}>
             <div className="modal-header">
               <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: '700', color: '#111827' }}>
                 Bàn giao quyền quản lý khách hàng

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, ShieldCheck, CheckCircle2, Bell, AlertTriangle, ShoppingCart, Clock, UserCheck, Check, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Menu, ShieldCheck, Bell, AlertTriangle, ShoppingCart, Clock, UserCheck, Check, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface HeaderProps {
@@ -373,24 +373,6 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Trạng thái kết nối API */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.375rem',
-            fontSize: '12px',
-            color: '#16A34A',
-            backgroundColor: '#DCFCE7',
-            padding: '0.25rem 0.625rem',
-            borderRadius: '9999px',
-            fontWeight: '500'
-          }}
-        >
-          <CheckCircle2 size={13} />
-          <span>Backend API: Online</span>
         </div>
 
         {/* Thẻ quyền hạn của người dùng hiện tại */}

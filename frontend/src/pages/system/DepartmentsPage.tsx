@@ -489,8 +489,8 @@ export const DepartmentsPage: React.FC = () => {
 
       {/* MODAL THÊM / SỬA ĐƠN VỊ */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1001] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '520px' }}>
             <div className="modal-header">
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#111827' }}>
                 {editingDept ? `Chỉnh sửa đơn vị: ${editingDept.name}` : 'Thêm mới đơn vị phòng ban'}
