@@ -16,6 +16,7 @@ import {
 import { api } from '../../services/api';
 import { Department, User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useTableResize } from '../../hooks/useTableResize';
 
 export const DepartmentsPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -26,6 +27,25 @@ export const DepartmentsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'tree' | 'table'>('tree');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
+
+  const defaultDeptWidths: Record<string, number> = {
+    stt: 60,
+    code: 120,
+    name: 220,
+    parent: 180,
+    manager: 160,
+    address: 180,
+    mission: 200,
+    status: 130,
+    actions: 120
+  };
+
+  const { columnWidths, startResize, getTableWidth } = useTableResize({
+    tableKey: 'departments',
+    defaultWidths: defaultDeptWidths,
+    minWidth: 50,
+    minWidths: { stt: 45, actions: 100 }
+  });
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -407,19 +427,54 @@ export const DepartmentsPage: React.FC = () => {
         </div>
       ) : (
         /* DataGrid Bảng danh sách */
-        <div className="table-container">
-          <table className="table-custom">
-            <thead>
-              <tr>
-                <th className="table-th" style={{ width: '60px' }}>STT</th>
-                <th className="table-th">Mã đơn vị</th>
-                <th className="table-th">Tên đơn vị</th>
-                <th className="table-th">Trực thuộc</th>
-                <th className="table-th">Trưởng bộ phận</th>
-                <th className="table-th">Địa chỉ</th>
-                <th className="table-th">Nhiệm vụ</th>
-                <th className="table-th">Trạng thái</th>
-                <th className="table-th" style={{ textAlign: 'right' }}>Thao tác</th>
+        <div className="table-container shadow-sm border border-gray-100 rounded-xl overflow-x-auto">
+          <table
+            className="table-custom"
+            style={{
+              width: `${getTableWidth(Object.keys(defaultDeptWidths))}px`,
+              minWidth: '100%',
+              tableLayout: 'fixed',
+              borderCollapse: 'separate',
+              borderSpacing: 0
+            }}
+          >
+            <thead className="bg-slate-50/90 border-b border-gray-200">
+              <tr style={{ whiteSpace: 'nowrap' }}>
+                <th className="table-th text-center select-none" style={{ width: `${columnWidths.stt || defaultDeptWidths.stt}px`, position: 'relative' }}>
+                  <span>STT</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="table-th select-none" style={{ width: `${columnWidths.code || defaultDeptWidths.code}px`, position: 'relative' }}>
+                  <span>Mã đơn vị</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="table-th select-none" style={{ width: `${columnWidths.name || defaultDeptWidths.name}px`, position: 'relative' }}>
+                  <span>Tên đơn vị</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('name', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="table-th select-none" style={{ width: `${columnWidths.parent || defaultDeptWidths.parent}px`, position: 'relative' }}>
+                  <span>Trực thuộc</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('parent', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="table-th select-none" style={{ width: `${columnWidths.manager || defaultDeptWidths.manager}px`, position: 'relative' }}>
+                  <span>Trưởng bộ phận</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('manager', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="table-th select-none" style={{ width: `${columnWidths.address || defaultDeptWidths.address}px`, position: 'relative' }}>
+                  <span>Địa chỉ</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('address', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="table-th select-none" style={{ width: `${columnWidths.mission || defaultDeptWidths.mission}px`, position: 'relative' }}>
+                  <span>Nhiệm vụ</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('mission', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="table-th select-none" style={{ width: `${columnWidths.status || defaultDeptWidths.status}px`, position: 'relative' }}>
+                  <span>Trạng thái</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('status', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="table-th sticky-action-th" style={{ width: `${columnWidths.actions || defaultDeptWidths.actions}px`, textAlign: 'right' }}>
+                  <span>Thao tác</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -432,18 +487,34 @@ export const DepartmentsPage: React.FC = () => {
               ) : (
                 departmentsFlat.map((d, index) => (
                   <tr key={d.id} className="table-tr">
-                    <td className="table-td" style={{ fontWeight: '500' }}>{index + 1}</td>
-                    <td className="table-td">
-                      <span style={{ fontWeight: '600', color: '#E53935' }}>{d.code}</span>
+                    <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{index + 1}</td>
+                    <td className="table-td whitespace-nowrap overflow-hidden">
+                      <span className="font-semibold text-xs text-[#E53935] font-mono">{d.code}</span>
                     </td>
-                    <td className="table-td" style={{ fontWeight: '600' }}>{d.name}</td>
-                    <td className="table-td">{d.parent?.name || '— (Đơn vị gốc)'}</td>
-                    <td className="table-td">{d.manager?.fullName || '—'}</td>
-                    <td className="table-td">{d.address || '—'}</td>
-                    <td className="table-td" style={{ maxWidth: '240px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {d.mission || '—'}
+                    <td className="table-td overflow-hidden">
+                      <span className="font-semibold text-xs text-gray-900 truncate block" title={d.name}>{d.name}</span>
                     </td>
-                    <td className="table-td">
+                    <td className="table-td text-xs text-gray-600 overflow-hidden">
+                      <div className="truncate max-w-full" title={d.parent?.name || '— (Đơn vị gốc)'}>
+                        {d.parent?.name || '— (Đơn vị gốc)'}
+                      </div>
+                    </td>
+                    <td className="table-td text-xs text-gray-700 overflow-hidden">
+                      <div className="truncate max-w-full" title={d.manager?.fullName || '—'}>
+                        {d.manager?.fullName || '—'}
+                      </div>
+                    </td>
+                    <td className="table-td text-xs text-gray-600 overflow-hidden">
+                      <div className="truncate max-w-full" title={d.address || '—'}>
+                        {d.address || '—'}
+                      </div>
+                    </td>
+                    <td className="table-td text-xs text-gray-600 overflow-hidden">
+                      <div className="truncate max-w-full" title={d.mission || '—'}>
+                        {d.mission || '—'}
+                      </div>
+                    </td>
+                    <td className="table-td whitespace-nowrap overflow-hidden">
                       <span
                         className={`badge ${
                           d.status === 'ACTIVE'
@@ -452,11 +523,12 @@ export const DepartmentsPage: React.FC = () => {
                             ? 'badge-yellow'
                             : 'badge-red'
                         }`}
+                        style={{ whiteSpace: 'nowrap' }}
                       >
                         {d.status === 'ACTIVE' ? 'Đang hoạt động' : d.status === 'SUSPENDED' ? 'Tạm ngừng' : 'Ngừng hoạt động'}
                       </span>
                     </td>
-                    <td className="table-td" style={{ textAlign: 'right' }}>
+                    <td className="table-td sticky-action-td whitespace-nowrap overflow-hidden" style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
                         {hasPermission('A_DEPARTMENTS', 'update') && (
                           <button

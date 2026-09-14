@@ -29,7 +29,8 @@ import {
   X,
   FileSpreadsheet,
   Columns,
-  RotateCcw
+  RotateCcw,
+  Phone
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -43,6 +44,7 @@ import {
   Customer,
   Order
 } from '../../types';
+import { useTableResize } from '../../hooks/useTableResize';
 import { VoucherPrintModal } from './components/VoucherPrintModal';
 
 export const FinancesPage: React.FC = () => {
@@ -129,6 +131,54 @@ export const FinancesPage: React.FC = () => {
     }
   });
 
+  const defaultReceiptWidths: Record<string, number> = {
+    stt: 60,
+    voucherDate: 120,
+    code: 140,
+    payer: 260,
+    order: 160,
+    reason: 260,
+    amount: 150,
+    status: 130,
+    actions: 140
+  };
+
+  const {
+    columnWidths: receiptWidths,
+    startResize: startReceiptResize,
+    resetWidths: resetReceiptWidths,
+    getTableWidth: getReceiptTableWidth
+  } = useTableResize({
+    tableKey: 'finances_receipts',
+    defaultWidths: defaultReceiptWidths,
+    minWidth: 50,
+    minWidths: { stt: 45, actions: 120 }
+  });
+
+  const defaultPaymentWidths: Record<string, number> = {
+    stt: 60,
+    voucherDate: 120,
+    code: 140,
+    recipient: 260,
+    type: 150,
+    reason: 260,
+    amount: 150,
+    status: 130,
+    actions: 140
+  };
+
+  const {
+    columnWidths: paymentWidths,
+    startResize: startPaymentResize,
+    resetWidths: resetPaymentWidths,
+    getTableWidth: getPaymentTableWidth
+  } = useTableResize({
+    tableKey: 'finances_payments',
+    defaultWidths: defaultPaymentWidths,
+    minWidth: 50,
+    minWidths: { stt: 45, actions: 120 }
+  });
+
   const [isReceiptsColDropdownOpen, setIsReceiptsColDropdownOpen] = useState(false);
   const [isPaymentsColDropdownOpen, setIsPaymentsColDropdownOpen] = useState(false);
 
@@ -144,6 +194,7 @@ export const FinancesPage: React.FC = () => {
 
   const resetReceiptsCols = () => {
     setReceiptsVisibleCols(defaultReceiptsCols);
+    resetReceiptWidths();
     try {
       localStorage.setItem('namkhanh_finances_receipts_visible_cols', JSON.stringify(defaultReceiptsCols));
     } catch (e) {
@@ -163,6 +214,7 @@ export const FinancesPage: React.FC = () => {
 
   const resetPaymentsCols = () => {
     setPaymentsVisibleCols(defaultPaymentsCols);
+    resetPaymentWidths();
     try {
       localStorage.setItem('namkhanh_finances_payments_visible_cols', JSON.stringify(defaultPaymentsCols));
     } catch (e) {
@@ -970,20 +1022,73 @@ export const FinancesPage: React.FC = () => {
           </div>
 
           {/* Bảng DataGrid Phiếu thu */}
-          <div className="card overflow-hidden p-0 border border-gray-100">
+          <div className="card overflow-hidden p-0 border border-gray-100 shadow-sm rounded-xl">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr>
-                    {receiptsVisibleCols.stt && <th className="table-th">STT</th>}
-                    {receiptsVisibleCols.voucherDate && <th className="table-th">Ngày thu</th>}
-                    {receiptsVisibleCols.code && <th className="table-th">Số phiếu</th>}
-                    {receiptsVisibleCols.payer && <th className="table-th">Người nộp tiền</th>}
-                    {receiptsVisibleCols.order && <th className="table-th">Đơn hàng liên kết</th>}
-                    {receiptsVisibleCols.reason && <th className="table-th">Nội dung thu</th>}
-                    {receiptsVisibleCols.amount && <th className="table-th text-right">Số tiền (VNĐ)</th>}
-                    {receiptsVisibleCols.status && <th className="table-th">Trạng thái</th>}
-                    {receiptsVisibleCols.actions && <th className="table-th text-center">Thao tác</th>}
+              <table
+                className="w-full text-left"
+                style={{
+                  width: `${getReceiptTableWidth(Object.keys(receiptsColLabels).filter((k) => receiptsVisibleCols[k]))}px`,
+                  minWidth: '100%',
+                  tableLayout: 'fixed',
+                  borderCollapse: 'separate',
+                  borderSpacing: 0
+                }}
+              >
+                <thead className="bg-slate-50/90 border-b border-gray-200">
+                  <tr className="whitespace-nowrap">
+                    {receiptsVisibleCols.stt && (
+                      <th className="table-th text-center select-none" style={{ width: `${receiptWidths.stt || defaultReceiptWidths.stt}px`, position: 'relative' }}>
+                        <span>STT</span>
+                        <div className="col-resizer" onMouseDown={(e) => startReceiptResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {receiptsVisibleCols.voucherDate && (
+                      <th className="table-th select-none" style={{ width: `${receiptWidths.voucherDate || defaultReceiptWidths.voucherDate}px`, position: 'relative' }}>
+                        <span>Ngày thu</span>
+                        <div className="col-resizer" onMouseDown={(e) => startReceiptResize('voucherDate', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {receiptsVisibleCols.code && (
+                      <th className="table-th select-none" style={{ width: `${receiptWidths.code || defaultReceiptWidths.code}px`, position: 'relative' }}>
+                        <span>Số phiếu</span>
+                        <div className="col-resizer" onMouseDown={(e) => startReceiptResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {receiptsVisibleCols.payer && (
+                      <th className="table-th select-none" style={{ width: `${receiptWidths.payer || defaultReceiptWidths.payer}px`, position: 'relative' }}>
+                        <span>Người nộp tiền</span>
+                        <div className="col-resizer" onMouseDown={(e) => startReceiptResize('payer', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {receiptsVisibleCols.order && (
+                      <th className="table-th select-none" style={{ width: `${receiptWidths.order || defaultReceiptWidths.order}px`, position: 'relative' }}>
+                        <span>Đơn hàng liên kết</span>
+                        <div className="col-resizer" onMouseDown={(e) => startReceiptResize('order', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {receiptsVisibleCols.reason && (
+                      <th className="table-th select-none" style={{ width: `${receiptWidths.reason || defaultReceiptWidths.reason}px`, position: 'relative' }}>
+                        <span>Nội dung thu</span>
+                        <div className="col-resizer" onMouseDown={(e) => startReceiptResize('reason', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {receiptsVisibleCols.amount && (
+                      <th className="table-th text-right select-none" style={{ width: `${receiptWidths.amount || defaultReceiptWidths.amount}px`, position: 'relative' }}>
+                        <span>Số tiền (VNĐ)</span>
+                        <div className="col-resizer" onMouseDown={(e) => startReceiptResize('amount', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {receiptsVisibleCols.status && (
+                      <th className="table-th select-none" style={{ width: `${receiptWidths.status || defaultReceiptWidths.status}px`, position: 'relative' }}>
+                        <span>Trạng thái</span>
+                        <div className="col-resizer" onMouseDown={(e) => startReceiptResize('status', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {receiptsVisibleCols.actions && (
+                      <th className="table-th text-center sticky-action-th" style={{ width: `${receiptWidths.actions || defaultReceiptWidths.actions}px` }}>
+                        <span>Thao tác</span>
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -996,44 +1101,47 @@ export const FinancesPage: React.FC = () => {
                   ) : (
                     filteredReceipts.map((r, idx) => (
                       <tr key={r.id} className="hover:bg-gray-50/80 transition-colors">
-                        {receiptsVisibleCols.stt && <td className="table-td text-xs text-gray-400">{idx + 1}</td>}
+                        {receiptsVisibleCols.stt && (
+                          <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">
+                            {idx + 1}
+                          </td>
+                        )}
                         {receiptsVisibleCols.voucherDate && (
-                          <td className="table-td text-xs font-mono text-gray-600">
+                          <td className="table-td text-xs font-mono text-gray-600 whitespace-nowrap overflow-hidden">
                             {new Date(r.voucherDate).toLocaleDateString('vi-VN')}
                           </td>
                         )}
                         {receiptsVisibleCols.code && (
-                          <td className="table-td">
+                          <td className="table-td whitespace-nowrap overflow-hidden">
                             <span className="font-bold text-xs text-[#E53935] font-mono">
                               {r.code}
                             </span>
                           </td>
                         )}
                         {receiptsVisibleCols.payer && (
-                          <td className="table-td">
-                            <div className="font-semibold text-xs text-gray-900">{r.payer}</div>
-                            {r.phone && <div className="text-[11px] text-gray-400">{r.phone}</div>}
+                          <td className="table-td overflow-hidden" style={{ maxWidth: `${receiptWidths.payer || defaultReceiptWidths.payer}px` }}>
+                            <div className="flex flex-col min-w-0" title={`${r.payer}${r.phone ? ` (${r.phone})` : ''}`}>
+                              <span className="font-semibold text-xs text-gray-900 truncate">{r.payer}</span>
+                              {r.phone && (
+                                <span className="text-[11px] text-gray-400 font-mono flex items-center gap-1 truncate mt-0.5">
+                                  <Phone className="w-3 h-3 shrink-0 text-gray-400" />
+                                  {r.phone}
+                                </span>
+                              )}
+                            </div>
                           </td>
                         )}
                         {receiptsVisibleCols.order && (
-                          <td className="table-td">
+                          <td className="table-td whitespace-nowrap overflow-hidden">
                             {r.allocations && r.allocations.length > 0 ? (
-                              <div className="space-y-0.5">
-                                <span className="inline-flex items-center text-[11px] font-bold font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
-                                  Phân bổ {r.allocations.length} đơn
-                                </span>
-                                <div className="text-[10px] text-gray-500 font-mono">
-                                  {r.allocations.map((a) => a.order?.code).filter(Boolean).join(', ')}
-                                </div>
-                              </div>
+                              <span className="inline-flex items-center text-[11px] font-bold font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 truncate max-w-full" title={r.allocations.map((a) => a.order?.code).filter(Boolean).join(', ')}>
+                                Phân bổ {r.allocations.length} đơn
+                              </span>
                             ) : r.order ? (
-                              <div className="space-y-0.5">
-                                <span className="inline-flex items-center text-[11px] font-bold font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                              <div className="flex items-center gap-1.5 min-w-0" title={`Còn nợ: ${Number(r.order.remainingAmount).toLocaleString('vi-VN')}đ`}>
+                                <span className="inline-flex items-center text-[11px] font-bold font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                                   {r.order.code}
                                 </span>
-                                <div className="text-[10px] text-gray-500">
-                                  Còn nợ: {Number(r.order.remainingAmount).toLocaleString('vi-VN')}đ
-                                </div>
                               </div>
                             ) : (
                               <span className="text-xs text-gray-400 italic">Không gắn đơn</span>
@@ -1041,18 +1149,24 @@ export const FinancesPage: React.FC = () => {
                           </td>
                         )}
                         {receiptsVisibleCols.reason && (
-                          <td className="table-td text-xs text-gray-700 max-w-xs truncate" title={r.reason}>
-                            {r.reason}
+                          <td className="table-td text-xs text-gray-700 overflow-hidden">
+                            <div className="truncate max-w-full" title={r.reason}>
+                              {r.reason}
+                            </div>
                           </td>
                         )}
                         {receiptsVisibleCols.amount && (
-                          <td className="table-td text-right font-black text-sm text-green-600">
-                            +{Number(r.amount).toLocaleString('vi-VN')}
+                          <td className="table-td text-right font-bold text-xs text-emerald-600 whitespace-nowrap tabular-nums overflow-hidden">
+                            +{Number(r.amount).toLocaleString('vi-VN')}đ
                           </td>
                         )}
-                        {receiptsVisibleCols.status && <td className="table-td">{renderStatusBadge(r.status)}</td>}
+                        {receiptsVisibleCols.status && (
+                          <td className="table-td whitespace-nowrap overflow-hidden">
+                            {renderStatusBadge(r.status)}
+                          </td>
+                        )}
                         {receiptsVisibleCols.actions && (
-                          <td className="table-td text-center">
+                          <td className="table-td text-center sticky-action-td whitespace-nowrap overflow-hidden">
                             <div className="flex items-center justify-center gap-1">
                               {/* Nút In phiếu A4/A5 */}
                               <button
@@ -1213,20 +1327,73 @@ export const FinancesPage: React.FC = () => {
           </div>
 
           {/* Bảng DataGrid Phiếu chi */}
-          <div className="card overflow-hidden p-0 border border-gray-100">
+          <div className="card overflow-hidden p-0 border border-gray-100 shadow-sm rounded-xl">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr>
-                    {paymentsVisibleCols.stt && <th className="table-th">STT</th>}
-                    {paymentsVisibleCols.voucherDate && <th className="table-th">Ngày chi</th>}
-                    {paymentsVisibleCols.code && <th className="table-th">Số phiếu</th>}
-                    {paymentsVisibleCols.recipient && <th className="table-th">Người nhận tiền</th>}
-                    {paymentsVisibleCols.type && <th className="table-th">Loại chi phí</th>}
-                    {paymentsVisibleCols.reason && <th className="table-th">Nội dung chi</th>}
-                    {paymentsVisibleCols.amount && <th className="table-th text-right">Số tiền chi (VNĐ)</th>}
-                    {paymentsVisibleCols.status && <th className="table-th">Trạng thái</th>}
-                    {paymentsVisibleCols.actions && <th className="table-th text-center">Thao tác</th>}
+              <table
+                className="w-full text-left"
+                style={{
+                  width: `${getPaymentTableWidth(Object.keys(paymentsColLabels).filter((k) => paymentsVisibleCols[k]))}px`,
+                  minWidth: '100%',
+                  tableLayout: 'fixed',
+                  borderCollapse: 'separate',
+                  borderSpacing: 0
+                }}
+              >
+                <thead className="bg-slate-50/90 border-b border-gray-200">
+                  <tr className="whitespace-nowrap">
+                    {paymentsVisibleCols.stt && (
+                      <th className="table-th text-center select-none" style={{ width: `${paymentWidths.stt || defaultPaymentWidths.stt}px`, position: 'relative' }}>
+                        <span>STT</span>
+                        <div className="col-resizer" onMouseDown={(e) => startPaymentResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {paymentsVisibleCols.voucherDate && (
+                      <th className="table-th select-none" style={{ width: `${paymentWidths.voucherDate || defaultPaymentWidths.voucherDate}px`, position: 'relative' }}>
+                        <span>Ngày chi</span>
+                        <div className="col-resizer" onMouseDown={(e) => startPaymentResize('voucherDate', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {paymentsVisibleCols.code && (
+                      <th className="table-th select-none" style={{ width: `${paymentWidths.code || defaultPaymentWidths.code}px`, position: 'relative' }}>
+                        <span>Số phiếu</span>
+                        <div className="col-resizer" onMouseDown={(e) => startPaymentResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {paymentsVisibleCols.recipient && (
+                      <th className="table-th select-none" style={{ width: `${paymentWidths.recipient || defaultPaymentWidths.recipient}px`, position: 'relative' }}>
+                        <span>Người nhận tiền</span>
+                        <div className="col-resizer" onMouseDown={(e) => startPaymentResize('recipient', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {paymentsVisibleCols.type && (
+                      <th className="table-th select-none" style={{ width: `${paymentWidths.type || defaultPaymentWidths.type}px`, position: 'relative' }}>
+                        <span>Loại chi phí</span>
+                        <div className="col-resizer" onMouseDown={(e) => startPaymentResize('type', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {paymentsVisibleCols.reason && (
+                      <th className="table-th select-none" style={{ width: `${paymentWidths.reason || defaultPaymentWidths.reason}px`, position: 'relative' }}>
+                        <span>Nội dung chi</span>
+                        <div className="col-resizer" onMouseDown={(e) => startPaymentResize('reason', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {paymentsVisibleCols.amount && (
+                      <th className="table-th text-right select-none" style={{ width: `${paymentWidths.amount || defaultPaymentWidths.amount}px`, position: 'relative' }}>
+                        <span>Số tiền chi (VNĐ)</span>
+                        <div className="col-resizer" onMouseDown={(e) => startPaymentResize('amount', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {paymentsVisibleCols.status && (
+                      <th className="table-th select-none" style={{ width: `${paymentWidths.status || defaultPaymentWidths.status}px`, position: 'relative' }}>
+                        <span>Trạng thái</span>
+                        <div className="col-resizer" onMouseDown={(e) => startPaymentResize('status', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      </th>
+                    )}
+                    {paymentsVisibleCols.actions && (
+                      <th className="table-th text-center sticky-action-th" style={{ width: `${paymentWidths.actions || defaultPaymentWidths.actions}px` }}>
+                        <span>Thao tác</span>
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1239,45 +1406,62 @@ export const FinancesPage: React.FC = () => {
                   ) : (
                     filteredPayments.map((p, idx) => (
                       <tr key={p.id} className="hover:bg-gray-50/80 transition-colors">
-                        {paymentsVisibleCols.stt && <td className="table-td text-xs text-gray-400">{idx + 1}</td>}
+                        {paymentsVisibleCols.stt && (
+                          <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">
+                            {idx + 1}
+                          </td>
+                        )}
                         {paymentsVisibleCols.voucherDate && (
-                          <td className="table-td text-xs font-mono text-gray-600">
+                          <td className="table-td text-xs font-mono text-gray-600 whitespace-nowrap overflow-hidden">
                             {new Date(p.voucherDate).toLocaleDateString('vi-VN')}
                           </td>
                         )}
                         {paymentsVisibleCols.code && (
-                          <td className="table-td">
+                          <td className="table-td whitespace-nowrap overflow-hidden">
                             <span className="font-bold text-xs text-blue-600 font-mono">
                               {p.code}
                             </span>
                           </td>
                         )}
                         {paymentsVisibleCols.recipient && (
-                          <td className="table-td">
-                            <div className="font-semibold text-xs text-gray-900">{p.recipient}</div>
-                            {p.phone && <div className="text-[11px] text-gray-400">{p.phone}</div>}
+                          <td className="table-td overflow-hidden" style={{ maxWidth: `${paymentWidths.recipient || defaultPaymentWidths.recipient}px` }}>
+                            <div className="flex flex-col min-w-0" title={`${p.recipient}${p.phone ? ` (${p.phone})` : ''}`}>
+                              <span className="font-semibold text-xs text-gray-900 truncate">{p.recipient}</span>
+                              {p.phone && (
+                                <span className="text-[11px] text-gray-400 font-mono flex items-center gap-1 truncate mt-0.5">
+                                  <Phone className="w-3 h-3 shrink-0 text-gray-400" />
+                                  {p.phone}
+                                </span>
+                              )}
+                            </div>
                           </td>
                         )}
                         {paymentsVisibleCols.type && (
-                          <td className="table-td">
-                            <span className="inline-flex items-center text-[11px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
+                          <td className="table-td whitespace-nowrap overflow-hidden">
+                            <span className="inline-flex items-center text-[11px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 truncate max-w-[150px]" title={p.type?.name || p.category?.name || 'Chi phí chung'}>
                               {p.type?.name || p.category?.name || 'Chi phí chung'}
                             </span>
                           </td>
                         )}
                         {paymentsVisibleCols.reason && (
-                          <td className="table-td text-xs text-gray-700 max-w-xs truncate" title={p.reason}>
-                            {p.reason}
+                          <td className="table-td text-xs text-gray-700 overflow-hidden">
+                            <div className="truncate max-w-full" title={p.reason}>
+                              {p.reason}
+                            </div>
                           </td>
                         )}
                         {paymentsVisibleCols.amount && (
-                          <td className="table-td text-right font-black text-sm text-[#E53935]">
-                            -{Number(p.amount).toLocaleString('vi-VN')}
+                          <td className="table-td text-right font-bold text-xs text-[#E53935] whitespace-nowrap tabular-nums overflow-hidden">
+                            -{Number(p.amount).toLocaleString('vi-VN')}đ
                           </td>
                         )}
-                        {paymentsVisibleCols.status && <td className="table-td">{renderStatusBadge(p.status)}</td>}
+                        {paymentsVisibleCols.status && (
+                          <td className="table-td whitespace-nowrap overflow-hidden">
+                            {renderStatusBadge(p.status)}
+                          </td>
+                        )}
                         {paymentsVisibleCols.actions && (
-                          <td className="table-td text-center">
+                          <td className="table-td text-center sticky-action-td whitespace-nowrap overflow-hidden">
                             <div className="flex items-center justify-center gap-1">
                               {/* In phiếu chi */}
                               <button
@@ -1621,26 +1805,28 @@ export const FinancesPage: React.FC = () => {
             )}
           </div>
 
-          <div className="card overflow-hidden p-0">
-            <table className="w-full text-left border-collapse">
-              <thead>
+          <div className="card overflow-hidden p-0 border border-gray-100 shadow-sm rounded-xl">
+            <table className="w-full text-left" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+              <thead className="bg-slate-50/90 border-b border-gray-200">
                 <tr>
-                  <th className="table-th">STT</th>
-                  <th className="table-th">Mã khoản thu</th>
-                  <th className="table-th">Tên nguồn thu</th>
+                  <th className="table-th text-center w-16">STT</th>
+                  <th className="table-th w-36">Mã khoản thu</th>
+                  <th className="table-th w-60">Tên nguồn thu</th>
                   <th className="table-th">Mô tả chi tiết</th>
-                  <th className="table-th text-center">Số phiếu thu phát sinh</th>
+                  <th className="table-th text-center w-48">Số phiếu thu phát sinh</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {revenueTypes.map((rt, idx) => (
-                  <tr key={rt.id} className="hover:bg-gray-50">
-                    <td className="table-td text-xs text-gray-400">{idx + 1}</td>
-                    <td className="table-td font-mono font-bold text-xs text-green-700">{rt.code}</td>
-                    <td className="table-td font-semibold text-xs text-gray-900">{rt.name}</td>
-                    <td className="table-td text-xs text-gray-600">{rt.description || 'Chưa có mô tả'}</td>
-                    <td className="table-td text-center font-bold text-xs text-gray-700">
-                      {rt._count?.vouchers || 0} phiếu
+                  <tr key={rt.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{idx + 1}</td>
+                    <td className="table-td font-mono font-bold text-xs text-green-700 overflow-hidden">{rt.code}</td>
+                    <td className="table-td font-semibold text-xs text-gray-900 overflow-hidden">{rt.name}</td>
+                    <td className="table-td text-xs text-gray-600 overflow-hidden">{rt.description || 'Chưa có mô tả'}</td>
+                    <td className="table-td text-center font-bold text-xs text-gray-700 overflow-hidden">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
+                        {rt._count?.vouchers || 0} phiếu
+                      </span>
                     </td>
                   </tr>
                 ))}

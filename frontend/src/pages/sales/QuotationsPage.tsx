@@ -23,6 +23,7 @@ import { api } from '../../services/api';
 import { Quotation, Customer, Product } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { QuotationPrintModal } from './components/QuotationPrintModal';
+import { useTableResize } from '../../hooks/useTableResize';
 
 export const QuotationsPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -76,6 +77,25 @@ export const QuotationsPage: React.FC = () => {
     }
   });
 
+  const defaultQuotationWidths: Record<string, number> = {
+    stt: 60,
+    code: 140,
+    customer: 280,
+    date: 120,
+    validUntil: 120,
+    manager: 140,
+    totalAmount: 150,
+    status: 130,
+    actions: 200
+  };
+
+  const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
+    tableKey: 'quotations',
+    defaultWidths: defaultQuotationWidths,
+    minWidth: 50,
+    minWidths: { stt: 45, actions: 180 }
+  });
+
   const [draggedCol, setDraggedCol] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [showColumnConfig, setShowColumnConfig] = useState(false);
@@ -111,7 +131,7 @@ export const QuotationsPage: React.FC = () => {
 
   const handleDrop = (e: React.DragEvent, targetCol: string) => {
     e.preventDefault();
-    if (!draggedCol || draggedCol === targetCol) {
+    if (!draggedCol || draggedCol === targetCol || targetCol === 'actions' || targetCol === 'stt' || draggedCol === 'actions' || draggedCol === 'stt') {
       setDraggedCol(null);
       setDragOverCol(null);
       return;
@@ -124,8 +144,10 @@ export const QuotationsPage: React.FC = () => {
     if (dragIdx > -1 && dropIdx > -1) {
       newOrder.splice(dragIdx, 1);
       newOrder.splice(dropIdx, 0, draggedCol);
-      setColumnOrder(newOrder);
-      localStorage.setItem('namkhanh_quotations_col_order', JSON.stringify(newOrder));
+      const withoutActions = newOrder.filter((k) => k !== 'actions');
+      withoutActions.push('actions');
+      setColumnOrder(withoutActions);
+      localStorage.setItem('namkhanh_quotations_col_order', JSON.stringify(withoutActions));
     }
 
     setDraggedCol(null);
@@ -141,6 +163,7 @@ export const QuotationsPage: React.FC = () => {
   const resetColumns = () => {
     setVisibleColumns(defaultVisibleCols);
     setColumnOrder(defaultColOrder);
+    resetWidths();
     localStorage.removeItem('namkhanh_quotations_visible_cols');
     localStorage.removeItem('namkhanh_quotations_col_order');
   };
@@ -620,144 +643,173 @@ export const QuotationsPage: React.FC = () => {
       </div>
 
       {/* Bảng danh sách Báo giá kèm Kéo thả thứ tự cột (Drag & Drop) */}
-      <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-        <table className="table">
-          <thead>
-            <tr>
-              {columnOrder
-                .filter((k) => visibleColumns[k])
-                .map((colKey) => (
-                  <th
-                    key={colKey}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, colKey)}
-                    onDragOver={(e) => handleDragOver(e, colKey)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, colKey)}
-                    style={{
-                      cursor: 'grab',
-                      userSelect: 'none',
-                      backgroundColor: dragOverCol === colKey ? '#FEE2E2' : undefined,
-                      borderLeft: dragOverCol === colKey ? '3px solid #E53935' : undefined,
-                      opacity: draggedCol === colKey ? 0.5 : 1,
-                      textAlign:
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table
+            className="w-full text-left text-sm"
+            style={{
+              width: `${getTableWidth(columnOrder.filter((k) => visibleColumns[k]))}px`,
+              minWidth: '100%',
+              tableLayout: 'fixed',
+              borderCollapse: 'separate',
+              borderSpacing: 0
+            }}
+          >
+            <thead>
+              <tr className="bg-slate-50/90 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider">
+                {columnOrder
+                  .filter((k) => visibleColumns[k])
+                  .map((colKey) => (
+                    <th
+                      key={colKey}
+                      draggable={colKey !== 'actions' && colKey !== 'stt'}
+                      onDragStart={(e) => handleDragStart(e, colKey)}
+                      onDragOver={(e) => handleDragOver(e, colKey)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, colKey)}
+                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden ${
+                        colKey === 'actions' ? 'sticky-action-th' : ''
+                      } ${
+                        dragOverCol === colKey ? 'bg-red-100 border-l-2 border-[#E53935]' : ''
+                      } ${draggedCol === colKey ? 'opacity-50' : ''} ${
                         colKey === 'stt' || colKey === 'status' || colKey === 'actions'
-                          ? 'center'
+                          ? 'text-center'
                           : colKey === 'totalAmount'
-                          ? 'right'
-                          : 'left',
-                      width: colKey === 'stt' ? '60px' : colKey === 'actions' ? '220px' : undefined
-                    }}
-                    title="Kéo thả để thay đổi vị trí cột"
-                  >
-                    <div
+                          ? 'text-right'
+                          : 'text-left'
+                      }`}
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        justifyContent:
-                          colKey === 'stt' || colKey === 'status' || colKey === 'actions'
-                            ? 'center'
-                            : colKey === 'totalAmount'
-                            ? 'flex-end'
-                            : 'flex-start'
+                        width: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 120}px`,
+                        position: colKey === 'actions' ? 'sticky' : 'relative',
+                        cursor: colKey !== 'actions' && colKey !== 'stt' ? 'grab' : 'default'
                       }}
+                      title={colKey !== 'actions' && colKey !== 'stt' ? 'Kéo thả để thay đổi vị trí cột' : undefined}
                     >
-                      <GripVertical size={12} style={{ color: '#9CA3AF', opacity: 0.7 }} />
-                      <span>{columnLabels[colKey]}</span>
-                    </div>
-                  </th>
-                ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={columnOrder.filter((k) => visibleColumns[k]).length}
-                  style={{ textAlign: 'center', padding: '2.5rem', color: '#9CA3AF' }}
-                >
-                  Đang tải danh sách báo giá...
-                </td>
+                      <div
+                        className={`inline-flex items-center gap-1.5 overflow-hidden w-full ${
+                          colKey === 'stt' || colKey === 'status' || colKey === 'actions'
+                            ? 'justify-center'
+                            : colKey === 'totalAmount'
+                            ? 'justify-end'
+                            : 'justify-start'
+                        }`}
+                      >
+                        {colKey !== 'actions' && colKey !== 'stt' && (
+                          <GripVertical size={13} className="text-gray-400 opacity-70 shrink-0" />
+                        )}
+                        <span className="truncate">{columnLabels[colKey]}</span>
+                      </div>
+                      {colKey !== 'actions' && (
+                        <div
+                          className="col-resizer"
+                          onMouseDown={(e) => startResize(colKey, e)}
+                          onClick={(e) => e.stopPropagation()}
+                          title="Kéo sang trái/phải để điều chỉnh độ rộng cột"
+                        />
+                      )}
+                    </th>
+                  ))}
               </tr>
-            ) : quotations.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columnOrder.filter((k) => visibleColumns[k]).length}
-                  style={{ textAlign: 'center', padding: '2.5rem', color: '#9CA3AF' }}
-                >
-                  Chưa có báo giá nào trong hệ thống
-                </td>
-              </tr>
-            ) : (
-              quotations.map((q, idx) => (
-                <tr key={q.id}>
-                  {columnOrder
-                    .filter((k) => visibleColumns[k])
-                    .map((colKey) => {
-                      switch (colKey) {
-                        case 'stt':
-                          return (
-                            <td key={colKey} style={{ textAlign: 'center', color: '#6B7280' }}>
-                              {idx + 1}
-                            </td>
-                          );
-                        case 'code':
-                          return (
-                            <td key={colKey}>
-                              <span style={{ fontWeight: '700', color: '#E53935' }}>{q.code}</span>
-                            </td>
-                          );
-                        case 'customer':
-                          return (
-                            <td key={colKey}>
-                              <div style={{ fontWeight: '600', color: '#111827' }}>{q.customer.name}</div>
-                              <div style={{ fontSize: '11.5px', color: '#6B7280' }}>
-                                SĐT: {q.customer.phone} {q.customer.taxCode ? `• MST: ${q.customer.taxCode}` : ''}
-                              </div>
-                            </td>
-                          );
-                        case 'date':
-                          return (
-                            <td key={colKey} style={{ fontSize: '12.5px', color: '#4B5563' }}>
-                              {new Date(q.date).toLocaleDateString('vi-VN')}
-                            </td>
-                          );
-                        case 'validUntil':
-                          return (
-                            <td key={colKey} style={{ fontSize: '12.5px', color: '#4B5563' }}>
-                              {q.validUntil ? new Date(q.validUntil).toLocaleDateString('vi-VN') : '--'}
-                            </td>
-                          );
-                        case 'manager':
-                          return (
-                            <td key={colKey} style={{ fontSize: '12.5px', color: '#374151' }}>
-                              {q.manager?.fullName || 'Chưa gán'}
-                            </td>
-                          );
-                        case 'totalAmount':
-                          return (
-                            <td
-                              key={colKey}
-                              style={{
-                                textAlign: 'right',
-                                fontWeight: '700',
-                                color: '#111827',
-                                fontSize: '13.5px'
-                              }}
-                            >
-                              {formatMoney(q.totalAmount)}
-                            </td>
-                          );
-                        case 'status':
-                          return (
-                            <td key={colKey} style={{ textAlign: 'center' }}>
-                              {getStatusBadge(q.status)}
-                            </td>
-                          );
-                        case 'actions':
-                          return (
-                            <td key={colKey} style={{ textAlign: 'center' }}>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={columnOrder.filter((k) => visibleColumns[k]).length}
+                    className="text-center py-10 text-gray-400"
+                  >
+                    Đang tải danh sách báo giá...
+                  </td>
+                </tr>
+              ) : quotations.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={columnOrder.filter((k) => visibleColumns[k]).length}
+                    className="text-center py-10 text-gray-400"
+                  >
+                    Chưa có báo giá nào trong hệ thống
+                  </td>
+                </tr>
+              ) : (
+                quotations.map((q, idx) => (
+                  <tr key={q.id} className="hover:bg-slate-50/80 transition-colors">
+                    {columnOrder
+                      .filter((k) => visibleColumns[k])
+                      .map((colKey) => {
+                        switch (colKey) {
+                          case 'stt':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                                {idx + 1}
+                              </td>
+                            );
+                          case 'code':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden">
+                                <span className="font-bold text-[#E53935] font-mono text-xs">{q.code}</span>
+                              </td>
+                            );
+                          case 'customer': {
+                            const fullCust = `${q.customer.name} - SĐT: ${q.customer.phone || 'N/A'}${q.customer.taxCode ? ` • MST: ${q.customer.taxCode}` : ''}`;
+                            return (
+                              <td key={colKey} className="py-2.5 px-3.5 overflow-hidden">
+                                <div className="min-w-0" title={fullCust}>
+                                  <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
+                                    {q.customer.name}
+                                  </div>
+                                  {(q.customer.phone || q.customer.taxCode) && (
+                                    <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5 truncate">
+                                      {q.customer.phone && (
+                                        <span className="font-mono text-gray-600 shrink-0">📞 {q.customer.phone}</span>
+                                      )}
+                                      {q.customer.phone && q.customer.taxCode && <span className="text-gray-300">•</span>}
+                                      {q.customer.taxCode && (
+                                        <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-1 py-0.2 rounded shrink-0">MST: {q.customer.taxCode}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          }
+                          case 'date':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 text-xs text-gray-600 whitespace-nowrap overflow-hidden">
+                                {new Date(q.date).toLocaleDateString('vi-VN')}
+                              </td>
+                            );
+                          case 'validUntil':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 text-xs text-gray-600 whitespace-nowrap overflow-hidden">
+                                {q.validUntil ? new Date(q.validUntil).toLocaleDateString('vi-VN') : '--'}
+                              </td>
+                            );
+                          case 'manager':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 text-xs text-gray-700 whitespace-nowrap overflow-hidden">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 max-w-[140px] truncate" title={q.manager?.fullName || 'Chưa gán'}>
+                                  {q.manager?.fullName || 'Chưa gán'}
+                                </span>
+                              </td>
+                            );
+                          case 'totalAmount':
+                            return (
+                              <td
+                                key={colKey}
+                                className="py-3 px-3.5 text-right font-bold text-gray-900 text-sm whitespace-nowrap overflow-hidden tabular-nums"
+                              >
+                                {formatMoney(q.totalAmount)}
+                              </td>
+                            );
+                          case 'status':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
+                                {getStatusBadge(q.status)}
+                              </td>
+                            );
+                          case 'actions':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
                               <div
                                 style={{
                                   display: 'flex',
@@ -824,6 +876,7 @@ export const QuotationsPage: React.FC = () => {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* MODAL TẠO BÁO GIÁ MỚI */}

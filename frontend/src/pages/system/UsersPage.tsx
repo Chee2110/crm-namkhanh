@@ -13,11 +13,14 @@ import {
   Eye,
   EyeOff,
   Columns,
-  RotateCcw
+  RotateCcw,
+  Phone,
+  Mail
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { User, Department, Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useTableResize } from '../../hooks/useTableResize';
 
 export const UsersPage: React.FC = () => {
   const { hasPermission, canViewSalary } = useAuth();
@@ -66,6 +69,28 @@ export const UsersPage: React.FC = () => {
     }
   });
 
+  const defaultUserWidths: Record<string, number> = {
+    stt: 55,
+    code: 110,
+    fullName: 240,
+    contact: 240,
+    department: 180,
+    manager: 140,
+    role: 140,
+    basicSalary: 120,
+    allowance: 110,
+    status: 120,
+    startDate: 120,
+    actions: 140
+  };
+
+  const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
+    tableKey: 'users',
+    defaultWidths: defaultUserWidths,
+    minWidth: 50,
+    minWidths: { stt: 45, actions: 120 }
+  });
+
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
 
   const toggleColumnVisibility = (colKey: string) => {
@@ -80,6 +105,7 @@ export const UsersPage: React.FC = () => {
 
   const resetColumns = () => {
     setVisibleColumns(defaultVisibleCols);
+    resetWidths();
     try {
       localStorage.setItem('namkhanh_users_visible_cols', JSON.stringify(defaultVisibleCols));
     } catch (e) {
@@ -434,22 +460,96 @@ export const UsersPage: React.FC = () => {
       )}
 
       {/* DataGrid Bảng Nhân sự */}
-      <div className="table-container">
-        <table className="table-custom">
-          <thead>
-            <tr>
-              {visibleColumns.stt && <th className="table-th" style={{ width: '50px' }}>STT</th>}
-              {visibleColumns.code && <th className="table-th">Mã NV</th>}
-              {visibleColumns.fullName && <th className="table-th">Họ và tên</th>}
-              {visibleColumns.contact && <th className="table-th">Liên hệ (SĐT / Gmail)</th>}
-              {visibleColumns.department && <th className="table-th">Đơn vị phòng ban</th>}
-              {visibleColumns.manager && <th className="table-th">Quản lý trực tiếp</th>}
-              {visibleColumns.role && <th className="table-th">Vai trò</th>}
-              {canViewSalary && visibleColumns.basicSalary && <th className="table-th">Lương cơ bản</th>}
-              {canViewSalary && visibleColumns.allowance && <th className="table-th">Phụ cấp</th>}
-              {visibleColumns.status && <th className="table-th">Trạng thái</th>}
-              {visibleColumns.startDate && <th className="table-th">Ngày vào cty</th>}
-              {visibleColumns.actions && <th className="table-th" style={{ textAlign: 'right' }}>Thao tác</th>}
+      <div className="table-container shadow-sm border border-gray-100 rounded-xl overflow-x-auto">
+        <table
+          className="table-custom"
+          style={{
+            width: `${getTableWidth(
+              Object.entries(visibleColumns).filter(([k, v]) => {
+                if (!v) return false;
+                if ((k === 'basicSalary' || k === 'allowance') && !canViewSalary) return false;
+                return true;
+              }).map(([k]) => k)
+            )}px`,
+            minWidth: '100%',
+            tableLayout: 'fixed',
+            borderCollapse: 'separate',
+            borderSpacing: 0
+          }}
+        >
+          <thead className="bg-slate-50/90 border-b border-gray-200">
+            <tr style={{ whiteSpace: 'nowrap' }}>
+              {visibleColumns.stt && (
+                <th className="table-th text-center select-none" style={{ width: `${columnWidths.stt || defaultUserWidths.stt}px`, position: 'relative' }}>
+                  <span>STT</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {visibleColumns.code && (
+                <th className="table-th select-none" style={{ width: `${columnWidths.code || defaultUserWidths.code}px`, position: 'relative' }}>
+                  <span>Mã NV</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {visibleColumns.fullName && (
+                <th className="table-th select-none" style={{ width: `${columnWidths.fullName || defaultUserWidths.fullName}px`, position: 'relative' }}>
+                  <span>Họ và tên</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('fullName', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {visibleColumns.contact && (
+                <th className="table-th select-none" style={{ width: `${columnWidths.contact || defaultUserWidths.contact}px`, position: 'relative' }}>
+                  <span>Liên hệ (SĐT / Gmail)</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('contact', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {visibleColumns.department && (
+                <th className="table-th select-none" style={{ width: `${columnWidths.department || defaultUserWidths.department}px`, position: 'relative' }}>
+                  <span>Đơn vị phòng ban</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('department', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {visibleColumns.manager && (
+                <th className="table-th select-none" style={{ width: `${columnWidths.manager || defaultUserWidths.manager}px`, position: 'relative' }}>
+                  <span>Quản lý trực tiếp</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('manager', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {visibleColumns.role && (
+                <th className="table-th select-none" style={{ width: `${columnWidths.role || defaultUserWidths.role}px`, position: 'relative' }}>
+                  <span>Vai trò</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('role', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {canViewSalary && visibleColumns.basicSalary && (
+                <th className="table-th select-none" style={{ width: `${columnWidths.basicSalary || defaultUserWidths.basicSalary}px`, position: 'relative' }}>
+                  <span>Lương cơ bản</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('basicSalary', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {canViewSalary && visibleColumns.allowance && (
+                <th className="table-th select-none" style={{ width: `${columnWidths.allowance || defaultUserWidths.allowance}px`, position: 'relative' }}>
+                  <span>Phụ cấp</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('allowance', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {visibleColumns.status && (
+                <th className="table-th select-none" style={{ width: `${columnWidths.status || defaultUserWidths.status}px`, position: 'relative' }}>
+                  <span>Trạng thái</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('status', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {visibleColumns.startDate && (
+                <th className="table-th select-none" style={{ width: `${columnWidths.startDate || defaultUserWidths.startDate}px`, position: 'relative' }}>
+                  <span>Ngày vào cty</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('startDate', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+              )}
+              {visibleColumns.actions && (
+                <th className="table-th sticky-action-th" style={{ width: `${columnWidths.actions || defaultUserWidths.actions}px`, textAlign: 'right' }}>
+                  <span>Thao tác</span>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -486,15 +586,19 @@ export const UsersPage: React.FC = () => {
             ) : (
               users.map((u, index) => (
                 <tr key={u.id} className="table-tr">
-                  {visibleColumns.stt && <td className="table-td" style={{ fontWeight: '500' }}>{index + 1}</td>}
+                  {visibleColumns.stt && (
+                    <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">
+                      {index + 1}
+                    </td>
+                  )}
                   {visibleColumns.code && (
-                    <td className="table-td">
-                      <span style={{ fontWeight: '600', color: '#E53935' }}>{u.code}</span>
+                    <td className="table-td whitespace-nowrap overflow-hidden">
+                      <span className="font-semibold text-xs text-[#E53935] font-mono">{u.code}</span>
                     </td>
                   )}
                   {visibleColumns.fullName && (
-                    <td className="table-td">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <td className="table-td overflow-hidden" style={{ maxWidth: `${columnWidths.fullName || defaultUserWidths.fullName}px` }}>
+                      <div className="flex items-center gap-2 min-w-0">
                         <div
                           style={{
                             width: '28px',
@@ -506,50 +610,63 @@ export const UsersPage: React.FC = () => {
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontSize: '12px',
-                            fontWeight: '600'
+                            fontWeight: '600',
+                            flexShrink: 0
                           }}
                         >
                           {u.fullName.charAt(0)}
                         </div>
-                        <span style={{ fontWeight: '600', color: '#111827' }}>{u.fullName}</span>
+                        <span className="font-semibold text-xs text-gray-900 truncate" title={u.fullName}>
+                          {u.fullName}
+                        </span>
                       </div>
                     </td>
                   )}
                   {visibleColumns.contact && (
-                    <td className="table-td">
-                      <div style={{ fontSize: '13px', fontWeight: '500' }}>{u.phone || '—'}</div>
-                      <div style={{ fontSize: '11px', color: '#6B7280' }}>{u.email}</div>
+                    <td className="table-td overflow-hidden" style={{ maxWidth: `${columnWidths.contact || defaultUserWidths.contact}px` }}>
+                      <div className="flex flex-col min-w-0" title={`${u.phone || '—'} - ${u.email || ''}`}>
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-900 font-mono">
+                          <Phone size={12} className="text-gray-400 shrink-0" />
+                          <span className="truncate">{u.phone || '—'}</span>
+                        </div>
+                        {u.email && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-gray-500 truncate mt-0.5" title={u.email}>
+                            <Mail size={12} className="text-gray-400 shrink-0" />
+                            <span className="truncate">{u.email}</span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   )}
                   {visibleColumns.department && (
-                    <td className="table-td">
+                    <td className="table-td overflow-hidden" style={{ maxWidth: `${columnWidths.department || defaultUserWidths.department}px` }}>
                       {u.department ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <Building size={13} color="#6B7280" />
-                          {u.department.name}
+                        <span className="inline-flex items-center gap-1.5 text-xs text-gray-700 truncate max-w-full" title={u.department.name}>
+                          <Building size={13} className="text-gray-400 shrink-0" />
+                          <span className="truncate">{u.department.name}</span>
                         </span>
                       ) : (
-                        '—'
+                        <span className="text-gray-400">—</span>
                       )}
                     </td>
                   )}
                   {visibleColumns.manager && (
-                    <td className="table-td">
+                    <td className="table-td overflow-hidden" style={{ maxWidth: `${columnWidths.manager || defaultUserWidths.manager}px` }}>
                       {u.manager ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <UserCheck size={13} color="#16A34A" />
-                          {u.manager.fullName}
+                        <span className="inline-flex items-center gap-1.5 text-xs text-gray-700 truncate max-w-full" title={u.manager.fullName}>
+                          <UserCheck size={13} className="text-emerald-600 shrink-0" />
+                          <span className="truncate">{u.manager.fullName}</span>
                         </span>
                       ) : (
-                        '—'
+                        <span className="text-gray-400">—</span>
                       )}
                     </td>
                   )}
                   {visibleColumns.role && (
-                    <td className="table-td">
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                    <td className="table-td overflow-hidden" style={{ maxWidth: `${columnWidths.role || defaultUserWidths.role}px` }}>
+                      <div className="flex items-center gap-1 flex-wrap">
                         {u.roles.map((r) => (
-                          <span key={r.id} className="badge badge-purple" style={{ fontSize: '11px' }}>
+                          <span key={r.id} className="badge badge-purple text-[11px] truncate max-w-full">
                             {r.name}
                           </span>
                         ))}
@@ -559,30 +676,30 @@ export const UsersPage: React.FC = () => {
 
                   {/* Bảo mật lương: Chỉ hiện với Admin/CEO */}
                   {canViewSalary && visibleColumns.basicSalary && (
-                    <td className="table-td" style={{ fontWeight: '600', color: '#16A34A' }}>
+                    <td className="table-td font-semibold text-xs text-emerald-600 tabular-nums whitespace-nowrap overflow-hidden">
                       {formatCurrency(u.basicSalary)}
                     </td>
                   )}
                   {canViewSalary && visibleColumns.allowance && (
-                    <td className="table-td" style={{ color: '#4B5563' }}>
+                    <td className="table-td text-xs text-gray-600 tabular-nums whitespace-nowrap overflow-hidden">
                       {formatCurrency(u.allowance)}
                     </td>
                   )}
 
                   {visibleColumns.status && (
-                    <td className="table-td">
+                    <td className="table-td whitespace-nowrap overflow-hidden">
                       <span className={`badge ${u.status === 'ACTIVE' ? 'badge-green' : 'badge-red'}`}>
                         {u.status === 'ACTIVE' ? 'Đang làm việc' : 'Ngừng làm việc'}
                       </span>
                     </td>
                   )}
                   {visibleColumns.startDate && (
-                    <td className="table-td" style={{ fontSize: '12.5px', color: '#6B7280' }}>
+                    <td className="table-td text-xs text-gray-500 font-mono whitespace-nowrap overflow-hidden">
                       {u.startDate ? new Date(u.startDate).toLocaleDateString('vi-VN') : '—'}
                     </td>
                   )}
                   {visibleColumns.actions && (
-                    <td className="table-td" style={{ textAlign: 'right' }}>
+                    <td className="table-td sticky-action-td whitespace-nowrap overflow-hidden" style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
                         {hasPermission('A_USERS', 'update') && (
                           <button

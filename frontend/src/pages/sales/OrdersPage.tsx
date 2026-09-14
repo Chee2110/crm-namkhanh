@@ -13,6 +13,7 @@ import {
   Eye,
   Trash2,
   UserCheck,
+  User as UserIcon,
   Building,
   Calendar,
   Phone,
@@ -32,6 +33,7 @@ import { api } from '../../services/api';
 import { Order, Customer, Product, User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { OrderPrintModal } from './components/OrderPrintModal';
+import { useTableResize } from '../../hooks/useTableResize';
 
 export const OrdersPage: React.FC = () => {
   const { user, hasPermission } = useAuth();
@@ -126,6 +128,28 @@ export const OrdersPage: React.FC = () => {
     }
   });
 
+  const defaultOrderWidths: Record<string, number> = {
+    code: 160,
+    customer: 300,
+    deliveryAddress: 220,
+    phone: 130,
+    dates: 150,
+    delivery: 130,
+    invoice: 130,
+    totalAmount: 150,
+    paidAmount: 140,
+    remainingAmount: 150,
+    manager: 140,
+    actions: 140
+  };
+
+  const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
+    tableKey: 'orders',
+    defaultWidths: defaultOrderWidths,
+    minWidth: 60,
+    minWidths: { actions: 120 }
+  });
+
   const [draggedCol, setDraggedCol] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
@@ -148,7 +172,7 @@ export const OrdersPage: React.FC = () => {
 
   const handleDrop = (e: React.DragEvent, targetCol: string) => {
     e.preventDefault();
-    if (!draggedCol || draggedCol === targetCol) {
+    if (!draggedCol || draggedCol === targetCol || targetCol === 'actions' || targetCol === 'code' || draggedCol === 'actions') {
       setDraggedCol(null);
       setDragOverCol(null);
       return;
@@ -161,8 +185,11 @@ export const OrdersPage: React.FC = () => {
     if (dragIdx > -1 && dropIdx > -1) {
       newOrder.splice(dragIdx, 1);
       newOrder.splice(dropIdx, 0, draggedCol);
-      setColumnOrder(newOrder);
-      localStorage.setItem('namkhanh_orders_col_order', JSON.stringify(newOrder));
+      // Đảm bảo actions luôn ở vị trí cuối cùng
+      const withoutActions = newOrder.filter((k) => k !== 'actions');
+      withoutActions.push('actions');
+      setColumnOrder(withoutActions);
+      localStorage.setItem('namkhanh_orders_col_order', JSON.stringify(withoutActions));
     }
 
     setDraggedCol(null);
@@ -178,6 +205,7 @@ export const OrdersPage: React.FC = () => {
   const resetColumns = () => {
     setVisibleColumns(defaultVisibleCols);
     setColumnOrder(defaultColOrder);
+    resetWidths();
     localStorage.removeItem('namkhanh_orders_visible_cols');
     localStorage.removeItem('namkhanh_orders_col_order');
   };
@@ -891,20 +919,29 @@ export const OrdersPage: React.FC = () => {
       {/* DANH SÁCH ĐƠN HÀNG */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+          <table
+            className="w-full text-left border-collapse text-sm"
+            style={{
+              width: `${getTableWidth(columnOrder.filter((k) => visibleColumns[k]))}px`,
+              minWidth: '100%',
+              tableLayout: 'fixed'
+            }}
+          >
             <thead>
-              <tr className="bg-gray-50/80 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider">
+              <tr className="bg-slate-50/90 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider">
                 {columnOrder
                   .filter((k) => visibleColumns[k])
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      draggable
+                      draggable={colKey !== 'actions'}
                       onDragStart={(e) => handleDragStart(e, colKey)}
                       onDragOver={(e) => handleDragOver(e, colKey)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, colKey)}
-                      className={`py-3.5 px-4 cursor-grab select-none transition-colors ${
+                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden ${
+                        colKey === 'actions' ? 'sticky-action-th' : ''
+                      } ${
                         dragOverCol === colKey ? 'bg-red-100 border-l-2 border-[#E53935]' : ''
                       } ${draggedCol === colKey ? 'opacity-50' : ''} ${
                         colKey === 'totalAmount' || colKey === 'paidAmount' || colKey === 'remainingAmount'
@@ -913,10 +950,15 @@ export const OrdersPage: React.FC = () => {
                           ? 'text-center'
                           : ''
                       }`}
+                      style={{
+                        width: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 140}px`,
+                        position: colKey === 'actions' ? 'sticky' : 'relative',
+                        cursor: colKey !== 'actions' ? 'grab' : 'default'
+                      }}
                       title="Kéo thả để thay đổi vị trí cột"
                     >
                       <div
-                        className={`inline-flex items-center gap-1 ${
+                        className={`inline-flex items-center gap-1.5 overflow-hidden w-full ${
                           colKey === 'totalAmount' || colKey === 'paidAmount' || colKey === 'remainingAmount'
                             ? 'justify-end'
                             : colKey === 'manager' || colKey === 'actions'
@@ -924,9 +966,17 @@ export const OrdersPage: React.FC = () => {
                             : 'justify-start'
                         }`}
                       >
-                        <GripVertical className="w-3 h-3 text-gray-400 opacity-60" />
-                        <span>{columnLabels[colKey]}</span>
+                        {colKey !== 'actions' && <GripVertical className="w-3 h-3 text-gray-400 opacity-60 flex-shrink-0" />}
+                        <span className="truncate">{columnLabels[colKey]}</span>
                       </div>
+                      {colKey !== 'actions' && (
+                        <div
+                          className="col-resizer"
+                          onMouseDown={(e) => startResize(colKey, e)}
+                          onClick={(e) => e.stopPropagation()}
+                          title="Kéo sang trái/phải để điều chỉnh độ rộng cột"
+                        />
+                      )}
                     </th>
                   ))}
               </tr>
@@ -951,112 +1001,132 @@ export const OrdersPage: React.FC = () => {
                 orders.map((order) => {
                   const rem = Number(order.remainingAmount) || 0;
                   return (
-                    <tr key={order.id} className="hover:bg-gray-50/80 transition-colors">
+                    <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
                       {columnOrder
                         .filter((k) => visibleColumns[k])
                         .map((colKey) => {
                           switch (colKey) {
                             case 'code':
                               return (
-                                <td key={colKey} className="py-3.5 px-4">
-                                  <div className="font-semibold text-gray-900 flex items-center gap-1.5">
-                                    <ShoppingBag className="w-4 h-4 text-[#E53935]" />
-                                    {order.code}
-                                  </div>
-                                  {order.quotation && (
-                                    <span className="text-[11px] text-gray-400 block mt-0.5">
-                                      Từ BG: {order.quotation.code}
-                                    </span>
-                                  )}
-                                </td>
-                              );
-                            case 'customer':
-                              return (
-                                <td key={colKey} className="py-3.5 px-4">
-                                  <div className="font-medium text-gray-900 line-clamp-1">{order.customer?.name}</div>
-                                  <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
-                                    <span>{order.contactPerson || order.customer?.code}</span>
-                                    <span>•</span>
-                                    <span>{order.phone || order.customer?.phone}</span>
+                                <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden">
+                                  <div className="font-semibold text-gray-900 flex items-center gap-1.5 min-w-0" title={`Mã đơn: ${order.code}${order.quotation ? ` (Từ BG: ${order.quotation.code})` : ''}`}>
+                                    <ShoppingBag className="w-4 h-4 text-[#E53935] shrink-0" />
+                                    <span className="font-mono">{order.code}</span>
+                                    {order.quotation && (
+                                      <span className="text-[10px] text-gray-500 font-mono bg-gray-100 px-1 py-0.5 rounded shrink-0">
+                                        BG:{order.quotation.code}
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
                               );
-                            case 'deliveryAddress':
+                            case 'customer': {
+                              const contact = order.contactPerson || '';
+                              const phone = order.phone || order.customer?.phone || '';
+                              const fullText = `${order.customer?.name || ''}${contact ? `\nLiên hệ: ${contact}` : ''}${phone ? ` • SĐT: ${phone}` : ''}`;
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-xs text-gray-600 max-w-xs truncate">
-                                  {order.deliveryAddress || order.customer?.deliveryAddress || order.customer?.address || 'N/A'}
+                                <td key={colKey} className="py-2.5 px-3.5 overflow-hidden">
+                                  <div className="min-w-0" title={fullText}>
+                                    <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
+                                      {order.customer?.name || '—'}
+                                    </div>
+                                    {(contact || phone) && (
+                                      <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5 truncate">
+                                        {contact && (
+                                          <span className="inline-flex items-center gap-1 truncate text-gray-600">
+                                            <UserIcon className="w-3 h-3 text-gray-400 shrink-0" />
+                                            <span className="truncate">{contact}</span>
+                                          </span>
+                                        )}
+                                        {contact && phone && <span className="text-gray-300 shrink-0">•</span>}
+                                        {phone && (
+                                          <span className="font-mono text-gray-500 shrink-0">{phone}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 </td>
                               );
+                            }
+                            case 'deliveryAddress': {
+                              const addr = order.deliveryAddress || order.customer?.deliveryAddress || order.customer?.address || 'N/A';
+                              return (
+                                <td key={colKey} className="py-2.5 px-3.5 text-xs text-gray-600 overflow-hidden">
+                                  <div className="flex items-center gap-1 min-w-0" title={addr}>
+                                    <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                    <span className="truncate">{addr}</span>
+                                  </div>
+                                </td>
+                              );
+                            }
                             case 'phone':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-xs font-mono text-gray-700">
+                                <td key={colKey} className="py-3 px-3.5 text-xs font-mono text-gray-700 whitespace-nowrap overflow-hidden">
                                   {order.phone || order.customer?.phone || 'N/A'}
                                 </td>
                               );
                             case 'dates':
                               return (
-                                <td key={colKey} className="py-3.5 px-4">
-                                  <div className="text-gray-900">
-                                    {new Date(order.orderDate).toLocaleDateString('vi-VN')}
-                                  </div>
-                                  <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
-                                    <Truck className="w-3 h-3 text-gray-400" />
-                                    {order.deliveryDate
-                                      ? new Date(order.deliveryDate).toLocaleDateString('vi-VN')
-                                      : 'Chưa hẹn giao'}
+                                <td key={colKey} className="py-2.5 px-3.5 text-xs overflow-hidden">
+                                  <div className="min-w-0" title={`Ngày đặt: ${new Date(order.orderDate).toLocaleDateString('vi-VN')}${order.deliveryDate ? ` - Hẹn giao: ${new Date(order.deliveryDate).toLocaleDateString('vi-VN')}` : ''}`}>
+                                    <div className="text-gray-900 font-medium">
+                                      {new Date(order.orderDate).toLocaleDateString('vi-VN')}
+                                    </div>
+                                    {order.deliveryDate && (
+                                      <div className="text-gray-500 flex items-center gap-1 mt-0.5">
+                                        <Truck className="w-3 h-3 text-gray-400 shrink-0" />
+                                        <span>{new Date(order.deliveryDate).toLocaleDateString('vi-VN')}</span>
+                                      </div>
+                                    )}
                                   </div>
                                 </td>
                               );
                             case 'delivery':
                               return (
-                                <td key={colKey} className="py-3.5 px-4">
+                                <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden">
                                   {renderDeliveryBadge(order.deliveryStatus)}
                                 </td>
                               );
                             case 'invoice':
                               return (
-                                <td key={colKey} className="py-3.5 px-4">
+                                <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden">
                                   {renderInvoiceBadge(order.invoiceStatus)}
                                 </td>
                               );
                             case 'totalAmount':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-right font-bold text-gray-900">
+                                <td key={colKey} className="py-3 px-3.5 text-right font-bold text-gray-900 whitespace-nowrap overflow-hidden tabular-nums">
                                   {formatVND(Number(order.totalAmount))}
                                 </td>
                               );
                             case 'paidAmount':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-right font-medium text-emerald-600">
+                                <td key={colKey} className="py-3 px-3.5 text-right font-medium text-emerald-600 whitespace-nowrap overflow-hidden tabular-nums">
                                   {formatVND(Number(order.paidAmount))}
                                 </td>
                               );
                             case 'remainingAmount':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-right">
-                                  <span
-                                    className={`font-bold ${
-                                      rem > 0 ? 'text-[#E53935]' : 'text-emerald-700'
-                                    }`}
-                                  >
-                                    {formatVND(rem)}
-                                  </span>
-                                  <div className="mt-0.5">
+                                <td key={colKey} className="py-3 px-3.5 text-right whitespace-nowrap overflow-hidden">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <span className={`font-bold tabular-nums ${rem > 0 ? 'text-[#E53935]' : 'text-emerald-700'}`}>
+                                      {formatVND(rem)}
+                                    </span>
                                     {renderPaymentBadge(order.paymentStatus, rem)}
                                   </div>
                                 </td>
                               );
                             case 'manager':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-center">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                                <td key={colKey} className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 max-w-[140px] truncate" title={order.manager?.fullName || 'Chưa gán'}>
                                     {order.manager?.fullName || 'Chưa gán'}
                                   </span>
                                 </td>
                               );
                             case 'actions':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-center">
+                                <td key={colKey} className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
                                   <div className="flex items-center justify-center gap-1">
                                     {/* In Phiếu xuất kho A4 */}
                                     <button

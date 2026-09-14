@@ -13,6 +13,7 @@ import {
 import { api } from '../../services/api';
 import { Category, Warehouse } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useTableResize } from '../../hooks/useTableResize';
 
 export const CategoriesPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -21,6 +22,23 @@ export const CategoriesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState('');
+
+  const defaultCategoryWidths: Record<string, number> = {
+    stt: 60,
+    code: 140,
+    name: 260,
+    warehouse: 200,
+    types: 150,
+    skuCount: 130,
+    actions: 140
+  };
+
+  const { columnWidths, startResize, getTableWidth } = useTableResize({
+    tableKey: 'categories',
+    defaultWidths: defaultCategoryWidths,
+    minWidth: 50,
+    minWidths: { stt: 45, actions: 120 }
+  });
 
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -179,16 +197,43 @@ export const CategoriesPage: React.FC = () => {
       {/* BẢNG DANH SÁCH DANH MỤC */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
+          <table
+            className="w-full text-left text-sm border-collapse"
+            style={{
+              width: `${getTableWidth(Object.keys(defaultCategoryWidths))}px`,
+              minWidth: '100%',
+              tableLayout: 'fixed'
+            }}
+          >
             <thead>
-              <tr className="bg-gray-50/80 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider">
-                <th className="py-3 px-4 w-12 text-center">STT</th>
-                <th className="py-3 px-4 w-32">Mã danh mục</th>
-                <th className="py-3 px-4">Tên danh mục VPP</th>
-                <th className="py-3 px-4">Kho vật lý lưu trữ</th>
-                <th className="py-3 px-4 text-center w-36">Loại hàng Cấp 2</th>
-                <th className="py-3 px-4 text-center w-32">Số lượng SKU</th>
-                <th className="py-3 px-4 text-center w-28">Thao tác</th>
+              <tr className="bg-slate-50/90 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider whitespace-nowrap">
+                <th className="py-3 px-3.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.stt || defaultCategoryWidths.stt}px`, position: 'relative' }}>
+                  <span>STT</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.code || defaultCategoryWidths.code}px`, position: 'relative' }}>
+                  <span>Mã danh mục</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.name || defaultCategoryWidths.name}px`, position: 'relative' }}>
+                  <span>Tên danh mục VPP</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('name', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.warehouse || defaultCategoryWidths.warehouse}px`, position: 'relative' }}>
+                  <span>Kho vật lý lưu trữ</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('warehouse', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="py-3 px-3.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.types || defaultCategoryWidths.types}px`, position: 'relative' }}>
+                  <span>Loại hàng Cấp 2</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('types', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="py-3 px-3.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.skuCount || defaultCategoryWidths.skuCount}px`, position: 'relative' }}>
+                  <span>Số lượng SKU</span>
+                  <div className="col-resizer" onMouseDown={(e) => startResize('skuCount', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                </th>
+                <th className="py-3 px-3.5 text-center sticky-action-th" style={{ width: `${columnWidths.actions || defaultCategoryWidths.actions}px` }}>
+                  <span>Thao tác</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -207,36 +252,42 @@ export const CategoriesPage: React.FC = () => {
                 </tr>
               ) : (
                 categories.map((cat, idx) => (
-                  <tr key={cat.id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="py-3.5 px-4 text-center text-gray-500 text-xs font-semibold">
+                  <tr key={cat.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
                       {idx + 1}
                     </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-[#E53935] text-xs">
+                    <td className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden">
                       {cat.code}
                     </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-gray-900">{cat.name}</div>
-                      <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">
-                        {cat.description || 'Chưa có mô tả'}
-                      </p>
-                    </td>
-                    <td className="py-3.5 px-4 text-xs font-medium text-gray-700">
-                      <div className="flex items-center gap-1.5">
-                        <WarehouseIcon className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{cat.warehouse?.name || 'Chưa chỉ định'}</span>
+                    <td className="py-2.5 px-3.5 overflow-hidden">
+                      <div className="min-w-0" title={`${cat.name}${cat.description ? ` • ${cat.description}` : ''}`}>
+                        <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
+                          {cat.name}
+                        </div>
+                        {cat.description && (
+                          <div className="text-xs text-gray-400 truncate mt-0.5">
+                            {cat.description}
+                          </div>
+                        )}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-purple-50 text-purple-700">
+                    <td className="py-3 px-3.5 text-xs font-medium text-gray-700 whitespace-nowrap overflow-hidden">
+                      <div className="flex items-center gap-1.5 min-w-0" title={cat.warehouse?.name || 'Chưa chỉ định'}>
+                        <WarehouseIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span className="truncate max-w-[180px]">{cat.warehouse?.name || 'Chưa chỉ định'}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700">
                         {cat._count?.productTypes || 0} Loại hàng
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-50 text-blue-700">
+                    <td className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
                         {cat._count?.products || 0} SKU
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1">
                         {hasPermission('C_CATEGORIES', 'update') && (
                           <button

@@ -3,6 +3,7 @@ import { ShieldCheck, Plus, KeyRound, Edit2, Trash2, AlertCircle, ShieldAlert } 
 import { api } from '../../services/api';
 import { Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useTableResize } from '../../hooks/useTableResize';
 
 interface RolesPageProps {
   onNavigateToPermissions: (roleId: string) => void;
@@ -12,6 +13,24 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
   const { hasPermission } = useAuth();
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const defaultRoleWidths: Record<string, number> = {
+    stt: 60,
+    code: 140,
+    name: 200,
+    description: 260,
+    type: 150,
+    userCount: 120,
+    createdAt: 120,
+    actions: 170
+  };
+
+  const { columnWidths, startResize, getTableWidth } = useTableResize({
+    tableKey: 'roles',
+    defaultWidths: defaultRoleWidths,
+    minWidth: 50,
+    minWidths: { stt: 45, actions: 140 }
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
@@ -133,18 +152,50 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
       </div>
 
       {/* DataGrid Bảng Vai trò */}
-      <div className="table-container">
-        <table className="table-custom">
-          <thead>
-            <tr>
-              <th className="table-th" style={{ width: '50px' }}>STT</th>
-              <th className="table-th">Mã vai trò</th>
-              <th className="table-th">Tên vai trò</th>
-              <th className="table-th">Mô tả nhiệm vụ</th>
-              <th className="table-th">Phân loại</th>
-              <th className="table-th">Số nhân sự</th>
-              <th className="table-th">Ngày tạo</th>
-              <th className="table-th" style={{ textAlign: 'right' }}>Thao tác</th>
+      <div className="table-container shadow-sm border border-gray-100 rounded-xl overflow-x-auto">
+        <table
+          className="table-custom"
+          style={{
+            width: `${getTableWidth(Object.keys(defaultRoleWidths))}px`,
+            minWidth: '100%',
+            tableLayout: 'fixed',
+            borderCollapse: 'separate',
+            borderSpacing: 0
+          }}
+        >
+          <thead className="bg-slate-50/90 border-b border-gray-200">
+            <tr style={{ whiteSpace: 'nowrap' }}>
+              <th className="table-th text-center select-none" style={{ width: `${columnWidths.stt || defaultRoleWidths.stt}px`, position: 'relative' }}>
+                <span>STT</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.code || defaultRoleWidths.code}px`, position: 'relative' }}>
+                <span>Mã vai trò</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.name || defaultRoleWidths.name}px`, position: 'relative' }}>
+                <span>Tên vai trò</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('name', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.description || defaultRoleWidths.description}px`, position: 'relative' }}>
+                <span>Mô tả nhiệm vụ</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('description', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.type || defaultRoleWidths.type}px`, position: 'relative' }}>
+                <span>Phân loại</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('type', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th text-center select-none" style={{ width: `${columnWidths.userCount || defaultRoleWidths.userCount}px`, position: 'relative' }}>
+                <span>Số nhân sự</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('userCount', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.createdAt || defaultRoleWidths.createdAt}px`, position: 'relative' }}>
+                <span>Ngày tạo</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('createdAt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th sticky-action-th" style={{ width: `${columnWidths.actions || defaultRoleWidths.actions}px`, textAlign: 'right' }}>
+                <span>Thao tác</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -157,35 +208,41 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
             ) : (
               roles.map((r, index) => (
                 <tr key={r.id} className="table-tr">
-                  <td className="table-td" style={{ fontWeight: '500' }}>{index + 1}</td>
-                  <td className="table-td">
-                    <span style={{ fontWeight: '600', color: '#E53935', fontFamily: 'monospace' }}>
+                  <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{index + 1}</td>
+                  <td className="table-td whitespace-nowrap overflow-hidden">
+                    <span className="font-semibold text-xs text-[#E53935] font-mono">
                       {r.code}
                     </span>
                   </td>
-                  <td className="table-td" style={{ fontWeight: '600', color: '#111827' }}>
-                    {r.name}
+                  <td className="table-td overflow-hidden">
+                    <span className="font-semibold text-xs text-gray-900 truncate block" title={r.name}>
+                      {r.name}
+                    </span>
                   </td>
-                  <td className="table-td" style={{ color: '#4B5563', maxWidth: '280px' }}>
-                    {r.description || '—'}
+                  <td className="table-td text-xs text-gray-600 overflow-hidden">
+                    <div className="truncate max-w-full" title={r.description || '—'}>
+                      {r.description || '—'}
+                    </div>
                   </td>
-                  <td className="table-td">
+                  <td className="table-td whitespace-nowrap overflow-hidden">
                     {r.isSystem ? (
-                      <span className="badge badge-purple">
+                      <span className="badge badge-purple" style={{ whiteSpace: 'nowrap' }}>
                         <ShieldCheck size={11} />
                         Hệ thống mặc định
                       </span>
                     ) : (
-                      <span className="badge badge-blue">Tùy biến</span>
+                      <span className="badge badge-blue" style={{ whiteSpace: 'nowrap' }}>Tùy biến</span>
                     )}
                   </td>
-                  <td className="table-td" style={{ fontWeight: '500' }}>
-                    {r._count?.userRoles || 0} người
+                  <td className="table-td text-center text-xs font-semibold text-gray-700 whitespace-nowrap overflow-hidden">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
+                      {r._count?.userRoles || 0} người
+                    </span>
                   </td>
-                  <td className="table-td" style={{ fontSize: '12px', color: '#6B7280' }}>
+                  <td className="table-td text-xs text-gray-500 font-mono whitespace-nowrap overflow-hidden">
                     {new Date(r.createdAt).toLocaleDateString('vi-VN')}
                   </td>
-                  <td className="table-td" style={{ textAlign: 'right' }}>
+                  <td className="table-td sticky-action-td whitespace-nowrap overflow-hidden" style={{ textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
                       <button
                         onClick={() => onNavigateToPermissions(r.id)}

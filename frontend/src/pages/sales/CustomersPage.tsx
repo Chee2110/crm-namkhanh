@@ -21,12 +21,14 @@ import {
   Table,
   GripVertical,
   RotateCcw,
-  SlidersHorizontal
+  SlidersHorizontal,
+  MapPin
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Customer, CustomerTimelineItem, User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { ImportExcelModal } from '../../components/common/ImportExcelModal';
+import { useTableResize } from '../../hooks/useTableResize';
 
 export const CustomersPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -124,6 +126,28 @@ export const CustomersPage: React.FC = () => {
     }
   });
 
+  const defaultCustomerWidths: Record<string, number> = {
+    stt: 55,
+    code: 110,
+    name: 280,
+    phone: 130,
+    taxCode: 130,
+    manager: 140,
+    customerType: 140,
+    creditBalance: 140,
+    source: 130,
+    orders: 90,
+    status: 120,
+    actions: 190
+  };
+
+  const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
+    tableKey: 'customers',
+    defaultWidths: defaultCustomerWidths,
+    minWidth: 50,
+    minWidths: { stt: 45, actions: 160 }
+  });
+
   const [draggedCol, setDraggedCol] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
@@ -161,7 +185,7 @@ export const CustomersPage: React.FC = () => {
 
   const handleDrop = (e: React.DragEvent, targetCol: string) => {
     e.preventDefault();
-    if (!draggedCol || draggedCol === targetCol) {
+    if (!draggedCol || draggedCol === targetCol || targetCol === 'actions' || targetCol === 'stt' || draggedCol === 'actions' || draggedCol === 'stt') {
       setDraggedCol(null);
       setDragOverCol(null);
       return;
@@ -174,8 +198,11 @@ export const CustomersPage: React.FC = () => {
     if (dragIdx > -1 && dropIdx > -1) {
       newOrder.splice(dragIdx, 1);
       newOrder.splice(dropIdx, 0, draggedCol);
-      setColumnOrder(newOrder);
-      localStorage.setItem('namkhanh_customers_col_order', JSON.stringify(newOrder));
+      // Đảm bảo actions luôn ở vị trí cuối cùng
+      const withoutActions = newOrder.filter((k) => k !== 'actions');
+      withoutActions.push('actions');
+      setColumnOrder(withoutActions);
+      localStorage.setItem('namkhanh_customers_col_order', JSON.stringify(withoutActions));
     }
 
     setDraggedCol(null);
@@ -191,6 +218,7 @@ export const CustomersPage: React.FC = () => {
   const resetColumns = () => {
     setVisibleColumns(defaultVisibleCols);
     setColumnOrder(defaultColOrder);
+    resetWidths();
     localStorage.removeItem('namkhanh_customers_visible_cols');
     localStorage.removeItem('namkhanh_customers_col_order');
   };
@@ -893,7 +921,15 @@ export const CustomersPage: React.FC = () => {
           </div>
 
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <table
+              style={{
+                width: `${getTableWidth(columnOrder.filter((k) => visibleColumns[k] !== false))}px`,
+                minWidth: '100%',
+                tableLayout: 'fixed',
+                borderCollapse: 'collapse',
+                textAlign: 'left'
+              }}
+            >
               <thead>
                 <tr>
                   {columnOrder
@@ -906,23 +942,33 @@ export const CustomersPage: React.FC = () => {
                         onDragOver={(e) => handleDragOver(e, colKey)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, colKey)}
-                        className="table-th"
+                        className={`table-th ${colKey === 'actions' ? 'sticky-action-th' : ''}`}
                         style={{
+                          width: `${columnWidths[colKey] || defaultCustomerWidths[colKey] || 120}px`,
+                          position: colKey === 'actions' ? 'sticky' : 'relative',
                           cursor: colKey !== 'actions' && colKey !== 'stt' ? 'grab' : 'default',
                           backgroundColor: dragOverCol === colKey ? '#FEE2E2' : undefined,
                           borderLeft: dragOverCol === colKey ? '3px solid #E53935' : undefined,
-                          transition: 'all 0.15s ease',
+                          transition: 'background-color 0.15s ease',
                           whiteSpace: 'nowrap',
                           userSelect: 'none'
                         }}
                         title={colKey !== 'actions' && colKey !== 'stt' ? 'Kéo để đổi thứ tự cột' : undefined}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden' }}>
                           {colKey !== 'actions' && colKey !== 'stt' && (
-                            <GripVertical size={13} style={{ color: '#9CA3AF', cursor: 'grab' }} />
+                            <GripVertical size={13} style={{ color: '#9CA3AF', cursor: 'grab', flexShrink: 0 }} />
                           )}
-                          <span>{columnLabels[colKey] || colKey}</span>
+                          <span className="truncate">{columnLabels[colKey] || colKey}</span>
                         </div>
+                        {colKey !== 'actions' && (
+                          <div
+                            className="col-resizer"
+                            onMouseDown={(e) => startResize(colKey, e)}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Kéo sang trái/phải để điều chỉnh độ rộng cột"
+                          />
+                        )}
                       </th>
                     ))}
                 </tr>
@@ -959,44 +1005,61 @@ export const CustomersPage: React.FC = () => {
                             switch (colKey) {
                               case 'stt':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ width: '45px', textAlign: 'center', color: '#9CA3AF', fontSize: '12px' }}>
+                                  <td key={colKey} className="table-td" style={{ width: '45px', textAlign: 'center', color: '#9CA3AF', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                     {idx + 1}
                                   </td>
                                 );
                               case 'code':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontWeight: '600', color: '#E53935', fontSize: '12px' }}>
+                                  <td key={colKey} className="table-td" style={{ fontWeight: '600', color: '#E53935', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', fontFamily: 'monospace' }}>
                                     {c.code}
                                   </td>
                                 );
-                              case 'name':
+                              case 'name': {
+                                const fullAddr = c.address || c.deliveryAddress || '';
                                 return (
-                                  <td key={colKey} className="table-td">
-                                    <div style={{ fontWeight: '700', color: '#111827' }}>{c.name}</div>
-                                    <div style={{ fontSize: '11px', color: '#6B7280' }}>{c.address || c.deliveryAddress || 'Chưa cập nhật địa chỉ'}</div>
+                                  <td key={colKey} className="table-td" style={{ overflow: 'hidden' }}>
+                                    <div className="min-w-0" title={fullAddr ? `${c.name}\nĐịa chỉ: ${fullAddr}` : c.name}>
+                                      <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
+                                        {c.name}
+                                      </div>
+                                      {fullAddr && (
+                                        <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 truncate">
+                                          <MapPin size={12} className="text-gray-400 shrink-0" />
+                                          <span className="truncate">{fullAddr}</span>
+                                        </div>
+                                      )}
+                                    </div>
                                   </td>
                                 );
+                              }
                               case 'phone':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontSize: '12.5px', color: '#374151' }}>
+                                  <td key={colKey} className="table-td" style={{ fontSize: '12.5px', color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', fontFamily: 'monospace' }}>
                                     📞 {c.phone}
                                   </td>
                                 );
                               case 'taxCode':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontSize: '12px', color: '#4B5563', fontFamily: 'monospace' }}>
-                                    {c.taxCode || '-'}
+                                  <td key={colKey} className="table-td" style={{ fontSize: '12px', color: '#4B5563', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                    {c.taxCode ? (
+                                      <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{c.taxCode}</span>
+                                    ) : (
+                                      '-'
+                                    )}
                                   </td>
                                 );
                               case 'manager':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontSize: '12.5px', color: '#374151' }}>
-                                    {c.manager?.fullName || 'Chưa gán'}
+                                  <td key={colKey} className="table-td" style={{ fontSize: '12.5px', color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 max-w-full truncate" title={c.manager?.fullName || 'Chưa gán'}>
+                                      {c.manager?.fullName || 'Chưa gán'}
+                                    </span>
                                   </td>
                                 );
                               case 'customerType':
                                 return (
-                                  <td key={colKey} className="table-td">
+                                  <td key={colKey} className="table-td" style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                     <span className="badge badge-gray" style={{ fontSize: '11px' }}>
                                       {c.customerType === 'ENTERPRISE'
                                         ? 'Doanh nghiệp'
@@ -1012,13 +1075,13 @@ export const CustomersPage: React.FC = () => {
                                 );
                               case 'creditBalance':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontWeight: '600', color: Number(c.creditBalance) > 0 ? '#15803D' : '#6B7280', fontSize: '12.5px' }}>
+                                  <td key={colKey} className="table-td" style={{ fontWeight: '600', color: Number(c.creditBalance) > 0 ? '#15803D' : '#6B7280', fontSize: '12.5px', whiteSpace: 'nowrap', overflow: 'hidden', fontVariantNumeric: 'tabular-nums' }}>
                                     {formatMoney(Number(c.creditBalance) || 0)}
                                   </td>
                                 );
                               case 'source':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontSize: '12px', color: '#6B7280' }}>
+                                  <td key={colKey} className="table-td" style={{ fontSize: '12px', color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                     {c.source === 'SELF_FOUND'
                                       ? 'Tự tìm kiếm'
                                       : c.source === 'REFERRAL'
@@ -1032,13 +1095,13 @@ export const CustomersPage: React.FC = () => {
                                 );
                               case 'orders':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontWeight: '600', color: '#E53935', fontSize: '12.5px' }}>
+                                  <td key={colKey} className="table-td" style={{ fontWeight: '600', color: '#E53935', fontSize: '12.5px', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                     {c._count?.orders || 0} đơn
                                   </td>
                                 );
                               case 'status':
                                 return (
-                                  <td key={colKey} className="table-td">
+                                  <td key={colKey} className="table-td" style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
                                     <span className={c.status === 'ACTIVE' ? 'badge badge-green' : 'badge badge-red'}>
                                       {c.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng'}
                                     </span>
@@ -1046,15 +1109,22 @@ export const CustomersPage: React.FC = () => {
                                 );
                               case 'actions':
                                 return (
-                                  <td key={colKey} className="table-td">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }} onClick={(e) => e.stopPropagation()}>
+                                  <td
+                                    key={colKey}
+                                    className="table-td sticky-action-td"
+                                    style={{
+                                      backgroundColor: isSelected ? '#FEF2F2' : undefined,
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
                                       <button
                                         onClick={() => {
                                           handleSelectCustomer(c.id);
                                           setViewMode('split');
                                         }}
                                         className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '11px', padding: '0.25rem 0.5rem' }}
+                                        style={{ fontSize: '11px', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
                                         title="Xem chi tiết & timeline dạng 3 phần"
                                       >
                                         <Eye size={12} color="#E53935" />
@@ -1064,7 +1134,7 @@ export const CustomersPage: React.FC = () => {
                                         <button
                                           onClick={() => openEditModal(c)}
                                           className="btn btn-secondary btn-sm"
-                                          style={{ fontSize: '11px', padding: '0.25rem 0.5rem' }}
+                                          style={{ fontSize: '11px', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
                                         >
                                           <span>Sửa</span>
                                         </button>
@@ -1072,7 +1142,7 @@ export const CustomersPage: React.FC = () => {
                                       <button
                                         onClick={() => openHandoverModal(c)}
                                         className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '11px', padding: '0.25rem 0.5rem' }}
+                                        style={{ fontSize: '11px', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
                                         title="Bàn giao khách hàng"
                                       >
                                         <UserCheck size={12} color="#E53935" />

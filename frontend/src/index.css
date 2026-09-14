@@ -147,44 +147,140 @@ body {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
 }
 
-/* BẢNG DỮ LIỆU (DATAGRID) */
+/* BẢNG DỮ LIỆU (DATAGRID) & CỘT CỐ ĐỊNH (STICKY ACTIONS) */
 .table-container {
   width: 100%;
   overflow-x: auto;
-  border-radius: 0.5rem;
-  border: 1px solid var(--color-border-light);
+  border-radius: 0.75rem;
+  border: 1px solid #E5E7EB;
   background-color: #FFFFFF;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
-.table-custom {
+.table-custom, table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: left;
 }
 
+th, td {
+  box-sizing: border-box;
+}
+
+/* Ngăn ngừa chữ dài tự do tràn và đè sang các cột lân cận */
+table td, table th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .table-th {
-  background-color: #F9FAFB;
-  padding: 0.75rem 1rem;
+  background-color: #F8FAFC;
+  padding: 0.875rem 1rem;
   text-align: left;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-  border-bottom: 1px solid var(--color-border-light);
+  color: #4B5563;
+  border-bottom: 1px solid #E2E8F0;
   white-space: nowrap;
-}
-
-.table-td {
-  border-top: 1px solid var(--color-border-light);
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  color: #374151;
   vertical-align: middle;
 }
 
-.table-tr:hover .table-td {
-  background-color: #F9FAFB;
+.table-td {
+  border-bottom: 1px solid #F1F5F9;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #1F2937;
+  vertical-align: middle;
+  background-color: #FFFFFF;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.table-tr:hover .table-td,
+tr:hover > td {
+  background-color: #F8FAFC !important;
+}
+
+/* CỘT THAO TÁC CỐ ĐỊNH (STICKY ACTION COLUMN) */
+.sticky-action-th {
+  position: sticky !important;
+  right: 0 !important;
+  z-index: 20 !important;
+  background-color: #F8FAFC !important;
+  border-left: 1px solid #E2E8F0 !important;
+  box-shadow: -4px 0 10px -2px rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
+}
+
+.sticky-action-td {
+  position: sticky !important;
+  right: 0 !important;
+  z-index: 10 !important;
+  background-color: #FFFFFF;
+  border-left: 1px solid #F1F5F9 !important;
+  box-shadow: -4px 0 10px -2px rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
+}
+
+.table-tr:hover .sticky-action-td,
+tr:hover .sticky-action-td,
+tr:hover > td.sticky-action-td {
+  background-color: #F8FAFC !important;
+}
+
+/* Hỗ trợ dòng được chọn (Selected Row) đồng bộ màu cột cố định */
+tr.is-selected td,
+tr[data-selected="true"] td {
+  background-color: #FEF2F2 !important;
+}
+tr.is-selected .sticky-action-td,
+tr[data-selected="true"] .sticky-action-td {
+  background-color: #FEF2F2 !important;
+}
+
+/* Tiện ích cắt chữ 1 hàng có dấu ... an toàn trong flex */
+.cell-truncate {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+/* Tiện ích cắt chữ tối đa 2 dòng */
+.cell-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+}
+
+/* THANH CHIA ĐIỀU CHỈNH ĐỘ RỘNG CỘT (COLUMN RESIZER) */
+.col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 15;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+  opacity: 0.3;
+  border-right: 2px solid transparent;
+}
+
+.col-resizer:hover,
+.col-resizer:active {
+  opacity: 1;
+  border-right: 2px solid #E53935;
+  background-color: rgba(229, 57, 53, 0.08);
 }
 
 /* HUY HIỆU TRẠNG THÁI (BADGES) */

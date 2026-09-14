@@ -24,6 +24,7 @@ import { api } from '../../services/api';
 import { Product, Warehouse, Category, ProductType, Supplier } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { ImportExcelModal } from '../../components/common/ImportExcelModal';
+import { useTableResize } from '../../hooks/useTableResize';
 
 export const ProductsPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -102,6 +103,25 @@ export const ProductsPage: React.FC = () => {
     }
   });
 
+  const defaultProductWidths: Record<string, number> = {
+    stt: 60,
+    code: 150,
+    name: 280,
+    category: 200,
+    unit: 80,
+    costPrice: 130,
+    sellingPrice: 130,
+    stock: 130,
+    actions: 140
+  };
+
+  const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
+    tableKey: 'products',
+    defaultWidths: defaultProductWidths,
+    minWidth: 50,
+    minWidths: { stt: 45, actions: 120 }
+  });
+
   const [draggedCol, setDraggedCol] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
@@ -124,7 +144,7 @@ export const ProductsPage: React.FC = () => {
 
   const handleDrop = (e: React.DragEvent, targetCol: string) => {
     e.preventDefault();
-    if (!draggedCol || draggedCol === targetCol) {
+    if (!draggedCol || draggedCol === targetCol || targetCol === 'actions' || targetCol === 'stt' || draggedCol === 'actions' || draggedCol === 'stt') {
       setDraggedCol(null);
       setDragOverCol(null);
       return;
@@ -137,8 +157,10 @@ export const ProductsPage: React.FC = () => {
     if (dragIdx > -1 && dropIdx > -1) {
       newOrder.splice(dragIdx, 1);
       newOrder.splice(dropIdx, 0, draggedCol);
-      setColumnOrder(newOrder);
-      localStorage.setItem('namkhanh_products_col_order', JSON.stringify(newOrder));
+      const withoutActions = newOrder.filter((k) => k !== 'actions');
+      withoutActions.push('actions');
+      setColumnOrder(withoutActions);
+      localStorage.setItem('namkhanh_products_col_order', JSON.stringify(withoutActions));
     }
 
     setDraggedCol(null);
@@ -154,6 +176,7 @@ export const ProductsPage: React.FC = () => {
   const resetColumns = () => {
     setVisibleColumns(defaultVisibleCols);
     setColumnOrder(defaultColOrder);
+    resetWidths();
     localStorage.removeItem('namkhanh_products_visible_cols');
     localStorage.removeItem('namkhanh_products_col_order');
   };
@@ -509,20 +532,29 @@ export const ProductsPage: React.FC = () => {
       {/* BẢNG DATAGRID SẢN PHẨM */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
+          <table
+            className="w-full text-left text-sm border-collapse"
+            style={{
+              width: `${getTableWidth(columnOrder.filter((k) => visibleColumns[k]))}px`,
+              minWidth: '100%',
+              tableLayout: 'fixed'
+            }}
+          >
             <thead>
-              <tr className="bg-gray-50/80 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider">
+              <tr className="bg-slate-50/90 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider">
                 {columnOrder
                   .filter((k) => visibleColumns[k])
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      draggable
+                      draggable={colKey !== 'actions' && colKey !== 'stt'}
                       onDragStart={(e) => handleDragStart(e, colKey)}
                       onDragOver={(e) => handleDragOver(e, colKey)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, colKey)}
-                      className={`py-3 px-4 cursor-grab select-none transition-colors ${
+                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden ${
+                        colKey === 'actions' ? 'sticky-action-th' : ''
+                      } ${
                         dragOverCol === colKey ? 'bg-red-100 border-l-2 border-[#E53935]' : ''
                       } ${draggedCol === colKey ? 'opacity-50' : ''} ${
                         colKey === 'stt' || colKey === 'unit' || colKey === 'stock' || colKey === 'actions'
@@ -530,11 +562,16 @@ export const ProductsPage: React.FC = () => {
                           : colKey === 'costPrice' || colKey === 'sellingPrice'
                           ? 'text-right'
                           : ''
-                      } ${colKey === 'stt' ? 'w-10' : colKey === 'code' ? 'w-28' : ''}`}
-                      title="Kéo thả để thay đổi vị trí cột"
+                      }`}
+                      style={{
+                        width: `${columnWidths[colKey] || defaultProductWidths[colKey] || 120}px`,
+                        position: colKey === 'actions' ? 'sticky' : 'relative',
+                        cursor: colKey !== 'actions' && colKey !== 'stt' ? 'grab' : 'default'
+                      }}
+                      title={colKey !== 'actions' && colKey !== 'stt' ? 'Kéo thả để thay đổi vị trí cột' : undefined}
                     >
                       <div
-                        className={`inline-flex items-center gap-1 ${
+                        className={`inline-flex items-center gap-1.5 overflow-hidden w-full ${
                           colKey === 'costPrice' || colKey === 'sellingPrice'
                             ? 'justify-end'
                             : colKey === 'stt' || colKey === 'unit' || colKey === 'stock' || colKey === 'actions'
@@ -542,9 +579,19 @@ export const ProductsPage: React.FC = () => {
                             : 'justify-start'
                         }`}
                       >
-                        <GripVertical className="w-3 h-3 text-gray-400 opacity-60" />
-                        <span>{columnLabels[colKey]}</span>
+                        {colKey !== 'actions' && colKey !== 'stt' && (
+                          <GripVertical className="w-3 h-3 text-gray-400 opacity-60 flex-shrink-0" />
+                        )}
+                        <span className="truncate">{columnLabels[colKey]}</span>
                       </div>
+                      {colKey !== 'actions' && (
+                        <div
+                          className="col-resizer"
+                          onMouseDown={(e) => startResize(colKey, e)}
+                          onClick={(e) => e.stopPropagation()}
+                          title="Kéo sang trái/phải để điều chỉnh độ rộng cột"
+                        />
+                      )}
                     </th>
                   ))}
               </tr>
@@ -567,78 +614,90 @@ export const ProductsPage: React.FC = () => {
                 products.map((p, idx) => {
                   const isLow = p.stockQuantity <= (p.minStockLevel || 20);
                   return (
-                    <tr key={p.id} className="hover:bg-gray-50/80 transition-colors">
+                    <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                       {columnOrder
                         .filter((k) => visibleColumns[k])
                         .map((colKey) => {
                           switch (colKey) {
                             case 'stt':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-center text-gray-500 text-xs font-semibold">
+                                <td key={colKey} className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
                                   {idx + 1}
                                 </td>
                               );
                             case 'code':
                               return (
-                                <td key={colKey} className="py-3.5 px-4">
-                                  <span className="font-mono font-bold text-gray-900 text-xs">{p.code}</span>
-                                  {p.barcode && (
-                                    <span className="block font-mono text-[10px] text-gray-400 mt-0.5">
-                                      {p.barcode}
-                                    </span>
-                                  )}
+                                <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden">
+                                  <div className="flex items-center gap-1.5 min-w-0" title={`Mã: ${p.code}${p.barcode ? ` - Barcode: ${p.barcode}` : ''}`}>
+                                    <span className="font-mono font-bold text-gray-900 text-xs">{p.code}</span>
+                                    {p.barcode && (
+                                      <span className="font-mono text-[10px] text-gray-500 bg-gray-100 px-1 py-0.5 rounded shrink-0">
+                                        {p.barcode}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                               );
                             case 'name':
                               return (
-                                <td key={colKey} className="py-3.5 px-4">
-                                  <div className="font-bold text-gray-900">{p.name}</div>
-                                  <div className="text-[11px] text-gray-500 line-clamp-1 mt-0.5">
-                                    {p.description || 'Chính hãng NK Nam Khánh'}
+                                <td key={colKey} className="py-2.5 px-3.5 overflow-hidden">
+                                  <div className="min-w-0" title={`${p.name}${p.description ? `\n• ${p.description}` : ''}`}>
+                                    <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
+                                      {p.name}
+                                    </div>
+                                    {p.description && (
+                                      <div className="text-xs text-gray-400 truncate mt-0.5">
+                                        {p.description}
+                                      </div>
+                                    )}
                                   </div>
                                 </td>
                               );
                             case 'category':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-xs">
-                                  <span className="font-semibold text-gray-800 block">
-                                    {p.categoryRel?.name || p.category}
-                                  </span>
-                                  <span className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
-                                    <WarehouseIcon className="w-3 h-3 text-gray-400" />
-                                    {p.warehouse?.name || 'Tổng kho'}
-                                  </span>
+                                <td key={colKey} className="py-2.5 px-3.5 text-xs overflow-hidden">
+                                  <div className="min-w-0" title={`Danh mục: ${p.categoryRel?.name || p.category} - Kho: ${p.warehouse?.name || 'Tổng kho'}`}>
+                                    <span className="font-semibold text-gray-800 truncate block">
+                                      {p.categoryRel?.name || p.category}
+                                    </span>
+                                    <span className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5 truncate">
+                                      <WarehouseIcon className="w-3 h-3 text-gray-400 shrink-0" />
+                                      <span className="truncate">{p.warehouse?.name || 'Tổng kho'}</span>
+                                    </span>
+                                  </div>
                                 </td>
                               );
                             case 'supplier':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-xs text-gray-700">
-                                  {p.supplier?.name || 'Chưa gán'}
+                                <td key={colKey} className="py-3 px-3.5 text-xs text-gray-700 whitespace-nowrap overflow-hidden">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 max-w-[150px] truncate" title={p.supplier?.name || 'Chưa gán'}>
+                                    {p.supplier?.name || 'Chưa gán'}
+                                  </span>
                                 </td>
                               );
                             case 'unit':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-center text-xs font-semibold text-gray-600">
+                                <td key={colKey} className="py-3 px-3.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap overflow-hidden">
                                   {p.unit}
                                 </td>
                               );
                             case 'costPrice':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-right text-xs font-medium text-gray-600">
+                                <td key={colKey} className="py-3 px-3.5 text-right text-xs font-medium text-gray-600 whitespace-nowrap overflow-hidden tabular-nums">
                                   {formatVND(Number(p.costPrice))}
                                 </td>
                               );
                             case 'sellingPrice':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-right text-xs font-bold text-[#E53935]">
+                                <td key={colKey} className="py-3 px-3.5 text-right text-xs font-bold text-[#E53935] whitespace-nowrap overflow-hidden tabular-nums">
                                   {formatVND(Number(p.sellingPrice))}
                                 </td>
                               );
                             case 'stock':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-center">
+                                <td key={colKey} className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
                                   <span
-                                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${
+                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                                       isLow ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700'
                                     }`}
                                   >
@@ -648,7 +707,7 @@ export const ProductsPage: React.FC = () => {
                               );
                             case 'actions':
                               return (
-                                <td key={colKey} className="py-3.5 px-4 text-center">
+                                <td key={colKey} className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
                                   <div className="flex items-center justify-center gap-1">
                                     {hasPermission('C_PRODUCTS', 'update') && (
                                       <button

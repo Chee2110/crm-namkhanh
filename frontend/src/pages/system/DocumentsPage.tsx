@@ -14,6 +14,7 @@ import {
 import { api } from '../../services/api';
 import { LegalDocument } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useTableResize } from '../../hooks/useTableResize';
 
 export const DocumentsPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -21,6 +22,24 @@ export const DocumentsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'CONTRACT' | 'CERTIFICATE'>('CONTRACT');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  const defaultDocWidths: Record<string, number> = {
+    stt: 60,
+    code: 140,
+    title: 260,
+    fileName: 220,
+    fileSize: 110,
+    uploadedBy: 160,
+    createdAt: 120,
+    actions: 140
+  };
+
+  const { columnWidths, startResize, getTableWidth } = useTableResize({
+    tableKey: 'documents',
+    defaultWidths: defaultDocWidths,
+    minWidth: 50,
+    minWidths: { stt: 45, actions: 120 }
+  });
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -222,18 +241,50 @@ export const DocumentsPage: React.FC = () => {
       </div>
 
       {/* DataGrid Bảng danh sách tài liệu */}
-      <div className="table-container">
-        <table className="table-custom">
-          <thead>
-            <tr>
-              <th className="table-th" style={{ width: '50px' }}>STT</th>
-              <th className="table-th">Mã hồ sơ</th>
-              <th className="table-th">Tên hồ sơ giấy tờ</th>
-              <th className="table-th">Tên tệp đính kèm</th>
-              <th className="table-th">Dung lượng</th>
-              <th className="table-th">Người tải lên</th>
-              <th className="table-th">Ngày tạo</th>
-              <th className="table-th" style={{ textAlign: 'right' }}>Thao tác</th>
+      <div className="table-container shadow-sm border border-gray-100 rounded-xl overflow-x-auto">
+        <table
+          className="table-custom"
+          style={{
+            width: `${getTableWidth(Object.keys(defaultDocWidths))}px`,
+            minWidth: '100%',
+            tableLayout: 'fixed',
+            borderCollapse: 'separate',
+            borderSpacing: 0
+          }}
+        >
+          <thead className="bg-slate-50/90 border-b border-gray-200">
+            <tr style={{ whiteSpace: 'nowrap' }}>
+              <th className="table-th text-center select-none" style={{ width: `${columnWidths.stt || defaultDocWidths.stt}px`, position: 'relative' }}>
+                <span>STT</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.code || defaultDocWidths.code}px`, position: 'relative' }}>
+                <span>Mã hồ sơ</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.title || defaultDocWidths.title}px`, position: 'relative' }}>
+                <span>Tên hồ sơ giấy tờ</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('title', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.fileName || defaultDocWidths.fileName}px`, position: 'relative' }}>
+                <span>Tên tệp đính kèm</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('fileName', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.fileSize || defaultDocWidths.fileSize}px`, position: 'relative' }}>
+                <span>Dung lượng</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('fileSize', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.uploadedBy || defaultDocWidths.uploadedBy}px`, position: 'relative' }}>
+                <span>Người tải lên</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('uploadedBy', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th select-none" style={{ width: `${columnWidths.createdAt || defaultDocWidths.createdAt}px`, position: 'relative' }}>
+                <span>Ngày tạo</span>
+                <div className="col-resizer" onMouseDown={(e) => startResize('createdAt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+              </th>
+              <th className="table-th sticky-action-th" style={{ width: `${columnWidths.actions || defaultDocWidths.actions}px`, textAlign: 'right' }}>
+                <span>Thao tác</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -252,32 +303,38 @@ export const DocumentsPage: React.FC = () => {
             ) : (
               documents.map((doc, index) => (
                 <tr key={doc.id} className="table-tr">
-                  <td className="table-td" style={{ fontWeight: '500' }}>{index + 1}</td>
-                  <td className="table-td">
-                    <span style={{ fontWeight: '600', color: '#E53935', fontFamily: 'monospace' }}>
+                  <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{index + 1}</td>
+                  <td className="table-td whitespace-nowrap overflow-hidden">
+                    <span className="font-semibold text-xs text-[#E53935] font-mono">
                       {doc.code}
                     </span>
                   </td>
-                  <td className="table-td">
-                    <div style={{ fontWeight: '600', color: '#111827' }}>{doc.title}</div>
-                    <span className="badge badge-blue" style={{ fontSize: '10px', marginTop: '2px' }}>
-                      {doc.type === 'CONTRACT' ? 'Hợp đồng mẫu' : 'CO-CQ / Năng lực'}
-                    </span>
-                  </td>
-                  <td className="table-td">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#4B5563' }}>
-                      <FileCode size={14} color="#6B7280" />
-                      <span>{doc.fileName}</span>
+                  <td className="table-td overflow-hidden">
+                    <div className="flex flex-col min-w-0" title={doc.title}>
+                      <span className="font-semibold text-xs text-gray-900 truncate">{doc.title}</span>
+                      <div className="mt-0.5">
+                        <span className="badge badge-blue" style={{ fontSize: '10px' }}>
+                          {doc.type === 'CONTRACT' ? 'Hợp đồng mẫu' : 'CO-CQ / Năng lực'}
+                        </span>
+                      </div>
                     </div>
                   </td>
-                  <td className="table-td" style={{ fontSize: '12.5px', color: '#6B7280' }}>
+                  <td className="table-td overflow-hidden">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-700 min-w-0" title={doc.fileName}>
+                      <FileCode size={14} className="text-gray-400 shrink-0" />
+                      <span className="truncate">{doc.fileName}</span>
+                    </div>
+                  </td>
+                  <td className="table-td text-xs text-gray-500 font-mono whitespace-nowrap overflow-hidden">
                     {formatFileSize(doc.fileSize)}
                   </td>
-                  <td className="table-td">{doc.uploadedBy?.fullName || 'Hệ thống'}</td>
-                  <td className="table-td" style={{ fontSize: '12px', color: '#6B7280' }}>
+                  <td className="table-td text-xs text-gray-700 whitespace-nowrap overflow-hidden">
+                    <span className="truncate block">{doc.uploadedBy?.fullName || 'Hệ thống'}</span>
+                  </td>
+                  <td className="table-td text-xs text-gray-500 font-mono whitespace-nowrap overflow-hidden">
                     {new Date(doc.createdAt).toLocaleDateString('vi-VN')}
                   </td>
-                  <td className="table-td" style={{ textAlign: 'right' }}>
+                  <td className="table-td sticky-action-td whitespace-nowrap overflow-hidden" style={{ textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
                       {/* Tải về an toàn */}
                       <a
