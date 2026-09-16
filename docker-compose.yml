@@ -35,6 +35,7 @@ services:
       dockerfile: Dockerfile
     container_name: crm_namkhanh_backend
     restart: always
+    command: sh -c "npx prisma db push && node dist/server.js"
     environment:
       PORT: 5000
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}

@@ -104,7 +104,11 @@ app.use((req: Request, res: Response) => {
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled Error:', err);
   // Never expose database credentials, Prisma queries, or stack traces to clients.
-  if (err instanceof Prisma.PrismaClientInitializationError || err?.errorCode === 'P1000') {
+  if (
+    err instanceof Prisma.PrismaClientInitializationError ||
+    err?.errorCode === 'P1000' ||
+    err?.code === 'P2021'
+  ) {
     return errorResponse(res, 'Không thể kết nối cơ sở dữ liệu. Vui lòng liên hệ quản trị viên.', 503);
   }
 
