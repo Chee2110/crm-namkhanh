@@ -86,16 +86,18 @@ export class ProductsService {
     description?: string;
     status?: string;
   }) {
-    const existing = await prisma.product.findUnique({ where: { code: data.code } });
-    if (existing) throw new Error(`Mã sản phẩm [${data.code}] đã tồn tại`);
+    const code = data.code.trim().toUpperCase();
+    const existing = await prisma.product.findUnique({ where: { code } });
+    if (existing) throw new Error(`Mã sản phẩm [${code}] đã tồn tại`);
 
-    if (data.barcode) {
-      const existingBarcode = await prisma.product.findUnique({ where: { barcode: data.barcode } });
-      if (existingBarcode) throw new Error(`Mã vạch [${data.barcode}] đã được sử dụng`);
+    const cleanBarcode = data.barcode && data.barcode.trim() ? data.barcode.trim() : null;
+    if (cleanBarcode) {
+      const existingBarcode = await prisma.product.findUnique({ where: { barcode: cleanBarcode } });
+      if (existingBarcode) throw new Error(`Mã vạch [${cleanBarcode}] đã được sử dụng`);
     }
 
     // RÀNG BUỘC TỰ ĐỘNG C.5: Nếu có tên nhà cung cấp mà chưa có ID thì kiểm tra/tự động tạo mới
-    let finalSupplierId = data.supplierId || null;
+    let finalSupplierId = data.supplierId && data.supplierId.trim() ? data.supplierId.trim() : null;
     if (!finalSupplierId && data.supplierName && data.supplierName.trim()) {
       const existingSupplier = await prisma.supplier.findFirst({
         where: { name: { equals: data.supplierName.trim(), mode: 'insensitive' } }
@@ -116,36 +118,56 @@ export class ProductsService {
         });
         finalSupplierId = newSupplier.id;
       }
+    } else if (finalSupplierId) {
+      const sup = await prisma.supplier.findUnique({ where: { id: finalSupplierId } });
+      if (!sup) finalSupplierId = null;
     }
 
-    let catName = data.category || 'Giấy in văn phòng';
-    if (data.categoryId) {
-      const cat = await prisma.category.findUnique({ where: { id: data.categoryId } });
-      if (cat) catName = cat.name;
+    let finalCategoryId = data.categoryId && data.categoryId.trim() ? data.categoryId.trim() : null;
+    let catName = data.category && data.category.trim() ? data.category.trim() : 'Văn phòng phẩm';
+    if (finalCategoryId) {
+      const cat = await prisma.category.findUnique({ where: { id: finalCategoryId } });
+      if (cat) {
+        catName = cat.name;
+      } else {
+        finalCategoryId = null;
+      }
+    }
+
+    let finalWarehouseId = data.warehouseId && data.warehouseId.trim() ? data.warehouseId.trim() : null;
+    if (finalWarehouseId) {
+      const wh = await prisma.warehouse.findUnique({ where: { id: finalWarehouseId } });
+      if (!wh) finalWarehouseId = null;
+    }
+
+    let finalProductTypeId = data.productTypeId && data.productTypeId.trim() ? data.productTypeId.trim() : null;
+    if (finalProductTypeId) {
+      const pt = await prisma.productType.findUnique({ where: { id: finalProductTypeId } });
+      if (!pt) finalProductTypeId = null;
     }
 
     return prisma.product.create({
       data: {
-        code: data.code,
-        barcode: data.barcode || null,
-        name: data.name,
+        code,
+        barcode: cleanBarcode,
+        name: data.name.trim(),
         category: catName,
-        categoryId: data.categoryId || null,
-        productTypeId: data.productTypeId || null,
-        warehouseId: data.warehouseId || null,
+        categoryId: finalCategoryId,
+        productTypeId: finalProductTypeId,
+        warehouseId: finalWarehouseId,
         supplierId: finalSupplierId,
-        unit: data.unit,
+        unit: data.unit.trim(),
         costPrice: data.costPrice || 0,
         sellingPrice: data.sellingPrice || 0,
-        vatRate: data.vatRate ?? 8,
-        stockQuantity: data.stockQuantity ?? 100,
-        minStockLevel: data.minStockLevel ?? 20,
-        color: data.color || null,
-        length: data.length !== undefined ? data.length : null,
-        width: data.width !== undefined ? data.width : null,
-        height: data.height !== undefined ? data.height : null,
-        weight: data.weight !== undefined ? data.weight : null,
-        description: data.description || null,
+        vatRate: data.vatRate !== undefined ? Number(data.vatRate) : 8,
+        stockQuantity: data.stockQuantity !== undefined ? Number(data.stockQuantity) : 100,
+        minStockLevel: data.minStockLevel !== undefined ? Number(data.minStockLevel) : 20,
+        color: data.color && data.color.trim() ? data.color.trim() : null,
+        length: data.length !== undefined && data.length !== null && Number(data.length) !== 0 ? Number(data.length) : null,
+        width: data.width !== undefined && data.width !== null && Number(data.width) !== 0 ? Number(data.width) : null,
+        height: data.height !== undefined && data.height !== null && Number(data.height) !== 0 ? Number(data.height) : null,
+        weight: data.weight !== undefined && data.weight !== null && Number(data.weight) !== 0 ? Number(data.weight) : null,
+        description: data.description && data.description.trim() ? data.description.trim() : null,
         status: data.status || 'ACTIVE'
       },
       include: {
@@ -161,23 +183,25 @@ export class ProductsService {
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) throw new Error('Không tìm thấy sản phẩm');
 
-    if (data.code && data.code !== product.code) {
-      const existing = await prisma.product.findUnique({ where: { code: data.code } });
+    if (data.code && data.code.trim().toUpperCase() !== product.code) {
+      const existing = await prisma.product.findUnique({ where: { code: data.code.trim().toUpperCase() } });
       if (existing) throw new Error(`Mã sản phẩm [${data.code}] đã tồn tại`);
     }
 
-    if (data.barcode && data.barcode !== product.barcode) {
-      const existingBarcode = await prisma.product.findUnique({ where: { barcode: data.barcode } });
-      if (existingBarcode) throw new Error(`Mã vạch [${data.barcode}] đã được sử dụng`);
+    const cleanBarcode = data.barcode !== undefined ? (data.barcode && data.barcode.trim() ? data.barcode.trim() : null) : undefined;
+    if (cleanBarcode && cleanBarcode !== product.barcode) {
+      const existingBarcode = await prisma.product.findUnique({ where: { barcode: cleanBarcode } });
+      if (existingBarcode) throw new Error(`Mã vạch [${cleanBarcode}] đã được sử dụng`);
     }
 
     // Tự động tạo NCC nếu tên mới chưa có
-    if (!data.supplierId && data.supplierName && data.supplierName.trim()) {
+    let finalSupplierId = data.supplierId !== undefined ? (data.supplierId && data.supplierId.trim() ? data.supplierId.trim() : null) : undefined;
+    if (!finalSupplierId && data.supplierName && data.supplierName.trim()) {
       const existingSupplier = await prisma.supplier.findFirst({
         where: { name: { equals: data.supplierName.trim(), mode: 'insensitive' } }
       });
       if (existingSupplier) {
-        data.supplierId = existingSupplier.id;
+        finalSupplierId = existingSupplier.id;
       } else {
         const count = await prisma.supplier.count();
         const supCode = `NCC-${String(count + 1).padStart(3, '0')}`;
@@ -190,16 +214,75 @@ export class ProductsService {
             status: 'ACTIVE'
           }
         });
-        data.supplierId = newSupplier.id;
+        finalSupplierId = newSupplier.id;
+      }
+    } else if (finalSupplierId) {
+      const sup = await prisma.supplier.findUnique({ where: { id: finalSupplierId } });
+      if (!sup) finalSupplierId = null;
+    }
+
+    const updatePayload: any = {};
+    if (data.code !== undefined) updatePayload.code = data.code.trim().toUpperCase();
+    if (data.name !== undefined) updatePayload.name = data.name.trim();
+    if (cleanBarcode !== undefined) updatePayload.barcode = cleanBarcode;
+    if (data.unit !== undefined) updatePayload.unit = data.unit.trim();
+    if (data.costPrice !== undefined) updatePayload.costPrice = Number(data.costPrice) || 0;
+    if (data.sellingPrice !== undefined) updatePayload.sellingPrice = Number(data.sellingPrice) || 0;
+    if (data.vatRate !== undefined) updatePayload.vatRate = Number(data.vatRate) || 8;
+    if (data.stockQuantity !== undefined) updatePayload.stockQuantity = Number(data.stockQuantity) || 0;
+    if (data.minStockLevel !== undefined) updatePayload.minStockLevel = Number(data.minStockLevel) || 20;
+    if (finalSupplierId !== undefined) updatePayload.supplierId = finalSupplierId;
+
+    if (data.warehouseId !== undefined) {
+      const wid = data.warehouseId && data.warehouseId.trim() ? data.warehouseId.trim() : null;
+      if (wid) {
+        const wh = await prisma.warehouse.findUnique({ where: { id: wid } });
+        updatePayload.warehouseId = wh ? wid : null;
+      } else {
+        updatePayload.warehouseId = null;
       }
     }
-    delete data.supplierName;
-    delete data.supplierPhone;
-    delete data.supplierAddress;
+
+    if (data.productTypeId !== undefined) {
+      const ptid = data.productTypeId && data.productTypeId.trim() ? data.productTypeId.trim() : null;
+      if (ptid) {
+        const pt = await prisma.productType.findUnique({ where: { id: ptid } });
+        updatePayload.productTypeId = pt ? ptid : null;
+      } else {
+        updatePayload.productTypeId = null;
+      }
+    }
+
+    if (data.categoryId !== undefined) {
+      const cid = data.categoryId && data.categoryId.trim() ? data.categoryId.trim() : null;
+      if (cid) {
+        const cat = await prisma.category.findUnique({ where: { id: cid } });
+        if (cat) {
+          updatePayload.categoryId = cid;
+          updatePayload.category = cat.name;
+        } else {
+          updatePayload.categoryId = null;
+        }
+      } else {
+        updatePayload.categoryId = null;
+      }
+    }
+    if (data.category && !updatePayload.category) {
+      updatePayload.category = data.category.trim();
+    }
+
+    if (data.color !== undefined) updatePayload.color = data.color && data.color.trim() ? data.color.trim() : null;
+    if (data.length !== undefined) updatePayload.length = data.length !== '' && data.length !== null && Number(data.length) !== 0 ? Number(data.length) : null;
+    if (data.width !== undefined) updatePayload.width = data.width !== '' && data.width !== null && Number(data.width) !== 0 ? Number(data.width) : null;
+    if (data.height !== undefined) updatePayload.height = data.height !== '' && data.height !== null && Number(data.height) !== 0 ? Number(data.height) : null;
+    if (data.weight !== undefined) updatePayload.weight = data.weight !== '' && data.weight !== null && Number(data.weight) !== 0 ? Number(data.weight) : null;
+    if (data.description !== undefined) updatePayload.description = data.description && data.description.trim() ? data.description.trim() : null;
+    if (data.status !== undefined) updatePayload.status = data.status;
+    if (data.imageUrl !== undefined) updatePayload.imageUrl = data.imageUrl;
 
     return prisma.product.update({
       where: { id },
-      data,
+      data: updatePayload,
       include: {
         warehouse: true,
         categoryRel: true,

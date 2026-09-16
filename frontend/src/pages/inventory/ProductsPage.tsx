@@ -200,6 +200,7 @@ export const ProductsPage: React.FC = () => {
         await api.post('/products', {
           code,
           name,
+          category: 'Văn phòng phẩm',
           unit,
           costPrice,
           sellingPrice,
@@ -228,11 +229,13 @@ export const ProductsPage: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formTab, setFormTab] = useState<'general' | 'supplier' | 'price' | 'specs'>('general');
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     code: '',
     barcode: '',
     name: '',
+    category: '',
     unit: 'Ream',
     warehouseId: '',
     categoryId: '',
@@ -296,13 +299,15 @@ export const ProductsPage: React.FC = () => {
   const openAddModal = () => {
     setEditingProduct(null);
     setFormTab('general');
+    const firstCat = categories[0];
     setFormData({
       code: '',
       barcode: '',
       name: '',
+      category: firstCat?.name || 'Văn phòng phẩm',
       unit: 'Ream',
       warehouseId: warehouses[0]?.id || '',
-      categoryId: categories[0]?.id || '',
+      categoryId: firstCat?.id || '',
       productTypeId: productTypes[0]?.id || '',
       supplierId: suppliers[0]?.id || '',
       supplierName: '',
@@ -332,6 +337,7 @@ export const ProductsPage: React.FC = () => {
       code: p.code,
       barcode: p.barcode || '',
       name: p.name,
+      category: p.category || (p as any).categoryRel?.name || '',
       unit: p.unit,
       warehouseId: p.warehouseId || '',
       categoryId: p.categoryId || '',
@@ -361,21 +367,33 @@ export const ProductsPage: React.FC = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (!formData.name || !formData.code) {
+    if (!formData.name?.trim() || !formData.code?.trim()) {
       setFormError('Vui lòng nhập Mã SKU và Tên hàng hóa');
       return;
     }
 
     try {
+      setSaving(true);
+      const cat = categories.find((c) => c.id === formData.categoryId);
+      const payload = {
+        ...formData,
+        code: formData.code.trim().toUpperCase(),
+        name: formData.name.trim(),
+        unit: formData.unit.trim(),
+        category: cat ? cat.name : (formData.category || 'Văn phòng phẩm')
+      };
+
       if (editingProduct) {
-        await api.put(`/products/${editingProduct.id}`, formData);
+        await api.put(`/products/${editingProduct.id}`, payload);
       } else {
-        await api.post('/products', formData);
+        await api.post('/products', payload);
       }
       setIsModalOpen(false);
-      loadData();
+      await loadData();
     } catch (err: any) {
       setFormError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu hàng hóa');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -886,7 +904,15 @@ export const ProductsPage: React.FC = () => {
                       <label className="block text-xs font-semibold text-gray-700 mb-1">Danh mục Cấp 1</label>
                       <select
                         value={formData.categoryId}
-                        onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                        onChange={(e) => {
+                          const cid = e.target.value;
+                          const foundCat = categories.find((c) => c.id === cid);
+                          setFormData({
+                            ...formData,
+                            categoryId: cid,
+                            category: foundCat ? foundCat.name : ''
+                          });
+                        }}
                         className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white"
                       >
                         <option value="">-- Chọn danh mục --</option>
@@ -1214,9 +1240,10 @@ export const ProductsPage: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-xs font-semibold transition-colors"
+                    disabled={saving}
+                    className="px-5 py-2 bg-[#E53935] hover:bg-[#D32F2F] disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-colors"
                   >
-                    {editingProduct ? 'Lưu thay đổi' : 'Lưu sản phẩm'}
+                    {saving ? 'Đang lưu...' : editingProduct ? 'Lưu thay đổi' : 'Lưu sản phẩm'}
                   </button>
                 </div>
               </div>
