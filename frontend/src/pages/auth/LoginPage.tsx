@@ -153,7 +153,6 @@ export const LoginPage: React.FC = () => {
                   type="password"
                   className="input"
                   style={{ paddingLeft: '2.35rem' }}
-                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
