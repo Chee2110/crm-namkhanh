@@ -19,12 +19,12 @@ WORKDIR /app
 RUN apk add --no-cache openssl libc6-compat
 
 COPY package*.json ./
-RUN npm install --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# Reuse the builder dependencies.  This avoids a second concurrent npm install
+# during the image build, which can stall on slow package registries.
+COPY --from=builder /app/node_modules ./node_modules
 
 EXPOSE 5000
 

@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
 import dotenv from 'dotenv';
+import { Prisma } from '@prisma/client';
 
 import authRoutes from './modules/auth/auth.routes';
 import departmentsRoutes from './modules/departments/departments.routes';
@@ -102,7 +103,12 @@ app.use((req: Request, res: Response) => {
 // Bắt lỗi toàn cục
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled Error:', err);
-  errorResponse(res, err.message || 'Lỗi máy chủ nội bộ', err.status || 500);
+  // Never expose database credentials, Prisma queries, or stack traces to clients.
+  if (err instanceof Prisma.PrismaClientInitializationError || err?.errorCode === 'P1000') {
+    return errorResponse(res, 'Không thể kết nối cơ sở dữ liệu. Vui lòng liên hệ quản trị viên.', 503);
+  }
+
+  errorResponse(res, err.status && err.status < 500 ? err.message : 'Lỗi máy chủ nội bộ', err.status || 500);
 });
 
 export default app;
