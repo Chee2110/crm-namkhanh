@@ -1,6 +1,6 @@
 import Redis from 'ioredis';
 
-const REDIS_HOST = process.env.REDIS_HOST || 'redis';
+const REDIS_HOST = process.env.REDIS_HOST || '127.0.0.1';
 const REDIS_PORT = Number(process.env.REDIS_PORT) || 6379;
 
 let redisClient: Redis | null = null;

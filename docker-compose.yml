@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123456}
-      POSTGRES_DB: ${POSTGRES_DB:-NAMKHANH}
+      POSTGRES_DB: ${POSTGRES_DB:-crm_namkhanh}
     ports:
       - "5432:5432"
     volumes:
@@ -32,6 +32,7 @@ services:
       retries: 12
 
   backend:
+    profiles: ["app", "prod"]
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -40,7 +41,9 @@ services:
     command: sh -c "npx prisma db push && node dist/server.js"
     environment:
       PORT: 5000
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-123456}@postgres:5432/NAMKHANH?schema=public}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-123456}@postgres:5432/crm_namkhanh?schema=public}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-crm_namkhanh_super_secret_jwt_key_2026}
       JWT_EXPIRES_IN: 7d
     ports:
@@ -54,6 +57,7 @@ services:
       - ./backend/uploads:/app/uploads
 
   frontend:
+    profiles: ["app", "prod"]
     build:
       context: ./frontend
       dockerfile: Dockerfile

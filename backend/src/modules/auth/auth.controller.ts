@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { authService } from './auth.service';
 import { successResponse, errorResponse } from '../../common/utils/response';
 
@@ -13,6 +14,13 @@ export class AuthController {
       const result = await authService.login(email, password);
       return successResponse(res, result, 'Đăng nhập thành công');
     } catch (error: any) {
+      if (
+        error instanceof Prisma.PrismaClientInitializationError ||
+        error?.code === 'P1000' ||
+        error?.message?.includes('Authentication failed against database server')
+      ) {
+        return errorResponse(res, 'Không thể kết nối cơ sở dữ liệu. Vui lòng kiểm tra cấu hình CSDL máy chủ.', 503);
+      }
       return errorResponse(res, error.message || 'Lỗi đăng nhập', 400);
     }
   }

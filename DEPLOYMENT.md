@@ -7,8 +7,8 @@ Trên VPS, tạo file `.env` cạnh `docker-compose.yml` từ `.env.example`. `P
 Ví dụ mật khẩu `abc@123`:
 
 ```dotenv
-POSTGRES_PASSWORD=abc@123
-DATABASE_URL=postgresql://crm_user:abc%40123@postgres:5432/crm_namkhanh?schema=public
+POSTGRES_PASSWORD=abc%40123
+DATABASE_URL=postgresql://postgres:abc%40123@postgres:5432/crm_namkhanh?schema=public
 ```
 
 Không commit file `.env`.
