@@ -41,7 +41,11 @@ const CHART_PALETTE = [
   '#FDD835'  // 6. Vàng nắng
 ];
 
-export const DashboardPage: React.FC = () => {
+interface DashboardPageProps {
+  onNavigateTab?: (tab: string, extra?: any) => void;
+}
+
+export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) => {
   const { user } = useAuth();
   const [period, setPeriod] = useState<'all' | 'year' | 'month'>('year');
   const [activeSubTab, setActiveSubTab] = useState<'revenue' | 'profit'>('revenue');
@@ -170,6 +174,65 @@ export const DashboardPage: React.FC = () => {
           >
             <Printer className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">In báo cáo</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ================= THANH TÁC VỤ NHANH (QUICK ACTION SHORTCUTS) ================= */}
+      <div className="bg-gradient-to-r from-red-500/10 via-amber-500/5 to-transparent p-3.5 rounded-2xl border border-red-100 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#E53935] text-white flex items-center justify-center shadow-xs">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+              <span>Lối tắt tác vụ nhanh</span>
+              <span className="text-[10px] bg-red-100 text-red-700 font-semibold px-1.5 py-0.2 rounded-full">Phổ biến</span>
+            </div>
+            <div className="text-[11px] text-gray-500">Truy cập tức thì các phân hệ nghiệp vụ hàng ngày</div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onNavigateTab?.('orders')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 text-gray-800 hover:text-red-700 border border-gray-200 hover:border-red-200 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+          >
+            <ShoppingBag className="w-3.5 h-3.5 text-[#E53935]" />
+            <span>+ Lập Đơn Hàng Mới</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigateTab?.('quotations')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-blue-50 text-gray-800 hover:text-blue-700 border border-gray-200 hover:border-blue-200 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-blue-600" />
+            <span>+ Tạo Báo Giá VPP</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigateTab?.('customers')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-50 text-gray-800 hover:text-emerald-700 border border-gray-200 hover:border-emerald-200 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+          >
+            <Users className="w-3.5 h-3.5 text-emerald-600" />
+            <span>+ Khách Hàng Mới</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigateTab?.('finances')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-purple-50 text-gray-800 hover:text-purple-700 border border-gray-200 hover:border-purple-200 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+          >
+            <DollarSign className="w-3.5 h-3.5 text-purple-600" />
+            <span>Sổ Quỹ Thu / Chi</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigateTab?.('products')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+          >
+            <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+            <span>⚠️ Hàng sắp hết tồn</span>
           </button>
         </div>
       </div>
@@ -428,23 +491,23 @@ export const DashboardPage: React.FC = () => {
                     <thead>
                       <tr className="bg-gray-50 text-gray-600 text-xs font-bold uppercase tracking-wider">
                         <th className="py-3 px-4 w-12 text-center">STT</th>
-                        <th className="py-3 px-4 w-28">Mã DM</th>
+                        <th className="py-3 px-4 w-28 text-center">Mã DM</th>
                         <th className="py-3 px-4">Tên Danh Mục Hàng Hóa</th>
-                        <th className="py-3 px-4 text-right">Sản Lượng Bán (ĐVT)</th>
-                        <th className="py-3 px-4 text-right">Doanh Thu (VNĐ)</th>
-                        <th className="py-3 px-4 text-right w-36">Tỷ Lệ Đóng Góp</th>
+                        <th className="py-3 px-4 text-center">Sản Lượng Bán (ĐVT)</th>
+                        <th className="py-3 px-4 text-center">Doanh Thu (VNĐ)</th>
+                        <th className="py-3 px-4 text-center w-36">Tỷ Lệ Đóng Góp</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 text-sm">
                       {revenueVolume?.categoryBreakdown.map((cat, idx) => (
                         <tr key={cat.id} className="hover:bg-gray-50/80 transition-colors">
                           <td className="py-3 px-4 text-center font-medium text-gray-500">{idx + 1}</td>
-                          <td className="py-3 px-4 font-mono font-semibold text-red-600">{cat.code}</td>
+                          <td className="py-3 px-4 font-mono font-semibold text-red-600 text-center">{cat.code}</td>
                           <td className="py-3 px-4 font-medium text-gray-900">{cat.name}</td>
-                          <td className="py-3 px-4 text-right font-semibold text-gray-800">
+                          <td className="py-3 px-4 text-center font-semibold text-gray-800">
                             {new Intl.NumberFormat('vi-VN').format(cat.volume)}
                           </td>
-                          <td className="py-3 px-4 text-right font-bold text-gray-900">
+                          <td className="py-3 px-4 text-center font-bold text-gray-900">
                             {formatVND(cat.revenue)}
                           </td>
                           <td className="py-3 px-4 text-right">
@@ -596,13 +659,13 @@ export const DashboardPage: React.FC = () => {
                     <thead>
                       <tr className="bg-gray-50 text-gray-600 text-xs font-bold uppercase tracking-wider">
                         <th className="py-3 px-4 w-12 text-center">STT</th>
-                        <th className="py-3 px-4 w-28">Mã DM</th>
+                        <th className="py-3 px-4 w-28 text-center">Mã DM</th>
                         <th className="py-3 px-4">Tên Danh Mục</th>
-                        <th className="py-3 px-4 text-right">Doanh Thu (VNĐ)</th>
-                        <th className="py-3 px-4 text-right">Giá Vốn COGS (VNĐ)</th>
-                        <th className="py-3 px-4 text-right">Lợi Nhuận Gộp (VNĐ)</th>
-                        <th className="py-3 px-4 text-right w-28">Biên Lãi (%)</th>
-                        <th className="py-3 px-4 text-right w-28">Tỷ Trọng (%)</th>
+                        <th className="py-3 px-4 text-center">Doanh Thu (VNĐ)</th>
+                        <th className="py-3 px-4 text-center">Giá Vốn COGS (VNĐ)</th>
+                        <th className="py-3 px-4 text-center">Lợi Nhuận Gộp (VNĐ)</th>
+                        <th className="py-3 px-4 text-center w-28">Biên Lãi (%)</th>
+                        <th className="py-3 px-4 text-center w-28">Tỷ Trọng (%)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 text-sm">
@@ -614,7 +677,7 @@ export const DashboardPage: React.FC = () => {
                           }`}
                         >
                           <td className="py-3 px-4 text-center font-medium text-gray-500">{idx + 1}</td>
-                          <td className="py-3 px-4 font-mono font-semibold text-gray-800">{cat.code}</td>
+                          <td className="py-3 px-4 font-mono font-semibold text-gray-800 text-center">{cat.code}</td>
                           <td className="py-3 px-4 font-medium text-gray-900 flex items-center gap-2">
                             {cat.name}
                             {/* CẢNH BÁO MÀU ĐỎ NỔI BẬT NẾU ÂM LỢI NHUẬN CHUẨN ĐẶC TẢ F-D2 */}
@@ -624,14 +687,14 @@ export const DashboardPage: React.FC = () => {
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-right font-medium text-gray-800">
+                          <td className="py-3 px-4 text-center font-medium text-gray-800">
                             {formatVND(cat.revenue)}
                           </td>
-                          <td className="py-3 px-4 text-right font-medium text-amber-700">
+                          <td className="py-3 px-4 text-center font-medium text-amber-700">
                             {formatVND(cat.cogs)}
                           </td>
                           <td
-                            className={`py-3 px-4 text-right font-bold ${
+                            className={`py-3 px-4 text-center font-bold ${
                               cat.isLoss ? 'text-red-600' : 'text-green-700'
                             }`}
                           >

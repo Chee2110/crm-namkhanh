@@ -2,10 +2,17 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 
-const uploadDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+export const getUploadDir = (): string => {
+  const rootBackendUploads = path.join(process.cwd(), 'backend', 'uploads');
+  if (fs.existsSync(rootBackendUploads)) return rootBackendUploads;
+  const cwdUploads = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(cwdUploads)) {
+    fs.mkdirSync(cwdUploads, { recursive: true });
+  }
+  return cwdUploads;
+};
+
+export const uploadDir = getUploadDir();
 
 const imageStorage = multer.diskStorage({
   destination: (req, file, cb) => {

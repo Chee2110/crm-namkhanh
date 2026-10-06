@@ -40,8 +40,14 @@ export class ProductsController {
         name,
         category,
         categoryId,
+        categoryCode,
+        categoryName,
         productTypeId,
+        productTypeCode,
+        productTypeName,
         warehouseId,
+        warehouseCode,
+        warehouseName,
         supplierId,
         supplierName,
         supplierPhone,
@@ -52,6 +58,12 @@ export class ProductsController {
         vatRate,
         stockQuantity,
         minStockLevel,
+        maxStockLevel,
+        brand,
+        specification,
+        subTypeCode,
+        subTypeName,
+        imageUrl,
         color,
         length,
         width,
@@ -71,8 +83,14 @@ export class ProductsController {
         name: String(name).trim(),
         category: category ? String(category).trim() : undefined,
         categoryId: categoryId ? String(categoryId).trim() : undefined,
+        categoryCode: categoryCode ? String(categoryCode).trim() : undefined,
+        categoryName: categoryName ? String(categoryName).trim() : undefined,
         productTypeId: productTypeId ? String(productTypeId).trim() : undefined,
+        productTypeCode: productTypeCode ? String(productTypeCode).trim() : undefined,
+        productTypeName: productTypeName ? String(productTypeName).trim() : undefined,
         warehouseId: warehouseId ? String(warehouseId).trim() : undefined,
+        warehouseCode: warehouseCode ? String(warehouseCode).trim() : undefined,
+        warehouseName: warehouseName ? String(warehouseName).trim() : undefined,
         supplierId: supplierId ? String(supplierId).trim() : undefined,
         supplierName: supplierName ? String(supplierName).trim() : undefined,
         supplierPhone: supplierPhone ? String(supplierPhone).trim() : undefined,
@@ -83,6 +101,12 @@ export class ProductsController {
         vatRate: vatRate !== undefined ? Number(vatRate) : 8,
         stockQuantity: stockQuantity !== undefined ? Number(stockQuantity) : 100,
         minStockLevel: minStockLevel !== undefined ? Number(minStockLevel) : 20,
+        maxStockLevel: maxStockLevel !== undefined ? Number(maxStockLevel) : 1000,
+        brand: brand ? String(brand).trim() : undefined,
+        specification: specification ? String(specification).trim() : undefined,
+        subTypeCode: subTypeCode ? String(subTypeCode).trim() : undefined,
+        subTypeName: subTypeName ? String(subTypeName).trim() : undefined,
+        imageUrl: imageUrl ? String(imageUrl).trim() : undefined,
         color: color ? String(color).trim() : undefined,
         length: length !== undefined && length !== '' && length !== null ? Number(length) : undefined,
         width: width !== undefined && width !== '' && width !== null ? Number(width) : undefined,
@@ -124,10 +148,37 @@ export class ProductsController {
         return errorResponse(res, 'Vui lòng chọn file hình ảnh sản phẩm', 400);
       }
       const imageUrl = `/uploads/${req.file.filename}`;
-      const result = await productsService.updateProduct(id, { imageUrl });
-      return successResponse(res, result, 'Tải lên hình ảnh sản phẩm thành công');
+      if (id) {
+        const result = await productsService.updateProduct(id, { imageUrl });
+        return successResponse(res, result, 'Tải lên hình ảnh sản phẩm thành công');
+      }
+      return successResponse(res, { imageUrl }, 'Tải lên hình ảnh sản phẩm thành công');
     } catch (error: any) {
       return errorResponse(res, error.message || 'Lỗi tải lên hình ảnh sản phẩm', 400);
+    }
+  }
+
+  async proxyImage(req: Request, res: Response) {
+    try {
+      const { url } = req.query;
+      if (!url || typeof url !== 'string') {
+        return errorResponse(res, 'Vui lòng cung cấp URL hình ảnh', 400);
+      }
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return errorResponse(res, 'URL hình ảnh không hợp lệ', 400);
+      }
+      const response = await fetch(url);
+      if (!response.ok) {
+        return errorResponse(res, 'Không thể tải hình ảnh từ nguồn', 400);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const contentType = response.headers.get('content-type') || 'image/png';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(buffer);
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Lỗi proxy hình ảnh', 500);
     }
   }
 }

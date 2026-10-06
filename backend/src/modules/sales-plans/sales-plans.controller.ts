@@ -74,6 +74,16 @@ export class SalesPlansController {
     }
   }
 
+  async syncActuals(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await salesPlansService.syncActuals(id);
+      return successResponse(res, result, 'Đồng bộ số liệu thực tế thành công');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Lỗi đồng bộ số liệu thực tế', 400);
+    }
+  }
+
   async deleteSalesPlan(req: Request, res: Response) {
     try {
       const { id } = req.params;

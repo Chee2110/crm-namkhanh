@@ -4,6 +4,9 @@ export class SalesReportsService {
   async getRevenueReport(view: 'category' | 'product' | 'manager' = 'category') {
     if (view === 'category') {
       const items = await prisma.orderItem.findMany({
+        where: {
+          order: { deliveryStatus: { not: 'CANCELLED' } }
+        },
         include: { product: true }
       });
 
@@ -32,7 +35,11 @@ export class SalesReportsService {
     }
 
     if (view === 'product') {
-      const items = await prisma.orderItem.findMany();
+      const items = await prisma.orderItem.findMany({
+        where: {
+          order: { deliveryStatus: { not: 'CANCELLED' } }
+        }
+      });
       const totalRevenue = items.reduce((sum: number, it: any) => sum + Number(it.total), 0);
       const prodMap: Record<string, { code: string; name: string; unit: string; quantity: number; revenue: number }> = {};
 
@@ -65,6 +72,9 @@ export class SalesReportsService {
 
     // Theo nhân viên kinh doanh
     const orders = await prisma.order.findMany({
+      where: {
+        deliveryStatus: { not: 'CANCELLED' }
+      },
       include: {
         manager: { select: { id: true, fullName: true, code: true } }
       }
@@ -104,6 +114,7 @@ export class SalesReportsService {
       include: {
         manager: { select: { fullName: true, code: true } },
         orders: {
+          where: { deliveryStatus: { not: 'CANCELLED' } },
           select: { totalAmount: true, paidAmount: true, remainingAmount: true }
         }
       },

@@ -10,6 +10,7 @@ export class CustomersService {
     dataScope?: string;
     currentUserId?: string;
     departmentId?: string;
+    highDebtOnly?: boolean;
   }) {
     const where: any = {};
 
@@ -42,7 +43,7 @@ export class CustomersService {
       ];
     }
 
-    return prisma.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where,
       include: {
         manager: {
@@ -50,10 +51,31 @@ export class CustomersService {
         },
         _count: {
           select: { quotations: true, orders: true }
+        },
+        orders: {
+          select: { remainingAmount: true, totalAmount: true }
         }
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    const mapped = customers.map((c: any) => {
+      const totalDebt = (c.orders || []).reduce((sum: number, o: any) => sum + Number(o.remainingAmount || 0), 0);
+      const totalSpent = (c.orders || []).reduce((sum: number, o: any) => sum + Number(o.totalAmount || 0), 0);
+      const { orders: _, ...rest } = c;
+      return {
+        ...rest,
+        totalDebt,
+        totalSpent,
+        isHighDebt: totalDebt > 50000000
+      };
+    });
+
+    if (params.highDebtOnly) {
+      return mapped.filter((c: any) => c.totalDebt > 50000000);
+    }
+
+    return mapped;
   }
 
   async getCustomerById(id: string) {
@@ -94,12 +116,23 @@ export class CustomersService {
     const totalDebt = orders.reduce((sum: number, o: any) => sum + Number(o.remainingAmount), 0);
     const lastOrderDate = orders.length > 0 ? orders[0].orderDate : null;
 
+    const creditLimit = Number(customer.creditLimit) || 50000000;
+    const maxDebtDays = customer.maxDebtDays || 30;
+    const creditUsedPercent = creditLimit > 0 ? Math.min(100, Math.round((totalDebt / creditLimit) * 100)) : 0;
+    const isOverCreditLimit = totalDebt > creditLimit;
+    const availableCredit = Math.max(0, creditLimit - totalDebt);
+
     return {
       ...customer,
       analytics: {
         totalSpent,
         totalPaid,
         totalDebt,
+        creditLimit,
+        maxDebtDays,
+        creditUsedPercent,
+        isOverCreditLimit,
+        availableCredit,
         orderCount: orders.length,
         lastOrderDate
       }
@@ -121,6 +154,8 @@ export class CustomersService {
       notes?: string;
       managerId?: string;
       status?: string;
+      creditLimit?: number | string;
+      maxDebtDays?: number | string;
     },
     creatorId: string
   ) {
@@ -159,7 +194,9 @@ export class CustomersService {
         email: data.email,
         notes: data.notes,
         managerId: data.managerId || creatorId,
-        status: data.status || 'ACTIVE'
+        status: data.status || 'ACTIVE',
+        creditLimit: data.creditLimit !== undefined ? Number(data.creditLimit) : 50000000,
+        maxDebtDays: data.maxDebtDays !== undefined ? Number(data.maxDebtDays) : 30
       },
       include: {
         manager: {
@@ -189,15 +226,83 @@ export class CustomersService {
       }
     }
 
+    const updateData: any = { ...data };
+    if (data.creditLimit !== undefined) {
+      updateData.creditLimit = Number(data.creditLimit);
+    }
+    if (data.maxDebtDays !== undefined) {
+      updateData.maxDebtDays = Number(data.maxDebtDays);
+    }
+
     return prisma.customer.update({
       where: { id },
-      data,
+      data: updateData,
       include: {
         manager: {
           select: { id: true, fullName: true, code: true, email: true }
         }
       }
     });
+  }
+
+  async getCustomerDebtStatement(id: string) {
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: {
+        manager: {
+          select: { id: true, fullName: true, code: true, email: true, phone: true }
+        }
+      }
+    });
+
+    if (!customer) throw new Error('Không tìm thấy khách hàng');
+
+    const orders = await prisma.order.findMany({
+      where: { customerId: id },
+      select: {
+        id: true,
+        code: true,
+        orderDate: true,
+        totalAmount: true,
+        paidAmount: true,
+        remainingAmount: true,
+        deliveryStatus: true,
+        paymentStatus: true
+      },
+      orderBy: { orderDate: 'asc' }
+    });
+
+    const receipts = await prisma.receiptVoucher.findMany({
+      where: { customerId: id, status: { in: ['APPROVED', 'PAID'] } },
+      select: {
+        id: true,
+        code: true,
+        voucherDate: true,
+        amount: true,
+        reason: true,
+        paymentMethod: true
+      },
+      orderBy: { voucherDate: 'asc' }
+    });
+
+    const totalOrdersAmount = orders.reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
+    const totalPaidAmount = receipts.length > 0
+      ? receipts.reduce((sum: number, r: any) => sum + Number(r.amount), 0)
+      : orders.reduce((sum: number, o: any) => sum + Number(o.paidAmount), 0);
+    const remainingDebt = Math.max(0, totalOrdersAmount - totalPaidAmount);
+
+    return {
+      customer,
+      orders,
+      receipts,
+      summary: {
+        totalOrdersAmount,
+        totalPaidAmount,
+        remainingDebt,
+        creditLimit: Number(customer.creditLimit),
+        maxDebtDays: customer.maxDebtDays
+      }
+    };
   }
 
   async deleteCustomer(id: string) {
@@ -257,7 +362,7 @@ export class CustomersService {
     const customer = await prisma.customer.findUnique({ where: { id } });
     if (!customer) throw new Error('Không tìm thấy khách hàng');
 
-    const [quotations, orders, handovers] = await Promise.all([
+    const [quotations, orders, handovers, receipts] = await Promise.all([
       prisma.quotation.findMany({
         where: { customerId: id },
         include: { manager: { select: { fullName: true } } },
@@ -275,10 +380,18 @@ export class CustomersService {
           toUser: { select: { fullName: true } }
         },
         orderBy: { createdAt: 'desc' }
+      }),
+      prisma.receiptVoucher.findMany({
+        where: { customerId: id },
+        include: {
+          createdBy: { select: { fullName: true } },
+          approvedBy: { select: { fullName: true } }
+        },
+        orderBy: { createdAt: 'desc' }
       })
     ]);
 
-    // Gom nhóm timeline theo thời gian
+    // Gom nhóm timeline theo thời gian (Báo giá, Đơn hàng, Phiếu thu, Bàn giao)
     const timeline = [
       ...quotations.map((q: any) => ({
         id: q.id,
@@ -302,6 +415,17 @@ export class CustomersService {
         date: o.createdAt,
         notes: o.notes,
         actor: o.manager?.fullName
+      })),
+      ...receipts.map((r: any) => ({
+        id: r.id,
+        type: 'RECEIPT',
+        title: `Phiếu thu: ${r.code}`,
+        status: r.status,
+        amount: r.amount,
+        paymentMethod: r.paymentMethod,
+        date: r.voucherDate || r.createdAt,
+        notes: r.reason,
+        actor: r.approvedBy?.fullName || r.createdBy?.fullName || 'Kế toán'
       })),
       ...handovers.map((h: any) => ({
         id: h.id,

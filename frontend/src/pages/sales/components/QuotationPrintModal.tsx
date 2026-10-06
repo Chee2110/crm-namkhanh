@@ -1,18 +1,27 @@
 import React from 'react';
-import { Printer, X, FileSpreadsheet } from 'lucide-react';
+import { Printer, X, FileSpreadsheet, Edit2, Trash2 } from 'lucide-react';
 import { Quotation } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
+import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
 
 interface QuotationPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
   quotation: Quotation | null;
+  onEdit?: (quotation: Quotation) => void;
+  onDelete?: (id: string, code: string) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
   isOpen,
   onClose,
-  quotation
+  quotation,
+  onEdit,
+  onDelete,
+  canEdit = true,
+  canDelete = true
 }) => {
   if (!isOpen || !quotation) return null;
 
@@ -97,6 +106,33 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
             </h3>
           </div>
           <div className="flex items-center gap-2">
+            {canEdit && onEdit && quotation.status !== 'ORDERED' && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onEdit(quotation);
+                }}
+                className="btn-secondary !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-sm border-blue-300 text-blue-700 hover:bg-blue-50"
+                title="Chỉnh sửa thông tin báo giá này"
+              >
+                <Edit2 className="w-4 h-4 text-blue-600" />
+                <span>Chỉnh sửa</span>
+              </button>
+            )}
+            {canDelete && onDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  onDelete(quotation.id, quotation.code);
+                }}
+                className="btn-secondary !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-sm border-red-300 text-red-700 hover:bg-red-50"
+                title="Xóa vĩnh viễn báo giá này"
+              >
+                <Trash2 className="w-4 h-4 text-red-600" />
+                <span>Xóa</span>
+              </button>
+            )}
             <button
               onClick={handleExportExcel}
               className="btn-secondary !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-sm border-green-300 text-green-700 hover:bg-green-50"
@@ -270,16 +306,28 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
             </span>
           </div>
 
-          {/* Điều khoản thương mại */}
-          <div className="text-xs font-sans text-gray-700 space-y-1 mb-8 border-l-2 border-[#E53935] pl-3 py-1">
-            <p><strong>1. Thời hạn hiệu lực:</strong> Báo giá có giá trị trong vòng 15 ngày kể từ ngày lập.</p>
-            <p><strong>2. Giao hàng:</strong> Miễn phí vận chuyển tận nơi trong phạm vi nội thành Hà Nội.</p>
-            <p><strong>3. Thanh toán:</strong> Chuyển khoản hoặc tiền mặt theo thỏa thuận hợp đồng.</p>
-            <p>
-              <strong>4. Tài khoản thụ hưởng:</strong> Công ty TNHH Thương mại & Dịch vụ Nam Khánh
-              <br />• Techcombank Chi nhánh Thăng Long - STK: <strong>19036888999018</strong>
-              <br />• Vietcombank Chi nhánh Cầu Giấy - STK: <strong>0011004455667</strong>
-            </p>
+          {/* Điều khoản thương mại & Thông tin thanh toán VietQR */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="col-span-2 text-xs font-sans text-gray-700 space-y-1.5 border-l-2 border-[#E53935] pl-3 py-1">
+              <p><strong>1. Thời hạn hiệu lực:</strong> Báo giá có giá trị trong vòng 15 ngày kể từ ngày lập.</p>
+              <p><strong>2. Giao hàng:</strong> Miễn phí vận chuyển tận nơi trong phạm vi nội thành Hà Nội.</p>
+              <p><strong>3. Thanh toán:</strong> Chuyển khoản hoặc tiền mặt theo thỏa thuận hợp đồng.</p>
+              <p>
+                <strong>4. Tài khoản thụ hưởng:</strong> {NAMKHANH_BANK_INFO.accountName}
+                <br />• {NAMKHANH_BANK_INFO.bankName} ({NAMKHANH_BANK_INFO.bankId}) - STK: <strong className="font-mono text-gray-900">{NAMKHANH_BANK_INFO.accountNo}</strong>
+                <br />• Nội dung CK: <strong className="font-mono text-[#E53935]">{quotation.code}</strong>
+              </p>
+            </div>
+            <div className="flex flex-col items-center justify-center p-2.5 bg-gray-50 rounded-xl border border-gray-200">
+              <img
+                src={generateVietQRUrl(Number(quotation.totalAmount) || 0, quotation.code)}
+                alt="VietQR Payment"
+                className="w-24 h-24 object-contain bg-white p-1 rounded-md border border-gray-100 shadow-xs"
+                crossOrigin="anonymous"
+              />
+              <span className="text-[10px] font-semibold text-gray-700 mt-1">Quét mã tạm ứng / thanh toán</span>
+              <span className="text-[9px] text-gray-400 font-mono">VietQR NAPAS 247</span>
+            </div>
           </div>
 
           {/* Chữ ký 2 bên */}

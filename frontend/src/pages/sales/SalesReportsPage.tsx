@@ -324,7 +324,7 @@ export const SalesReportsPage: React.FC = () => {
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider">
                     <th className="py-3 px-4 w-12 text-center">STT</th>
-                    <th className="py-3 px-4 w-28">Mã</th>
+                    <th className="py-3 px-4 w-28 text-center">Mã</th>
                     <th className="py-3 px-4">
                       {revenueView === 'category'
                         ? 'Nhóm sản phẩm VPP'
@@ -340,8 +340,8 @@ export const SalesReportsPage: React.FC = () => {
                     ) : (
                       <th className="py-3 px-4 w-32 text-center">Số lượng bán</th>
                     )}
-                    <th className="py-3 px-4 w-44 text-right">Doanh thu (VNĐ)</th>
-                    <th className="py-3 px-4 w-56">Tỷ trọng (%)</th>
+                    <th className="py-3 px-4 w-44 text-center">Doanh thu (VNĐ)</th>
+                    <th className="py-3 px-4 w-56 text-center">Tỷ trọng (%)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -364,7 +364,7 @@ export const SalesReportsPage: React.FC = () => {
                         <td className="py-3 px-4 text-center text-gray-500 text-xs font-semibold">
                           {row.stt}
                         </td>
-                        <td className="py-3 px-4 font-mono text-xs font-bold text-gray-700">
+                        <td className="py-3 px-4 font-mono text-xs font-bold text-gray-700 text-center">
                           {row.code}
                         </td>
                         <td className="py-3 px-4 font-semibold text-gray-900">{row.name}</td>
@@ -380,7 +380,7 @@ export const SalesReportsPage: React.FC = () => {
                             {row.quantity?.toLocaleString('vi-VN')}
                           </td>
                         )}
-                        <td className="py-3 px-4 text-right font-bold text-[#E53935]">
+                        <td className="py-3 px-4 text-center font-bold text-[#E53935]">
                           {formatVND(Number(row.revenue))}
                         </td>
                         <td className="py-3 px-4">
@@ -478,12 +478,12 @@ export const SalesReportsPage: React.FC = () => {
                   <tr className="bg-gray-50/80 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider">
                     <th className="py-3 px-4 w-12 text-center">STT</th>
                     <th className="py-3 px-4">Khách hàng</th>
-                    <th className="py-3 px-4">SĐT & MST</th>
+                    <th className="py-3 px-4 text-center">SĐT & MST</th>
                     <th className="py-3 px-4">Phụ trách</th>
                     <th className="py-3 px-4 text-center">Số đơn</th>
-                    <th className="py-3 px-4 text-right">Tổng mua</th>
-                    <th className="py-3 px-4 text-right">Đã trả</th>
-                    <th className="py-3 px-4 text-right">Còn nợ phải thu</th>
+                    <th className="py-3 px-4 text-center">Tổng mua</th>
+                    <th className="py-3 px-4 text-center">Đã trả</th>
+                    <th className="py-3 px-4 text-center">Còn phải thu</th>
                     <th className="py-3 px-4 text-center">Trạng thái</th>
                   </tr>
                 </thead>
@@ -511,7 +511,7 @@ export const SalesReportsPage: React.FC = () => {
                           <div className="font-bold text-gray-900">{c.name}</div>
                           <div className="text-xs font-mono text-gray-500">{c.code}</div>
                         </td>
-                        <td className="py-3 px-4 text-xs">
+                        <td className="py-3 px-4 text-xs text-center">
                           <p className="font-medium text-gray-800">{c.phone}</p>
                           <p className="text-gray-400">MST: {c.taxCode || 'N/A'}</p>
                         </td>
@@ -521,13 +521,13 @@ export const SalesReportsPage: React.FC = () => {
                         <td className="py-3 px-4 text-center font-semibold text-gray-700">
                           {c.orderCount}
                         </td>
-                        <td className="py-3 px-4 text-right font-semibold text-gray-900">
+                        <td className="py-3 px-4 text-center font-semibold text-gray-900">
                           {formatVND(c.totalPurchased)}
                         </td>
-                        <td className="py-3 px-4 text-right font-medium text-emerald-600">
+                        <td className="py-3 px-4 text-center font-medium text-emerald-600">
                           {formatVND(c.totalPaid)}
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-3 px-4 text-center">
                           <span
                             className={`font-bold ${
                               c.totalDebt > 0 ? 'text-[#E53935]' : 'text-gray-400'

@@ -12,10 +12,11 @@ export class SalesOverviewService {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    // 1. Lấy tất cả đơn hàng từ ngày bắt đầu
+    // 1. Lấy tất cả đơn hàng từ ngày bắt đầu (ngoại trừ đơn đã hủy)
     const orders = await prisma.order.findMany({
       where: {
-        orderDate: { gte: startDate }
+        orderDate: { gte: startDate },
+        deliveryStatus: { not: 'CANCELLED' }
       },
       include: {
         customer: { select: { id: true, name: true, code: true, phone: true } },
@@ -64,10 +65,11 @@ export class SalesOverviewService {
       percentage: totalRevenue > 0 ? Math.round((stat.revenue / totalRevenue) * 100) : 0
     }));
 
-    // 3. Doanh thu 12 tháng trong năm hiện tại
+    // 3. Doanh thu 12 tháng trong năm hiện tại (ngoại trừ đơn đã hủy)
     const currentYearOrders = await prisma.order.findMany({
       where: {
-        orderDate: { gte: new Date(now.getFullYear(), 0, 1) }
+        orderDate: { gte: new Date(now.getFullYear(), 0, 1) },
+        deliveryStatus: { not: 'CANCELLED' }
       },
       select: { orderDate: true, totalAmount: true }
     });

@@ -35,6 +35,12 @@
   background-color: var(--color-bg-app);
 }
 
+html {
+  height: 100%;
+  zoom: 0.9;
+  -webkit-text-size-adjust: 100%;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -42,10 +48,17 @@
 }
 
 body {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 100%;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Tùy biến thanh cuộn Scrollbar chuẩn Nam Khánh */
@@ -178,7 +191,7 @@ table td, table th {
 .table-th {
   background-color: #F8FAFC;
   padding: 0.875rem 1rem;
-  text-align: left;
+  text-align: center !important;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -187,6 +200,62 @@ table td, table th {
   border-bottom: 1px solid #E2E8F0;
   white-space: nowrap;
   vertical-align: middle;
+}
+
+/* CĂN GIỮA TIÊU ĐỀ TẤT CẢ CÁC BẢNG TRÊN TOÀN HỆ THỐNG */
+table thead th,
+.table-th,
+.table thead th,
+table th {
+  position: relative;
+  text-align: center !important;
+}
+
+table thead th > div,
+.table-th > div,
+table th > div {
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+/* Cho phép chỉ định th căn trái khi cần */
+table thead th.th-left,
+.table-th.th-left,
+table th.th-left {
+  text-align: left !important;
+}
+
+table thead th.th-left > div,
+.table-th.th-left > div,
+table th.th-left > div {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+/* GẠCH NGĂN CÁCH NHỎ VÀ MỎNG GIỮA CÁC CỘT TIÊU ĐỀ BẢNG */
+table thead th:not(:last-child)::after,
+.table-th:not(:last-child)::after,
+table th:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 14px;
+  width: 1px;
+  background-color: #CBD5E1;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Ẩn gạch ngăn cách ở cột cuối cùng hoặc cột thao tác sticky */
+table thead th:last-child::after,
+.table-th:last-child::after,
+table th:last-child::after,
+th.sticky-action-th::after,
+.sticky-action-th::after {
+  display: none !important;
 }
 
 .table-td {
@@ -452,5 +521,12 @@ tr[data-selected="true"] .sticky-action-td {
   }
   .main-content-layout.sidebar-collapsed {
     margin-left: 0 !important;
+  }
+}
+
+/* Đảm bảo khi in ấn tài liệu / báo giá / phiếu xuất kho, văn bản về tỷ lệ chuẩn 100% (A4) */
+@media print {
+  html {
+    zoom: 1 !important;
   }
 }

@@ -17,13 +17,20 @@ import {
   UserPlus,
   Columns,
   RotateCcw,
-  GripVertical
+  GripVertical,
+  ArrowLeft,
+  Edit2,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Quotation, Customer, Product } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { QuotationPrintModal } from './components/QuotationPrintModal';
+import { ImportItemsModal } from '../../components/common/ImportItemsModal';
 import { useTableResize } from '../../hooks/useTableResize';
+import { ProductSearchSelect } from '../../components/common/ProductSearchSelect';
+import { Toast } from '../../components/common/Toast';
 
 export const QuotationsPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -79,21 +86,31 @@ export const QuotationsPage: React.FC = () => {
 
   const defaultQuotationWidths: Record<string, number> = {
     stt: 60,
-    code: 140,
+    code: 150,
     customer: 280,
-    date: 120,
-    validUntil: 120,
-    manager: 140,
-    totalAmount: 150,
-    status: 130,
-    actions: 200
+    date: 130,
+    validUntil: 150,
+    manager: 160,
+    totalAmount: 170,
+    status: 140,
+    actions: 220
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'quotations',
+    tableKey: 'quotations_v3',
     defaultWidths: defaultQuotationWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 180 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      code: 120,
+      customer: 180,
+      date: 110,
+      validUntil: 130,
+      manager: 140,
+      totalAmount: 150,
+      status: 120,
+      actions: 180
+    }
   });
 
   const [draggedCol, setDraggedCol] = useState<string | null>(null);
@@ -168,9 +185,13 @@ export const QuotationsPage: React.FC = () => {
     localStorage.removeItem('namkhanh_quotations_col_order');
   };
 
-  // Modal Create / Edit Quotation
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Trang Tạo Báo giá mới (thay thế modal popup thành trang riêng)
+  const [isCreatePage, setIsCreatePage] = useState(false);
+  const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [convertingQuoteId, setConvertingQuoteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     customerId: '',
     date: new Date().toISOString().split('T')[0],
@@ -192,6 +213,33 @@ export const QuotationsPage: React.FC = () => {
   // Modal Print / Preview A4
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isImportItemsModalOpen, setIsImportItemsModalOpen] = useState(false);
+
+  // Modal xác nhận hủy bỏ soạn thảo báo giá (tránh mất dữ liệu)
+  const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
+
+  const isFormDirty = () => {
+    return Boolean(
+      formData.customerId ||
+      formData.items.length > 0 ||
+      formData.notes?.trim()
+    );
+  };
+
+  const handleCancelCreate = () => {
+    if (isFormDirty()) {
+      setIsDiscardModalOpen(true);
+    } else {
+      setIsCreatePage(false);
+      setEditingQuotation(null);
+    }
+  };
+
+  const handleConfirmDiscard = () => {
+    setIsDiscardModalOpen(false);
+    setIsCreatePage(false);
+    setEditingQuotation(null);
+  };
 
   // Modal Tạo nhanh Khách hàng mới trong Form Báo giá
   const [isQuickCustomerModalOpen, setIsQuickCustomerModalOpen] = useState(false);
@@ -244,6 +292,145 @@ export const QuotationsPage: React.FC = () => {
     }
   };
 
+  const renderQuickCustomerModal = () => {
+    if (!isQuickCustomerModalOpen) return null;
+    return (
+      <div className="modal-overlay fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" style={{ zIndex: 1100 }}>
+        <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1101] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '540px' }}>
+          <div className="modal-header">
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <UserPlus size={18} color="#E53935" />
+              <span>Tạo Nhanh Khách Hàng Mới</span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsQuickCustomerModalOpen(false)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <form onSubmit={handleQuickCreateCustomer}>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              {quickCustomerError && (
+                <div style={{ padding: '0.5rem 0.75rem', backgroundColor: '#FEE2E2', color: '#B91C1C', borderRadius: '0.375rem', fontSize: '12.5px' }}>
+                  {quickCustomerError}
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                  Tên công ty / Tên khách hàng *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Công ty Cổ phần Xây dựng Hà Nội..."
+                  className="input"
+                  value={quickCustomerData.name}
+                  onChange={(e) => setQuickCustomerData({ ...quickCustomerData, name: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                    Số điện thoại *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="0912..."
+                    className="input"
+                    value={quickCustomerData.phone}
+                    onChange={(e) => setQuickCustomerData({ ...quickCustomerData, phone: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                    Mã số thuế
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="0108..."
+                    className="input"
+                    value={quickCustomerData.taxCode}
+                    onChange={(e) => setQuickCustomerData({ ...quickCustomerData, taxCode: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                    Người liên hệ
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Anh Tuấn / Chị Mai..."
+                    className="input"
+                    value={quickCustomerData.contactPerson}
+                    onChange={(e) => setQuickCustomerData({ ...quickCustomerData, contactPerson: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                    Loại khách hàng
+                  </label>
+                  <select
+                    className="input"
+                    value={quickCustomerData.customerType}
+                    onChange={(e) => setQuickCustomerData({ ...quickCustomerData, customerType: e.target.value })}
+                  >
+                    <option value="ENTERPRISE">Doanh nghiệp</option>
+                    <option value="HOUSEHOLD">Hộ kinh doanh</option>
+                    <option value="ORGANIZATION">Cơ quan tổ chức</option>
+                    <option value="SCHOOL">Trường học</option>
+                    <option value="INDIVIDUAL">Cá nhân</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                  Địa chỉ giao nhận
+                </label>
+                <input
+                  type="text"
+                  placeholder="Số nhà, đường, quận/huyện..."
+                  className="input"
+                  value={quickCustomerData.address}
+                  onChange={(e) => setQuickCustomerData({ ...quickCustomerData, address: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setIsQuickCustomerModalOpen(false)}
+                className="btn btn-secondary"
+                disabled={quickCustomerLoading}
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={quickCustomerLoading}
+              >
+                {quickCustomerLoading ? 'Đang tạo...' : 'Lưu & Chọn khách này'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -272,6 +459,7 @@ export const QuotationsPage: React.FC = () => {
   }, [search, statusFilter]);
 
   const openAddModal = () => {
+    setEditingQuotation(null);
     setFormData({
       customerId: customers[0]?.id || '',
       date: new Date().toISOString().split('T')[0],
@@ -292,7 +480,53 @@ export const QuotationsPage: React.FC = () => {
       ]
     });
     setFormError(null);
-    setIsModalOpen(true);
+    setIsCreatePage(true);
+  };
+
+  const openEditModal = (q: Quotation) => {
+    setEditingQuotation(q);
+    setFormData({
+      customerId: q.customerId,
+      date: q.date ? new Date(q.date).toISOString().split('T')[0] : '',
+      validUntil: q.validUntil ? new Date(q.validUntil).toISOString().split('T')[0] : '',
+      status: q.status || 'DRAFT',
+      vatRate: q.vatRate ?? 8,
+      notes: q.notes || '',
+      items: (q.items && q.items.length > 0)
+        ? q.items.map((it) => ({
+            productId: it.productId || '',
+            productCode: it.productCode,
+            productName: it.productName,
+            unit: it.unit,
+            quantity: Number(it.quantity) || 1,
+            unitPrice: Number(it.unitPrice) || 0,
+            vatRate: it.vatRate !== undefined ? Number(it.vatRate) : (q.vatRate ?? 8)
+          }))
+        : []
+    });
+    setFormError(null);
+    setIsPrintModalOpen(false);
+    setSelectedQuotation(null);
+    setIsCreatePage(true);
+  };
+
+  const handleDelete = async (id: string, code: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn báo giá [${code}] không?`)) {
+      return;
+    }
+    try {
+      await api.delete(`/quotations/${id}`);
+      setToastMessage(`Đã xóa thành công báo giá [${code}]!`);
+      setIsPrintModalOpen(false);
+      setSelectedQuotation(null);
+      if (isCreatePage && editingQuotation?.id === id) {
+        setIsCreatePage(false);
+        setEditingQuotation(null);
+      }
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Có lỗi xảy ra khi xóa báo giá');
+    }
   };
 
   const handleAddItem = () => {
@@ -308,6 +542,50 @@ export const QuotationsPage: React.FC = () => {
           unit: defaultProd?.unit || 'Cái',
           quantity: 1,
           unitPrice: defaultProd?.sellingPrice || 0,
+          vatRate: prev.vatRate
+        }
+      ]
+    }));
+  };
+
+  const handleBulkImportItems = (importedItems: any[]) => {
+    setFormData((prev) => {
+      const validExisting = prev.items.filter((it) => it.productId || it.productCode);
+      return {
+        ...prev,
+        items: [...validExisting, ...importedItems]
+      };
+    });
+    setToastMessage(`Đã nhập thành công ${importedItems.length} sản phẩm từ file Excel/CSV!`);
+  };
+
+  const handleProductSelect = (index: number, product: Product) => {
+    setFormData((prev) => {
+      const updated = [...prev.items];
+      updated[index] = {
+        ...updated[index],
+        productId: product.id,
+        productCode: product.code,
+        productName: product.name,
+        unit: product.unit || 'Cái',
+        unitPrice: Number(product.sellingPrice) || 0
+      };
+      return { ...prev, items: updated };
+    });
+  };
+
+  const handleQuickAddProduct = (product: Product) => {
+    setFormData((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          productId: product.id,
+          productCode: product.code,
+          productName: product.name,
+          unit: product.unit || 'Cái',
+          quantity: 1,
+          unitPrice: Number(product.sellingPrice) || 0,
           vatRate: prev.vatRate
         }
       ]
@@ -364,11 +642,20 @@ export const QuotationsPage: React.FC = () => {
     }
 
     try {
-      await api.post('/quotations', formData);
-      setIsModalOpen(false);
+      setIsSubmitting(true);
+      if (editingQuotation) {
+        await api.put(`/quotations/${editingQuotation.id}`, formData);
+        setToastMessage('Đã cập nhật thành công');
+      } else {
+        await api.post('/quotations', formData);
+      }
+      setIsCreatePage(false);
+      setEditingQuotation(null);
       loadData();
     } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Lỗi khi tạo báo giá');
+      setFormError(err.response?.data?.message || 'Lỗi khi lưu báo giá');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -383,11 +670,14 @@ export const QuotationsPage: React.FC = () => {
     }
 
     try {
+      setConvertingQuoteId(quote.id);
       await api.post(`/quotations/${quote.id}/convert-to-order`);
       alert('Đã chuyển đổi thành Đơn hàng thành công! Vui lòng kiểm tra trang Đơn hàng.');
       loadData();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Lỗi khi chuyển đổi đơn hàng');
+    } finally {
+      setConvertingQuoteId(null);
     }
   };
 
@@ -523,12 +813,432 @@ export const QuotationsPage: React.FC = () => {
         return <span className="badge badge-blue">Đã gửi</span>;
       case 'CONFIRMED':
         return <span className="badge badge-green">Đã chốt</span>;
+      case 'ORDERED':
+        return (
+          <span
+            className="badge"
+            style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE' }}
+          >
+            Đã lên đơn
+          </span>
+        );
       case 'CANCELLED':
         return <span className="badge badge-red">Đã hủy</span>;
       default:
         return <span className="badge badge-gray">{status}</span>;
     }
   };
+
+  if (isCreatePage) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Thanh tiêu đề & Điều hướng trang Tạo Báo Giá */}
+        <div
+          className="card"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            padding: '1rem 1.25rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={handleCancelCreate}
+              className="btn btn-secondary btn-sm flex items-center gap-1.5 cursor-pointer"
+              title="Quay lại danh sách báo giá"
+            >
+              <ArrowLeft size={16} />
+              <span>Quay lại</span>
+            </button>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <FileSpreadsheet size={20} color="#E53935" />
+                <span>{editingQuotation ? `Chỉnh Sửa Báo Giá [${editingQuotation.code}]` : 'Lập Báo Giá Văn Phòng Phẩm Mới'}</span>
+              </h2>
+              <p style={{ margin: '0.2rem 0 0 0', fontSize: '12px', color: '#6B7280' }}>
+                {editingQuotation
+                  ? 'Cập nhật thông tin khách hàng, thời hạn hiệu lực và danh mục các sản phẩm báo giá'
+                  : 'Nhập thông tin khách hàng, thời hạn hiệu lực và danh mục các sản phẩm báo giá'}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {editingQuotation && hasPermission('B_QUOTATIONS', 'delete') && (
+              <button
+                type="button"
+                onClick={() => handleDelete(editingQuotation.id, editingQuotation.code)}
+                className="btn btn-secondary btn-sm flex items-center gap-1.5 cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                title="Xóa báo giá này"
+              >
+                <Trash2 size={15} />
+                <span>Xóa báo giá</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleCancelCreate}
+              className="btn btn-secondary btn-sm cursor-pointer"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="btn btn-primary btn-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>Đang lưu báo giá...</span>
+                </>
+              ) : (
+                <>
+                  <Plus size={15} />
+                  <span>{editingQuotation ? 'Cập nhật Báo Giá' : 'Lưu & Tạo Báo Giá'}</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Card Form Nhập Liệu Báo Giá */}
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {formError && (
+              <div style={{ padding: '0.625rem 1rem', backgroundColor: '#FEE2E2', color: '#B91C1C', borderRadius: '0.375rem', fontSize: '13px' }}>
+                {formError}
+              </div>
+            )}
+
+            {/* Thông tin khách hàng & ngày lập */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label style={{ fontSize: '12.5px', fontWeight: '600', color: '#374151' }}>Khách hàng nhận báo giá *</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickCustomerError(null);
+                      setIsQuickCustomerModalOpen(true);
+                    }}
+                    className="text-[#E53935] hover:text-[#C62828] text-xs font-semibold flex items-center gap-1 cursor-pointer bg-transparent border-none"
+                    title="Tạo nhanh khách hàng mới trực tiếp tại đây"
+                  >
+                    <UserPlus size={13} />
+                    <span>+ Tạo nhanh KH</span>
+                  </button>
+                </div>
+                <select
+                  className="input"
+                  value={formData.customerId}
+                  onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+                  required
+                >
+                  <option value="">-- Chọn khách hàng nhận báo giá --</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.code}) - {c.phone}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Ngày báo giá</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Hiệu lực đến ngày</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={formData.validUntil}
+                  onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+                />
+              </div>
+
+              {editingQuotation && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Trạng thái báo giá</label>
+                  <select
+                    className="input"
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    <option value="DRAFT">Bản thảo</option>
+                    <option value="NEGOTIATING">Đang đàm phán</option>
+                    <option value="SENT">Đã gửi</option>
+                    <option value="CONFIRMED">Đã chốt</option>
+                    <option value="ORDERED">Đã lên đơn</option>
+                    <option value="CANCELLED">Đã hủy</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* BẢNG DANH SÁCH MẶT HÀNG VĂN PHÒNG PHẨM */}
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '0.75rem', padding: '1rem', backgroundColor: '#F9FAFB' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <span style={{ fontWeight: '700', fontSize: '13.5px', color: '#1F2937' }}>
+                  Danh mục hàng hóa báo giá ({formData.items.length})
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, maxWidth: '480px', justifyContent: 'flex-end' }}>
+                  <ProductSearchSelect
+                    products={products}
+                    onSelect={handleQuickAddProduct}
+                    placeholder="+ Tìm kiếm & thêm nhanh sản phẩm..."
+                    clearOnSelect={true}
+                    minWidth={360}
+                  />
+                  <button type="button" onClick={handleAddItem} className="btn btn-secondary btn-sm flex items-center gap-1 shrink-0" title="Thêm dòng sản phẩm">
+                    <Plus size={14} />
+                    <span>Thêm dòng</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsImportItemsModalOpen(true)}
+                    className="btn btn-secondary btn-sm flex items-center gap-1 shrink-0 text-emerald-700 bg-emerald-50 border-emerald-300 hover:bg-emerald-100"
+                    title="Nhập danh sách sản phẩm từ file Excel hoặc CSV"
+                  >
+                    <FileSpreadsheet size={14} className="text-emerald-600" />
+                    <span>Nhập Excel/CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ overflowX: 'auto', backgroundColor: '#FFFFFF', borderRadius: '0.5rem', border: '1px solid #E5E7EB' }}>
+                <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#F9FAFB' }}>
+                      <th style={{ width: '50px', textAlign: 'center' }}>STT</th>
+                      <th style={{ minWidth: '300px', textAlign: 'center' }}>Tên sản phẩm VPP (Nhập tìm kiếm)</th>
+                      <th style={{ width: '90px', textAlign: 'center' }}>ĐVT</th>
+                      <th style={{ width: '110px', textAlign: 'center' }}>Số lượng</th>
+                      <th style={{ width: '140px', textAlign: 'center' }}>Đơn giá (VNĐ)</th>
+                      <th style={{ width: '150px', textAlign: 'center' }}>Thành tiền</th>
+                      <th style={{ width: '50px', textAlign: 'center' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formData.items.map((it, idx) => {
+                      const itemAmount = it.quantity * it.unitPrice;
+                      return (
+                        <tr key={idx} style={{ borderTop: '1px solid #F3F4F6' }}>
+                          <td style={{ textAlign: 'center', color: '#6B7280' }}>{idx + 1}</td>
+                          <td style={{ padding: '0.35rem 0.5rem', minWidth: '300px' }}>
+                            <ProductSearchSelect
+                              products={products}
+                              selectedProductId={it.productId}
+                              valueDisplay={it.productName ? `[${it.productCode}] ${it.productName}` : ''}
+                              onSelect={(product) => handleProductSelect(idx, product)}
+                              placeholder="Nhập tên hoặc mã sản phẩm..."
+                              minWidth={320}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              className="input"
+                              style={{ padding: '0.4rem 0.5rem', fontSize: '12.5px', textAlign: 'center' }}
+                              value={it.unit}
+                              onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min="1"
+                              className="input"
+                              style={{ padding: '0.4rem 0.5rem', fontSize: '12.5px', textAlign: 'center' }}
+                              value={it.quantity}
+                              onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1000"
+                              className="input"
+                              style={{ padding: '0.4rem 0.5rem', fontSize: '12.5px', textAlign: 'center' }}
+                              value={it.unitPrice}
+                              onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
+                            />
+                          </td>
+                          <td style={{ textAlign: 'center', fontWeight: '600', color: '#111827' }}>
+                            {formatMoney(itemAmount)}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {formData.items.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(idx)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444' }}
+                                title="Xóa dòng"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Tổng kết tiền & Ghi chú */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>
+                  Ghi chú / Điều khoản giao hàng
+                </label>
+                <textarea
+                  className="input"
+                  rows={4}
+                  placeholder="Ví dụ: Báo giá đã bao gồm chi phí vận chuyển tận nơi trong nội thành Hà Nội..."
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ width: '100%', maxWidth: '360px', backgroundColor: '#FAFAFA', padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: '#4B5563' }}>Cộng tiền hàng:</span>
+                    <strong style={{ color: '#111827' }}>{formatMoney(subtotal)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                    <span style={{ color: '#4B5563' }}>Thuế suất VAT:</span>
+                    <select
+                      className="input"
+                      style={{ width: '85px', padding: '0.25rem 0.5rem' }}
+                      value={formData.vatRate}
+                      onChange={(e) => setFormData({ ...formData, vatRate: Number(e.target.value) })}
+                    >
+                      <option value="8">8%</option>
+                      <option value="10">10%</option>
+                      <option value="0">0%</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#6B7280' }}>
+                    <span>Tiền thuế VAT:</span>
+                    <span>{formatMoney(vatAmount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: '700', color: '#E53935', paddingTop: '0.75rem', borderTop: '1px solid #E5E7EB' }}>
+                    <span>TỔNG CỘNG:</span>
+                    <span>{formatMoney(totalAmount)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', paddingTop: '1rem', borderTop: '1px solid #E5E7EB' }}>
+              <div>
+                {editingQuotation && hasPermission('B_QUOTATIONS', 'delete') && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(editingQuotation.id, editingQuotation.code)}
+                    className="btn btn-secondary text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 flex items-center gap-1.5 cursor-pointer"
+                    title="Xóa vĩnh viễn báo giá này"
+                  >
+                    <Trash2 size={16} />
+                    <span>Xóa báo giá</span>
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={handleCancelCreate}
+                  className="btn btn-secondary cursor-pointer"
+                >
+                  Hủy
+                </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="btn btn-primary flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Đang lưu báo giá...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus size={16} />
+                    <span>{editingQuotation ? 'Cập nhật Báo Giá' : 'Lưu & Tạo Báo Giá'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </form>
+        </div>
+
+        {/* Quick Customer Modal */}
+        {renderQuickCustomerModal()}
+
+        {/* MODAL IMPORT SẢN PHẨM TỪ EXCEL/CSV */}
+        <ImportItemsModal
+          isOpen={isImportItemsModalOpen}
+          onClose={() => setIsImportItemsModalOpen(false)}
+          products={products}
+          onImport={handleBulkImportItems}
+          defaultVatRate={formData.vatRate || 8}
+        />
+
+        {/* Modal Xác nhận hủy bỏ thông tin báo giá (chống mất dữ liệu) */}
+        {isDiscardModalOpen && (
+          <div className="modal-overlay fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-bold text-gray-900 mb-1.5">
+                  Hủy bỏ thông tin đang soạn?
+                </h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Bạn đã nhập thông tin hoặc sản phẩm báo giá. Nếu rời khỏi bây giờ, tất cả dữ liệu chưa lưu sẽ bị mất hoàn toàn.
+                </p>
+              </div>
+              <div className="bg-gray-50 px-5 py-3.5 flex justify-end gap-2.5 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsDiscardModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  Tiếp tục soạn thảo
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDiscard}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 cursor-pointer transition-colors"
+                >
+                  Xác nhận hủy & Thoát
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -568,6 +1278,7 @@ export const QuotationsPage: React.FC = () => {
             <option value="NEGOTIATING">Đang đàm phán</option>
             <option value="SENT">Đã gửi</option>
             <option value="CONFIRMED">Đã chốt</option>
+            <option value="ORDERED">Đã lên đơn</option>
             <option value="CANCELLED">Đã hủy</option>
           </select>
         </div>
@@ -667,17 +1378,11 @@ export const QuotationsPage: React.FC = () => {
                       onDragOver={(e) => handleDragOver(e, colKey)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, colKey)}
-                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden ${
+                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${
                         colKey === 'actions' ? 'sticky-action-th' : ''
                       } ${
                         dragOverCol === colKey ? 'bg-red-100 border-l-2 border-[#E53935]' : ''
-                      } ${draggedCol === colKey ? 'opacity-50' : ''} ${
-                        colKey === 'stt' || colKey === 'status' || colKey === 'actions'
-                          ? 'text-center'
-                          : colKey === 'totalAmount'
-                          ? 'text-right'
-                          : 'text-left'
-                      }`}
+                      } ${draggedCol === colKey ? 'opacity-50' : ''}`}
                       style={{
                         width: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 120}px`,
                         position: colKey === 'actions' ? 'sticky' : 'relative',
@@ -686,18 +1391,12 @@ export const QuotationsPage: React.FC = () => {
                       title={colKey !== 'actions' && colKey !== 'stt' ? 'Kéo thả để thay đổi vị trí cột' : undefined}
                     >
                       <div
-                        className={`inline-flex items-center gap-1.5 overflow-hidden w-full ${
-                          colKey === 'stt' || colKey === 'status' || colKey === 'actions'
-                            ? 'justify-center'
-                            : colKey === 'totalAmount'
-                            ? 'justify-end'
-                            : 'justify-start'
-                        }`}
+                        className="inline-flex items-center justify-center gap-1.5 w-full"
                       >
                         {colKey !== 'actions' && colKey !== 'stt' && (
                           <GripVertical size={13} className="text-gray-400 opacity-70 shrink-0" />
                         )}
-                        <span className="truncate">{columnLabels[colKey]}</span>
+                        <span className="whitespace-nowrap select-none font-semibold">{columnLabels[colKey]}</span>
                       </div>
                       {colKey !== 'actions' && (
                         <div
@@ -732,7 +1431,14 @@ export const QuotationsPage: React.FC = () => {
                 </tr>
               ) : (
                 quotations.map((q, idx) => (
-                  <tr key={q.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr
+                    key={q.id}
+                    onClick={() => {
+                      setSelectedQuotation(q);
+                      setIsPrintModalOpen(true);
+                    }}
+                    className="hover:bg-red-50/40 transition-colors cursor-pointer"
+                  >
                     {columnOrder
                       .filter((k) => visibleColumns[k])
                       .map((colKey) => {
@@ -745,7 +1451,7 @@ export const QuotationsPage: React.FC = () => {
                             );
                           case 'code':
                             return (
-                              <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden">
+                              <td key={colKey} className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
                                 <span className="font-bold text-[#E53935] font-mono text-xs">{q.code}</span>
                               </td>
                             );
@@ -796,7 +1502,7 @@ export const QuotationsPage: React.FC = () => {
                             return (
                               <td
                                 key={colKey}
-                                className="py-3 px-3.5 text-right font-bold text-gray-900 text-sm whitespace-nowrap overflow-hidden tabular-nums"
+                                className="py-3 px-3.5 text-center font-bold text-gray-900 text-sm whitespace-nowrap overflow-hidden tabular-nums"
                               >
                                 {formatMoney(q.totalAmount)}
                               </td>
@@ -809,7 +1515,16 @@ export const QuotationsPage: React.FC = () => {
                             );
                           case 'actions':
                             return (
-                              <td key={colKey} className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
+                              <td
+                                key={colKey}
+                                onClick={(e) => e.stopPropagation()}
+                                className="py-2.5 px-2 text-center sticky-action-td whitespace-nowrap bg-white overflow-hidden"
+                                style={{
+                                  width: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 220}px`,
+                                  minWidth: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 220}px`,
+                                  maxWidth: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 220}px`
+                                }}
+                              >
                               <div
                                 style={{
                                   display: 'flex',
@@ -828,6 +1543,24 @@ export const QuotationsPage: React.FC = () => {
                                 >
                                   <Printer size={14} />
                                 </button>
+                                {hasPermission('B_QUOTATIONS', 'update') && (
+                                  <button
+                                    onClick={() => openEditModal(q)}
+                                    className="btn btn-secondary btn-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                    title="Chỉnh sửa báo giá"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                )}
+                                {hasPermission('B_QUOTATIONS', 'delete') && (
+                                  <button
+                                    onClick={() => handleDelete(q.id, q.code)}
+                                    className="btn btn-secondary btn-sm text-red-600 hover:text-red-800 hover:bg-red-50"
+                                    title="Xóa báo giá"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleExportSingleQuotationExcel(q)}
                                   className="btn btn-secondary btn-sm"
@@ -838,13 +1571,27 @@ export const QuotationsPage: React.FC = () => {
                                 {q.status === 'CONFIRMED' && (
                                   <button
                                     onClick={() => handleConvertToOrder(q)}
-                                    className="btn btn-primary btn-sm"
+                                    disabled={convertingQuoteId === q.id}
+                                    className="btn btn-primary btn-sm disabled:opacity-60 disabled:cursor-not-allowed"
                                     title="Tạo Đơn hàng từ Báo giá này"
                                     style={{ backgroundColor: '#16A34A', borderColor: '#16A34A' }}
                                   >
-                                    <ShoppingBag size={14} />
-                                    <span>Tạo đơn</span>
+                                    {convertingQuoteId === q.id ? (
+                                      <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                      <ShoppingBag size={14} />
+                                    )}
                                   </button>
+                                )}
+                                {q.status === 'ORDERED' && (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium"
+                                    style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE' }}
+                                    title="Báo giá đã được lên đơn hàng thành công"
+                                  >
+                                    <CheckCircle2 size={13} />
+                                    Đã lên đơn
+                                  </span>
                                 )}
                                 {q.status === 'DRAFT' && (
                                   <button
@@ -879,373 +1626,33 @@ export const QuotationsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL TẠO BÁO GIÁ MỚI */}
-      {isModalOpen && (
-        <div className="modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1001] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '900px' }}>
-            <div className="modal-header">
-              <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: '700', color: '#111827' }}>
-                Lập Báo giá Văn phòng phẩm mới
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '75vh', overflowY: 'auto' }}>
-                {formError && (
-                  <div style={{ padding: '0.625rem', backgroundColor: '#FEE2E2', color: '#B91C1C', borderRadius: '0.375rem', fontSize: '13px' }}>
-                    {formError}
-                  </div>
-                )}
-
-                {/* Thông tin khách hàng & ngày lập */}
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.75rem' }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                      <label style={{ fontSize: '12.5px', fontWeight: '500' }}>Khách hàng *</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setQuickCustomerError(null);
-                          setIsQuickCustomerModalOpen(true);
-                        }}
-                        className="text-[#E53935] hover:text-[#C62828] text-xs font-semibold flex items-center gap-1 cursor-pointer bg-transparent border-none"
-                        title="Tạo nhanh khách hàng mới trực tiếp tại đây"
-                      >
-                        <UserPlus size={13} />
-                        <span>+ Tạo nhanh KH</span>
-                      </button>
-                    </div>
-                    <select
-                      className="input"
-                      value={formData.customerId}
-                      onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-                      required
-                    >
-                      <option value="">-- Chọn khách hàng nhận báo giá --</option>
-                      {customers.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.code}) - {c.phone}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '500', marginBottom: '0.25rem' }}>Ngày báo giá</label>
-                    <input
-                      type="date"
-                      className="input"
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '500', marginBottom: '0.25rem' }}>Hiệu lực đến</label>
-                    <input
-                      type="date"
-                      className="input"
-                      value={formData.validUntil}
-                      onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                {/* BẢNG DANH SÁCH MẶT HÀNG VĂN PHÒNG PHẨM */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <span style={{ fontWeight: '700', fontSize: '13px', color: '#374151' }}>
-                      Danh mục hàng hóa báo giá ({formData.items.length})
-                    </span>
-                    <button type="button" onClick={handleAddItem} className="btn btn-secondary btn-sm">
-                      <Plus size={14} />
-                      <span>Thêm dòng sản phẩm</span>
-                    </button>
-                  </div>
-
-                  <table className="table" style={{ border: '1px solid #E5E7EB', borderRadius: '0.5rem' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#F9FAFB' }}>
-                        <th style={{ width: '40px' }}>STT</th>
-                        <th style={{ width: '320px' }}>Tên sản phẩm VPP</th>
-                        <th style={{ width: '80px' }}>ĐVT</th>
-                        <th style={{ width: '100px' }}>Số lượng</th>
-                        <th style={{ width: '130px' }}>Đơn giá (VNĐ)</th>
-                        <th style={{ width: '140px', textAlign: 'right' }}>Thành tiền</th>
-                        <th style={{ width: '50px' }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {formData.items.map((it, idx) => {
-                        const itemAmount = it.quantity * it.unitPrice;
-                        return (
-                          <tr key={idx}>
-                            <td style={{ textAlign: 'center', color: '#6B7280' }}>{idx + 1}</td>
-                            <td>
-                              <select
-                                className="input"
-                                style={{ padding: '0.35rem 0.5rem', fontSize: '12.5px' }}
-                                value={it.productId}
-                                onChange={(e) => handleItemChange(idx, 'productId', e.target.value)}
-                              >
-                                {products.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    [{p.code}] {p.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td>
-                              <input
-                                type="text"
-                                className="input"
-                                style={{ padding: '0.35rem 0.5rem', fontSize: '12.5px' }}
-                                value={it.unit}
-                                onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
-                              />
-                            </td>
-                            <td>
-                              <input
-                                type="number"
-                                min="1"
-                                className="input"
-                                style={{ padding: '0.35rem 0.5rem', fontSize: '12.5px' }}
-                                value={it.quantity}
-                                onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                              />
-                            </td>
-                            <td>
-                              <input
-                                type="number"
-                                min="0"
-                                step="1000"
-                                className="input"
-                                style={{ padding: '0.35rem 0.5rem', fontSize: '12.5px' }}
-                                value={it.unitPrice}
-                                onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
-                              />
-                            </td>
-                            <td style={{ textAlign: 'right', fontWeight: '600', color: '#111827' }}>
-                              {formatMoney(itemAmount)}
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              {formData.items.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveItem(idx)}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444' }}
-                                >
-                                  <Trash2 size={15} />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Tổng kết tiền */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <div style={{ width: '320px', backgroundColor: '#FAFAFA', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                      <span>Cộng tiền hàng:</span>
-                      <strong>{formatMoney(subtotal)}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                      <span>Thuế suất VAT:</span>
-                      <select
-                        className="input"
-                        style={{ width: '80px', padding: '0.25rem 0.5rem' }}
-                        value={formData.vatRate}
-                        onChange={(e) => setFormData({ ...formData, vatRate: Number(e.target.value) })}
-                      >
-                        <option value="8">8%</option>
-                        <option value="10">10%</option>
-                        <option value="0">0%</option>
-                      </select>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#6B7280' }}>
-                      <span>Tiền thuế VAT:</span>
-                      <span>{formatMoney(vatAmount)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: '700', color: '#E53935', paddingTop: '0.5rem', borderTop: '1px solid #E5E7EB' }}>
-                      <span>TỔNG CỘNG:</span>
-                      <span>{formatMoney(totalAmount)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '500', marginBottom: '0.25rem' }}>Ghi chú / Điều khoản giao hàng</label>
-                  <textarea
-                    className="input"
-                    rows={2}
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
-                  Hủy
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Lưu & Tạo Báo Giá
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL TẠO NHANH KHÁCH HÀNG MỚI */}
-      {isQuickCustomerModalOpen && (
-        <div className="modal-overlay fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" style={{ zIndex: 1100 }}>
-          <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1101] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '540px' }}>
-            <div className="modal-header">
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <UserPlus size={18} color="#E53935" />
-                <span>Tạo Nhanh Khách Hàng Mới</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsQuickCustomerModalOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleQuickCreateCustomer}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                {quickCustomerError && (
-                  <div style={{ padding: '0.5rem 0.75rem', backgroundColor: '#FEE2E2', color: '#B91C1C', borderRadius: '0.375rem', fontSize: '12.5px' }}>
-                    {quickCustomerError}
-                  </div>
-                )}
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
-                    Tên công ty / Tên khách hàng *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ví dụ: Công ty Cổ phần Xây dựng Hà Nội..."
-                    className="input"
-                    value={quickCustomerData.name}
-                    onChange={(e) => setQuickCustomerData({ ...quickCustomerData, name: e.target.value })}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
-                      Số điện thoại *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="0912..."
-                      className="input"
-                      value={quickCustomerData.phone}
-                      onChange={(e) => setQuickCustomerData({ ...quickCustomerData, phone: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
-                      Mã số thuế
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="0108..."
-                      className="input"
-                      value={quickCustomerData.taxCode}
-                      onChange={(e) => setQuickCustomerData({ ...quickCustomerData, taxCode: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
-                      Người liên hệ
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Anh Tuấn / Chị Mai..."
-                      className="input"
-                      value={quickCustomerData.contactPerson}
-                      onChange={(e) => setQuickCustomerData({ ...quickCustomerData, contactPerson: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
-                      Loại khách hàng
-                    </label>
-                    <select
-                      className="input"
-                      value={quickCustomerData.customerType}
-                      onChange={(e) => setQuickCustomerData({ ...quickCustomerData, customerType: e.target.value })}
-                    >
-                      <option value="ENTERPRISE">Doanh nghiệp</option>
-                      <option value="HOUSEHOLD">Hộ kinh doanh</option>
-                      <option value="ORGANIZATION">Cơ quan tổ chức</option>
-                      <option value="SCHOOL">Trường học</option>
-                      <option value="INDIVIDUAL">Cá nhân</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
-                    Địa chỉ giao nhận
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Số nhà, đường, quận/huyện..."
-                    className="input"
-                    value={quickCustomerData.address}
-                    onChange={(e) => setQuickCustomerData({ ...quickCustomerData, address: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsQuickCustomerModalOpen(false)}
-                  className="btn btn-secondary"
-                  disabled={quickCustomerLoading}
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={quickCustomerLoading}
-                >
-                  {quickCustomerLoading ? 'Đang tạo...' : 'Lưu & Chọn khách này'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modal Tạo nhanh Khách hàng mới */}
+      {renderQuickCustomerModal()}
 
       {/* MODAL MẪU IN BÁO GIÁ A4 CHUẨN NAM KHÁNH */}
       <QuotationPrintModal
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
         quotation={selectedQuotation}
+        onEdit={(q) => openEditModal(q)}
+        onDelete={(id, code) => handleDelete(id, code)}
+        canEdit={hasPermission('B_QUOTATIONS', 'update')}
+        canDelete={hasPermission('B_QUOTATIONS', 'delete')}
+      />
+
+      {/* MODAL IMPORT SẢN PHẨM TỪ EXCEL/CSV */}
+      <ImportItemsModal
+        isOpen={isImportItemsModalOpen}
+        onClose={() => setIsImportItemsModalOpen(false)}
+        products={products}
+        onImport={handleBulkImportItems}
+        defaultVatRate={formData.vatRate || 8}
+      />
+
+      <Toast
+        show={!!toastMessage}
+        message={toastMessage || ''}
+        onClose={() => setToastMessage(null)}
       />
     </div>
   );

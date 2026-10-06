@@ -30,7 +30,9 @@ import {
   FileSpreadsheet,
   Columns,
   RotateCcw,
-  Phone
+  Phone,
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -62,6 +64,7 @@ export const FinancesPage: React.FC = () => {
   const [cashflow, setCashflow] = useState<CashflowSummary | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Cấu hình ẩn / hiện cột Phiếu thu
   const defaultReceiptsCols: Record<string, boolean> = {
@@ -133,12 +136,13 @@ export const FinancesPage: React.FC = () => {
 
   const defaultReceiptWidths: Record<string, number> = {
     stt: 60,
-    voucherDate: 120,
-    code: 140,
+    voucherDate: 130,
+    code: 150,
     payer: 260,
+    type: 160,
     order: 160,
     reason: 260,
-    amount: 150,
+    amount: 160,
     status: 130,
     actions: 140
   };
@@ -151,18 +155,29 @@ export const FinancesPage: React.FC = () => {
   } = useTableResize({
     tableKey: 'finances_receipts',
     defaultWidths: defaultReceiptWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 120 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      voucherDate: 110,
+      code: 120,
+      payer: 180,
+      type: 130,
+      order: 130,
+      reason: 180,
+      amount: 140,
+      status: 110,
+      actions: 120
+    }
   });
 
   const defaultPaymentWidths: Record<string, number> = {
     stt: 60,
-    voucherDate: 120,
-    code: 140,
+    voucherDate: 130,
+    code: 150,
     recipient: 260,
-    type: 150,
+    type: 160,
     reason: 260,
-    amount: 150,
+    amount: 160,
     status: 130,
     actions: 140
   };
@@ -175,8 +190,18 @@ export const FinancesPage: React.FC = () => {
   } = useTableResize({
     tableKey: 'finances_payments',
     defaultWidths: defaultPaymentWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 120 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      voucherDate: 110,
+      code: 120,
+      recipient: 180,
+      type: 130,
+      reason: 180,
+      amount: 140,
+      status: 110,
+      actions: 120
+    }
   });
 
   const [isReceiptsColDropdownOpen, setIsReceiptsColDropdownOpen] = useState(false);
@@ -402,6 +427,7 @@ export const FinancesPage: React.FC = () => {
   const handleSaveReceipt = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsSubmitting(true);
       if (!receiptFormData.payer || !receiptFormData.amount || !receiptFormData.reason) {
         alert('Vui lòng nhập đầy đủ Người nộp tiền, Lý do thu và Số tiền');
         return;
@@ -443,6 +469,8 @@ export const FinancesPage: React.FC = () => {
       loadData();
     } catch (err: any) {
       alert(err.message || 'Lỗi lưu phiếu thu');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -498,6 +526,7 @@ export const FinancesPage: React.FC = () => {
   const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsSubmitting(true);
       if (!paymentFormData.recipient || !paymentFormData.amount || !paymentFormData.reason) {
         alert('Vui lòng nhập đầy đủ Người nhận tiền, Lý do chi và Số tiền');
         return;
@@ -514,6 +543,8 @@ export const FinancesPage: React.FC = () => {
       loadData();
     } catch (err: any) {
       alert(err.message || 'Lỗi lưu phiếu chi');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1073,7 +1104,7 @@ export const FinancesPage: React.FC = () => {
                       </th>
                     )}
                     {receiptsVisibleCols.amount && (
-                      <th className="table-th text-right select-none" style={{ width: `${receiptWidths.amount || defaultReceiptWidths.amount}px`, position: 'relative' }}>
+                      <th className="table-th text-center select-none" style={{ width: `${receiptWidths.amount || defaultReceiptWidths.amount}px`, position: 'relative' }}>
                         <span>Số tiền (VNĐ)</span>
                         <div className="col-resizer" onMouseDown={(e) => startReceiptResize('amount', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                       </th>
@@ -1112,7 +1143,7 @@ export const FinancesPage: React.FC = () => {
                           </td>
                         )}
                         {receiptsVisibleCols.code && (
-                          <td className="table-td whitespace-nowrap overflow-hidden">
+                          <td className="table-td text-center whitespace-nowrap overflow-hidden">
                             <span className="font-bold text-xs text-[#E53935] font-mono">
                               {r.code}
                             </span>
@@ -1156,7 +1187,7 @@ export const FinancesPage: React.FC = () => {
                           </td>
                         )}
                         {receiptsVisibleCols.amount && (
-                          <td className="table-td text-right font-bold text-xs text-emerald-600 whitespace-nowrap tabular-nums overflow-hidden">
+                          <td className="table-td text-center font-bold text-xs text-emerald-600 whitespace-nowrap tabular-nums overflow-hidden">
                             +{Number(r.amount).toLocaleString('vi-VN')}đ
                           </td>
                         )}
@@ -1378,7 +1409,7 @@ export const FinancesPage: React.FC = () => {
                       </th>
                     )}
                     {paymentsVisibleCols.amount && (
-                      <th className="table-th text-right select-none" style={{ width: `${paymentWidths.amount || defaultPaymentWidths.amount}px`, position: 'relative' }}>
+                      <th className="table-th text-center select-none" style={{ width: `${paymentWidths.amount || defaultPaymentWidths.amount}px`, position: 'relative' }}>
                         <span>Số tiền chi (VNĐ)</span>
                         <div className="col-resizer" onMouseDown={(e) => startPaymentResize('amount', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                       </th>
@@ -1417,7 +1448,7 @@ export const FinancesPage: React.FC = () => {
                           </td>
                         )}
                         {paymentsVisibleCols.code && (
-                          <td className="table-td whitespace-nowrap overflow-hidden">
+                          <td className="table-td text-center whitespace-nowrap overflow-hidden">
                             <span className="font-bold text-xs text-blue-600 font-mono">
                               {p.code}
                             </span>
@@ -1451,7 +1482,7 @@ export const FinancesPage: React.FC = () => {
                           </td>
                         )}
                         {paymentsVisibleCols.amount && (
-                          <td className="table-td text-right font-bold text-xs text-[#E53935] whitespace-nowrap tabular-nums overflow-hidden">
+                          <td className="table-td text-center font-bold text-xs text-[#E53935] whitespace-nowrap tabular-nums overflow-hidden">
                             -{Number(p.amount).toLocaleString('vi-VN')}đ
                           </td>
                         )}
@@ -1820,7 +1851,7 @@ export const FinancesPage: React.FC = () => {
                 {revenueTypes.map((rt, idx) => (
                   <tr key={rt.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{idx + 1}</td>
-                    <td className="table-td font-mono font-bold text-xs text-green-700 overflow-hidden">{rt.code}</td>
+                    <td className="table-td font-mono font-bold text-xs text-green-700 overflow-hidden text-center">{rt.code}</td>
                     <td className="table-td font-semibold text-xs text-gray-900 overflow-hidden">{rt.name}</td>
                     <td className="table-td text-xs text-gray-600 overflow-hidden">{rt.description || 'Chưa có mô tả'}</td>
                     <td className="table-td text-center font-bold text-xs text-gray-700 overflow-hidden">
@@ -1897,10 +1928,11 @@ export const FinancesPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleAutoAllocateFIFO}
-                      className="text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 font-bold px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                      className="text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 font-bold px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                       title="Tự động phân bổ số tiền thu vào các đơn nợ cũ nhất trước"
                     >
-                      <span>⚡ Phân bổ tự động FIFO</span>
+                      <Zap className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Phân bổ tự động FIFO</span>
                     </button>
                   )}
                 </div>
@@ -1972,28 +2004,28 @@ export const FinancesPage: React.FC = () => {
                       <table className="w-full text-[11px] text-left">
                         <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-bold uppercase text-[10px]">
                           <tr>
-                            <th className="p-2">Mã đơn</th>
-                            <th className="p-2">Ngày đặt</th>
-                            <th className="p-2 text-right">Tổng tiền</th>
-                            <th className="p-2 text-right">Còn nợ</th>
-                            <th className="p-2 text-right w-36">Tiền gạch nợ</th>
+                            <th className="p-2 text-center">Mã đơn</th>
+                            <th className="p-2 text-center">Ngày đặt</th>
+                            <th className="p-2 text-center">Tổng tiền</th>
+                            <th className="p-2 text-center">Còn phải thu</th>
+                            <th className="p-2 text-center w-36">Tiền gạch nợ</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {allocations.map((a, aIdx) => (
                             <tr key={a.orderId} className={a.allocatedAmount > 0 ? 'bg-purple-50/40' : ''}>
-                              <td className="p-2 font-mono font-bold text-gray-900">{a.orderCode}</td>
-                              <td className="p-2 text-gray-500">
+                              <td className="p-2 font-mono font-bold text-gray-900 text-center">{a.orderCode}</td>
+                              <td className="p-2 text-center text-gray-500">
                                 {new Date(a.orderDate).toLocaleDateString('vi-VN')}
                               </td>
-                              <td className="p-2 text-right text-gray-700">
+                              <td className="p-2 text-center text-gray-700">
                                 {Number(a.totalAmount).toLocaleString('vi-VN')}đ
                               </td>
-                              <td className="p-2 text-right font-semibold text-[#E53935]">
+                              <td className="p-2 text-center font-semibold text-[#E53935]">
                                 {Number(a.remainingAmount).toLocaleString('vi-VN')}đ
                               </td>
-                              <td className="p-2 text-right">
-                                <div className="flex items-center gap-1 justify-end">
+                              <td className="p-2 text-center">
+                                <div className="flex items-center gap-1 justify-center">
                                   <input
                                     type="number"
                                     min="0"
@@ -2007,7 +2039,7 @@ export const FinancesPage: React.FC = () => {
                                       setAllocations(updated);
                                     }}
                                     placeholder="0"
-                                    className="w-24 p-1 text-right font-bold text-purple-700 border border-purple-200 rounded focus:outline-none focus:border-purple-500"
+                                    className="w-24 p-1 text-center font-bold text-purple-700 border border-purple-200 rounded focus:outline-none focus:border-purple-500"
                                   />
                                   <button
                                     type="button"
@@ -2147,8 +2179,19 @@ export const FinancesPage: React.FC = () => {
                 >
                   Hủy bỏ
                 </button>
-                <button type="submit" className="btn-primary text-xs px-5 py-2">
-                  Lưu phiếu thu
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn-primary text-xs px-5 py-2 flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang lưu phiếu thu...</span>
+                    </>
+                  ) : (
+                    <span>Lưu phiếu thu</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -2327,8 +2370,19 @@ export const FinancesPage: React.FC = () => {
                 >
                   Hủy bỏ
                 </button>
-                <button type="submit" className="btn-primary text-xs px-5 py-2">
-                  Lập phiếu chi
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn-primary text-xs px-5 py-2 flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang lưu phiếu chi...</span>
+                    </>
+                  ) : (
+                    <span>Lập phiếu chi</span>
+                  )}
                 </button>
               </div>
             </form>

@@ -2,6 +2,7 @@ import React from 'react';
 import { Printer, X, FileSpreadsheet, Truck } from 'lucide-react';
 import { Order } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
+import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
 
 interface DeliveryNotePrintModalProps {
   isOpen: boolean;
@@ -264,9 +265,25 @@ export const DeliveryNotePrintModal: React.FC<DeliveryNotePrintModalProps> = ({
             </tbody>
           </table>
 
-          {/* Tổng tiền & Chữ ký */}
-          <div className="flex justify-end mb-4">
-            <div className="w-72 space-y-1.5 text-xs">
+          {/* Tổng tiền & Thông tin thanh toán VietQR */}
+          <div className="grid grid-cols-2 gap-4 mb-4 items-center">
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">
+              <img
+                src={generateVietQRUrl(Number(order.remainingAmount) > 0 ? Number(order.remainingAmount) : Number(order.totalAmount), order.code)}
+                alt="VietQR Delivery Payment"
+                className="w-20 h-20 object-contain bg-white p-1 rounded-md border border-gray-100 shadow-xs flex-shrink-0"
+                crossOrigin="anonymous"
+              />
+              <div className="space-y-0.5 leading-tight">
+                <span className="text-[10px] bg-red-100 text-[#E53935] font-semibold px-1.5 py-0.5 rounded">VietQR NAPAS 247</span>
+                <p className="font-bold text-gray-900 mt-1">{NAMKHANH_BANK_INFO.bankName}</p>
+                <p className="text-gray-600 font-mono font-bold text-xs">{NAMKHANH_BANK_INFO.accountNo}</p>
+                <p className="text-[11px] text-gray-500 uppercase">{NAMKHANH_BANK_INFO.accountName}</p>
+                <p className="text-[11px] text-gray-600">ND: <span className="font-mono font-bold text-[#E53935]">{order.code}</span></p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 text-xs bg-gray-50/50 p-3 rounded-xl border border-gray-200">
               <div className="flex justify-between text-gray-600">
                 <span>Cộng tiền hàng:</span>
                 <span className="font-semibold text-gray-900">{formatVND(order.subtotal)}</span>
@@ -275,7 +292,7 @@ export const DeliveryNotePrintModal: React.FC<DeliveryNotePrintModalProps> = ({
                 <span>Thuế GTGT ({order.vatRate}%):</span>
                 <span className="font-semibold text-gray-900">{formatVND(order.vatAmount)}</span>
               </div>
-              <div className="flex justify-between text-sm font-bold text-gray-900 border-t border-gray-300 pt-1">
+              <div className="flex justify-between text-sm font-bold text-gray-900 border-t border-gray-200 pt-1">
                 <span>Tổng giá trị đơn hàng:</span>
                 <span className="text-red-600">{formatVND(order.totalAmount)}</span>
               </div>

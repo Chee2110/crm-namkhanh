@@ -167,6 +167,11 @@ export interface Product {
   productType?: ProductType | null;
   supplierId?: string | null;
   supplier?: Supplier | null;
+  brand?: string | null;
+  specification?: string | null;
+  subTypeCode?: string | null;
+  subTypeName?: string | null;
+  maxStockLevel?: number | null;
   color?: string | null;
   length?: number | null;
   width?: number | null;
@@ -272,6 +277,11 @@ export interface Customer {
   manager?: { id: string; fullName: string; code: string; email: string; phone?: string } | null;
   status: 'ACTIVE' | 'INACTIVE';
   creditBalance?: number;
+  creditLimit?: number;
+  maxDebtDays?: number;
+  totalDebt?: number;
+  totalSpent?: number;
+  isHighDebt?: boolean;
   createdAt: string;
   _count?: { quotations: number; orders: number };
   quotations?: Quotation[];
@@ -281,20 +291,55 @@ export interface Customer {
     totalSpent: number;
     totalPaid: number;
     totalDebt: number;
+    creditLimit?: number;
+    maxDebtDays?: number;
+    creditUsedPercent?: number;
+    isOverCreditLimit?: boolean;
+    availableCredit?: number;
     orderCount: number;
     lastOrderDate: string | null;
   };
 }
 
+export interface CustomerDebtStatement {
+  customer: Customer;
+  orders: {
+    id: string;
+    code: string;
+    orderDate: string;
+    totalAmount: number;
+    paidAmount: number;
+    remainingAmount: number;
+    deliveryStatus: string;
+    paymentStatus: string;
+  }[];
+  receipts: {
+    id: string;
+    code: string;
+    voucherDate: string;
+    amount: number;
+    reason: string;
+    paymentMethod: string;
+  }[];
+  summary: {
+    totalOrdersAmount: number;
+    totalPaidAmount: number;
+    remainingDebt: number;
+    creditLimit: number;
+    maxDebtDays: number;
+  };
+}
+
 export interface CustomerTimelineItem {
   id: string;
-  type: 'QUOTATION' | 'ORDER' | 'HANDOVER';
+  type: 'QUOTATION' | 'ORDER' | 'HANDOVER' | 'RECEIPT';
   title: string;
   status?: string;
   paymentStatus?: string;
   amount?: number;
   paid?: number;
   remaining?: number;
+  paymentMethod?: string;
   date: string;
   notes?: string;
   actor?: string;
@@ -325,7 +370,7 @@ export interface Quotation {
   manager?: { id: string; fullName: string; code: string; email: string; phone?: string } | null;
   date: string;
   validUntil?: string | null;
-  status: 'DRAFT' | 'NEGOTIATING' | 'SENT' | 'CONFIRMED' | 'CANCELLED';
+  status: 'DRAFT' | 'NEGOTIATING' | 'SENT' | 'CONFIRMED' | 'ORDERED' | 'CANCELLED';
   subtotal: number;
   vatRate: number;
   vatAmount: number;

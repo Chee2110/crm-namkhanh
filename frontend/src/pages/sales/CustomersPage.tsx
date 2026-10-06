@@ -22,22 +22,37 @@ import {
   GripVertical,
   RotateCcw,
   SlidersHorizontal,
-  MapPin
+  MapPin,
+  Edit2,
+  ArrowLeft,
+  Truck,
+  Lightbulb,
+  FileText,
+  CreditCard,
+  AlertTriangle,
+  ShieldCheck,
+  ShieldAlert,
+  Printer,
+  Loader2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Customer, CustomerTimelineItem, User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { ImportExcelModal } from '../../components/common/ImportExcelModal';
+import { DebtConfirmationModal } from './components/DebtConfirmationModal';
 import { useTableResize } from '../../hooks/useTableResize';
+import { Toast } from '../../components/common/Toast';
 
 export const CustomersPage: React.FC = () => {
   const { hasPermission } = useAuth();
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [customerType, setCustomerType] = useState('');
   const [source, setSource] = useState('');
+  const [highDebtOnly, setHighDebtOnly] = useState(false);
 
   // 3-Pane selection
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -48,10 +63,12 @@ export const CustomersPage: React.FC = () => {
   // Modal Add / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [phoneWarning, setPhoneWarning] = useState<string | null>(null);
   const [taxWarning, setTaxWarning] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -64,7 +81,9 @@ export const CustomersPage: React.FC = () => {
     contactPerson: '',
     email: '',
     notes: '',
-    managerId: ''
+    managerId: '',
+    creditLimit: 50000000,
+    maxDebtDays: 30
   });
 
   // Modal Bàn giao
@@ -86,6 +105,7 @@ export const CustomersPage: React.FC = () => {
     taxCode: true,
     manager: true,
     customerType: true,
+    totalDebt: true,
     creditBalance: true,
     source: true,
     orders: true,
@@ -101,6 +121,7 @@ export const CustomersPage: React.FC = () => {
     'taxCode',
     'manager',
     'customerType',
+    'totalDebt',
     'creditBalance',
     'source',
     'orders',
@@ -127,25 +148,40 @@ export const CustomersPage: React.FC = () => {
   });
 
   const defaultCustomerWidths: Record<string, number> = {
-    stt: 55,
-    code: 110,
+    stt: 60,
+    code: 130,
     name: 280,
-    phone: 130,
-    taxCode: 130,
-    manager: 140,
+    phone: 140,
+    taxCode: 140,
+    manager: 150,
     customerType: 140,
-    creditBalance: 140,
-    source: 130,
-    orders: 90,
-    status: 120,
-    actions: 190
+    totalDebt: 160,
+    creditBalance: 160,
+    source: 140,
+    orders: 110,
+    status: 140,
+    actions: 150
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
     tableKey: 'customers',
     defaultWidths: defaultCustomerWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 160 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      code: 110,
+      name: 180,
+      phone: 120,
+      taxCode: 120,
+      manager: 130,
+      customerType: 120,
+      totalDebt: 140,
+      creditBalance: 140,
+      source: 120,
+      orders: 90,
+      status: 120,
+      actions: 130
+    }
   });
 
   const [draggedCol, setDraggedCol] = useState<string | null>(null);
@@ -159,6 +195,7 @@ export const CustomersPage: React.FC = () => {
     taxCode: 'Mã số thuế',
     manager: 'Phụ trách',
     customerType: 'Loại khách',
+    totalDebt: 'Công nợ hiện tại',
     creditBalance: 'Số dư tiền cọc',
     source: 'Nguồn khách',
     orders: 'Số đơn',
@@ -267,6 +304,7 @@ export const CustomersPage: React.FC = () => {
       if (search) query.append('search', search);
       if (customerType) query.append('customerType', customerType);
       if (source) query.append('source', source);
+      if (highDebtOnly) query.append('highDebtOnly', 'true');
 
       const res = await api.get<Customer[]>(`/customers?${query.toString()}`);
       const data = res.data || [];
@@ -294,7 +332,7 @@ export const CustomersPage: React.FC = () => {
   useEffect(() => {
     loadCustomers();
     loadUsers();
-  }, [search, customerType, source]);
+  }, [search, customerType, source, highDebtOnly]);
 
   const handleSelectCustomer = async (id: string) => {
     setSelectedCustomerId(id);
@@ -322,7 +360,7 @@ export const CustomersPage: React.FC = () => {
         (c) => c.phone === trimmed && (!editingId || c.id !== editingId)
       );
       if (match) {
-        setPhoneWarning(`⚠️ SĐT [${trimmed}] đã thuộc về khách hàng "${match.name}" (${match.code})`);
+        setPhoneWarning(`SĐT [${trimmed}] đã thuộc về khách hàng "${match.name}" (${match.code})`);
       } else {
         setPhoneWarning(null);
       }
@@ -339,7 +377,7 @@ export const CustomersPage: React.FC = () => {
         (c) => c.taxCode === trimmed && (!editingId || c.id !== editingId)
       );
       if (match) {
-        setTaxWarning(`⚠️ Mã số thuế [${trimmed}] đã thuộc về khách hàng "${match.name}" (${match.code})`);
+        setTaxWarning(`Mã số thuế [${trimmed}] đã thuộc về khách hàng "${match.name}" (${match.code})`);
       } else {
         setTaxWarning(null);
       }
@@ -363,7 +401,9 @@ export const CustomersPage: React.FC = () => {
       contactPerson: '',
       email: '',
       notes: '',
-      managerId: users[0]?.id || ''
+      managerId: users[0]?.id || '',
+      creditLimit: 50000000,
+      maxDebtDays: 30
     });
     setFormError(null);
     setPhoneWarning(null);
@@ -386,7 +426,9 @@ export const CustomersPage: React.FC = () => {
       contactPerson: c.contactPerson || '',
       email: c.email || '',
       notes: c.notes || '',
-      managerId: c.managerId || ''
+      managerId: c.managerId || '',
+      creditLimit: Number(c.creditLimit) || 50000000,
+      maxDebtDays: c.maxDebtDays || 30
     });
     setFormError(null);
     setPhoneWarning(null);
@@ -414,8 +456,10 @@ export const CustomersPage: React.FC = () => {
     }
 
     try {
+      setIsSubmitting(true);
       if (editingId) {
         await api.put(`/customers/${editingId}`, formData);
+        setToastMessage('Đã cập nhật thành công');
       } else {
         await api.post('/customers', formData);
       }
@@ -426,6 +470,8 @@ export const CustomersPage: React.FC = () => {
       }
     } catch (err: any) {
       setFormError(err.response?.data?.message || err.message || 'Lỗi khi lưu khách hàng');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -437,6 +483,7 @@ export const CustomersPage: React.FC = () => {
     }
 
     try {
+      setIsSubmitting(true);
       await api.post(`/customers/${selectedCustomerId}/handover`, handoverData);
       setIsHandoverModalOpen(false);
       setHandoverData({ toUserId: '', reason: '' });
@@ -444,6 +491,8 @@ export const CustomersPage: React.FC = () => {
       handleSelectCustomer(selectedCustomerId);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Lỗi khi bàn giao khách hàng');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -505,6 +554,31 @@ export const CustomersPage: React.FC = () => {
             <option value="EXHIBITION">Hội thảo / Triển lãm</option>
             <option value="OTHER">Khác</option>
           </select>
+
+          <button
+            type="button"
+            onClick={() => setHighDebtOnly(!highDebtOnly)}
+            className={`btn btn-sm ${highDebtOnly ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              borderRadius: '8px',
+              padding: '0.45rem 0.75rem',
+              fontSize: '12px',
+              backgroundColor: highDebtOnly ? '#FEF2F2' : '#FFFFFF',
+              borderColor: highDebtOnly ? '#EF4444' : '#E5E7EB',
+              color: highDebtOnly ? '#DC2626' : '#4B5563',
+              fontWeight: highDebtOnly ? 700 : 500,
+              boxShadow: highDebtOnly ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap'
+            }}
+            title="Lọc nhanh danh sách khách hàng có công nợ lớn vượt quá 50 triệu đồng"
+          >
+            <AlertTriangle size={14} color={highDebtOnly ? '#DC2626' : '#F59E0B'} />
+            <span>Nợ &gt; 50 triệu {highDebtOnly && '✓'}</span>
+          </button>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
@@ -586,8 +660,9 @@ export const CustomersPage: React.FC = () => {
                     <span>Mặc định</span>
                   </button>
                 </div>
-                <div style={{ fontSize: '10.5px', color: '#6B7280', marginBottom: '0.5rem', lineHeight: 1.4 }}>
-                  💡 <strong>Kéo thả</strong> tiêu đề cột trên bảng DataGrid để đổi thứ tự cột linh hoạt.
+                <div style={{ fontSize: '10.5px', color: '#6B7280', marginBottom: '0.5rem', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Lightbulb size={12} className="text-amber-500 shrink-0" />
+                  <span><strong>Kéo thả</strong> tiêu đề cột trên bảng DataGrid để đổi thứ tự cột linh hoạt.</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: '260px', overflowY: 'auto' }}>
                   {columnOrder.map((colKey) => (
@@ -681,11 +756,17 @@ export const CustomersPage: React.FC = () => {
                       <Phone size={12} />
                       <span>{c.phone}</span>
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#9CA3AF', display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Phụ trách: {c.manager?.fullName || 'Chưa gán'}</span>
-                      <span style={{ color: '#E53935', fontWeight: '600' }}>
-                        {c._count?.orders || 0} đơn
-                      </span>
+                    <div style={{ fontSize: '11px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                      <span style={{ color: '#9CA3AF' }}>Phụ trách: {c.manager?.fullName || 'Chưa gán'}</span>
+                      {(c.totalDebt || 0) > 0 ? (
+                        <span style={{ color: c.isHighDebt ? '#DC2626' : '#D97706', fontWeight: '700' }}>
+                          Nợ: {formatMoney(c.totalDebt || 0)} {c.isHighDebt && '⚠️'}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#E53935', fontWeight: '600' }}>
+                          {c._count?.orders || 0} đơn
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -701,9 +782,21 @@ export const CustomersPage: React.FC = () => {
                 <div className="card" style={{ padding: '1.25rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
                     <div>
-                      <h2 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#111827', margin: '0 0 0.25rem 0' }}>
-                        {selectedCustomer.name}
-                      </h2>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('table')}
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '0.2rem 0.5rem', fontSize: '11px', gap: '0.25rem', color: '#4B5563' }}
+                          title="Quay lại giao diện Bảng DataGrid"
+                        >
+                          <ArrowLeft size={13} />
+                          <span>Danh sách</span>
+                        </button>
+                        <h2 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#111827', margin: 0 }}>
+                          {selectedCustomer.name}
+                        </h2>
+                      </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '12px', color: '#6B7280' }}>
                         <span>Mã: <strong>{selectedCustomer.code}</strong></span>
                         <span>•</span>
@@ -713,38 +806,106 @@ export const CustomersPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.35rem' }}>
                       <button
                         onClick={() => openHandoverModal(selectedCustomer)}
                         className="btn btn-secondary btn-sm"
                         title="Bàn giao khách hàng cho Sales khác"
                       >
                         <UserCheck size={14} color="#E53935" />
-                        <span>Bàn giao</span>
                       </button>
                       {hasPermission('B_CUSTOMERS', 'update') && (
                         <button
                           onClick={() => openEditModal(selectedCustomer)}
                           className="btn btn-secondary btn-sm"
+                          title="Chỉnh sửa thông tin khách hàng"
                         >
-                          <span>Sửa</span>
+                          <Edit2 size={14} />
                         </button>
                       )}
                     </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '12.5px', color: '#4B5563', backgroundColor: '#F9FAFB', padding: '0.75rem', borderRadius: '0.5rem' }}>
-                    <div>📞 <strong>Điện thoại:</strong> {selectedCustomer.phone}</div>
-                    <div>👤 <strong>Liên hệ:</strong> {selectedCustomer.contactPerson || 'Chưa có'}</div>
-                    <div>📍 <strong>Địa chỉ:</strong> {selectedCustomer.address || 'Chưa có'}</div>
-                    <div>🚚 <strong>Giao hàng:</strong> {selectedCustomer.deliveryAddress || selectedCustomer.address || 'Chưa có'}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Phone size={13} className="text-gray-400 shrink-0" /> <span><strong>Điện thoại:</strong> {selectedCustomer.phone}</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><UserCheck size={13} className="text-gray-400 shrink-0" /> <span><strong>Liên hệ:</strong> {selectedCustomer.contactPerson || 'Chưa có'}</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><MapPin size={13} className="text-gray-400 shrink-0" /> <span><strong>Địa chỉ:</strong> {selectedCustomer.address || 'Chưa có'}</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Truck size={13} className="text-gray-400 shrink-0" /> <span><strong>Giao hàng:</strong> {selectedCustomer.deliveryAddress || selectedCustomer.address || 'Chưa có'}</span></div>
                   </div>
+
+                  {/* Quản lý Hạn mức tín dụng & Đối chiếu công nợ A4 */}
+                  {(() => {
+                    const creditLimit = Number(selectedCustomer.creditLimit) || 50000000;
+                    const totalDebt = selectedCustomer.analytics?.totalDebt || 0;
+                    const usedPercent = creditLimit > 0 ? Math.min(100, Math.round((totalDebt / creditLimit) * 100)) : 0;
+                    const isOver = totalDebt > creditLimit;
+                    const available = Math.max(0, creditLimit - totalDebt);
+
+                    return (
+                      <div className="mt-3 p-3.5 bg-gray-50/90 rounded-xl border border-gray-200 text-xs">
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="flex items-center gap-1.5 font-bold text-gray-800 uppercase text-[11px]">
+                            {isOver ? <ShieldAlert className="w-4 h-4 text-red-600" /> : <ShieldCheck className="w-4 h-4 text-emerald-600" />}
+                            <span>Hạn mức tín dụng & Kiểm soát công nợ</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsDebtModalOpen(true)}
+                            className="btn btn-secondary btn-sm !py-1 !px-2.5 text-[11.5px] flex items-center gap-1.5 text-[#E53935] bg-white border border-red-200 hover:bg-red-50 cursor-pointer shadow-xs"
+                          >
+                            <Printer size={13} />
+                            <span>In đối chiếu công nợ A4</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 py-1 text-gray-700">
+                          <div>
+                            <span className="text-gray-500 text-[11px] block">Hạn mức được cấp:</span>
+                            <strong className="text-gray-900 text-xs">{formatMoney(creditLimit)}</strong>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 text-[11px] block">Dư nợ hiện tại:</span>
+                            <strong className={totalDebt > 0 ? 'text-red-600 text-xs' : 'text-gray-900 text-xs'}>
+                              {formatMoney(totalDebt)}
+                            </strong>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 text-[11px] block">Hạn mức khả dụng:</span>
+                            <strong className="text-emerald-700 text-xs">{formatMoney(available)}</strong>
+                          </div>
+                        </div>
+
+                        {/* Thanh tỷ lệ sử dụng hạn mức */}
+                        <div className="mt-2 space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-gray-500">Tỷ lệ sử dụng hạn mức:</span>
+                            <span className={isOver ? 'font-bold text-red-600' : 'font-semibold text-gray-700'}>
+                              {usedPercent}% {isOver && '(VƯỢT HẠN MỨC!)'}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-2 rounded-full transition-all duration-500 ${
+                                isOver ? 'bg-red-600' : usedPercent >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${Math.min(100, (totalDebt / creditLimit) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] text-gray-400 pt-0.5">
+                            <span>Thời hạn nợ tối đa: <strong>{selectedCustomer.maxDebtDays || 30} ngày</strong></span>
+                            <span>Số dư ký quỹ trả trước: <strong>{formatMoney(selectedCustomer.creditBalance || 0)}</strong></span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Lịch sử giao dịch (Timeline) */}
                 <div className="card" style={{ padding: '1.25rem' }}>
-                  <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>
-                    🕒 Lịch sử giao dịch & Chăm sóc (Timeline)
+                  <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Clock size={14} className="text-gray-500" />
+                    <span>Lịch sử giao dịch & Chăm sóc (Timeline)</span>
                   </h3>
 
                   {loadingDetails ? (
@@ -771,15 +932,15 @@ export const CustomersPage: React.FC = () => {
                               width: '32px',
                               height: '32px',
                               borderRadius: '8px',
-                              backgroundColor: item.type === 'ORDER' ? '#DCFCE7' : item.type === 'QUOTATION' ? '#FEF3C7' : '#E0E7FF',
-                              color: item.type === 'ORDER' ? '#16A34A' : item.type === 'QUOTATION' ? '#D97706' : '#4F46E5',
+                              backgroundColor: item.type === 'ORDER' ? '#DCFCE7' : item.type === 'QUOTATION' ? '#FEF3C7' : item.type === 'RECEIPT' ? '#E0F2FE' : '#E0E7FF',
+                              color: item.type === 'ORDER' ? '#16A34A' : item.type === 'QUOTATION' ? '#D97706' : item.type === 'RECEIPT' ? '#0284C7' : '#4F46E5',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               flexShrink: 0
                             }}
                           >
-                            {item.type === 'ORDER' ? <ShoppingBag size={16} /> : item.type === 'QUOTATION' ? <FileSpreadsheet size={16} /> : <UserCheck size={16} />}
+                            {item.type === 'ORDER' ? <ShoppingBag size={16} /> : item.type === 'QUOTATION' ? <FileSpreadsheet size={16} /> : item.type === 'RECEIPT' ? <CreditCard size={16} /> : <UserCheck size={16} />}
                           </div>
 
                           <div style={{ flex: 1 }}>
@@ -792,25 +953,41 @@ export const CustomersPage: React.FC = () => {
                               </span>
                             </div>
                             <div style={{ fontSize: '12px', color: '#4B5563' }}>{item.notes || item.reason || (item as any).description || ''}</div>
-                            {item.amount !== undefined && (
+                            {item.type === 'RECEIPT' ? (
                               <div style={{ fontSize: '12px', color: '#374151', marginBottom: '0.2rem' }}>
-                                Giá trị: <strong>{formatMoney(item.amount)}</strong>
-                                {item.paid !== undefined && (
-                                  <span style={{ marginLeft: '0.5rem', color: '#16A34A' }}>
-                                    (Đã thu: {formatMoney(item.paid)})
+                                Đã thu: <strong style={{ color: '#0284C7' }}>{formatMoney(item.amount || 0)}</strong>
+                                {item.paymentMethod && (
+                                  <span style={{ marginLeft: '0.5rem', color: '#4B5563' }}>
+                                    ({item.paymentMethod === 'CASH' ? 'Tiền mặt' : item.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : item.paymentMethod})
                                   </span>
                                 )}
-                                {item.remaining !== undefined && item.remaining > 0 && (
-                                  <span style={{ marginLeft: '0.5rem', color: '#DC2626', fontWeight: '600' }}>
-                                    [Còn nợ: {formatMoney(item.remaining)}]
+                                {item.actor && (
+                                  <span style={{ marginLeft: '0.5rem', color: '#6B7280', fontSize: '11.5px' }}>
+                                    - Thu bởi: {item.actor}
                                   </span>
                                 )}
                               </div>
+                            ) : (
+                              item.amount !== undefined && (
+                                <div style={{ fontSize: '12px', color: '#374151', marginBottom: '0.2rem' }}>
+                                  Giá trị: <strong>{formatMoney(item.amount)}</strong>
+                                  {item.paid !== undefined && (
+                                    <span style={{ marginLeft: '0.5rem', color: '#16A34A' }}>
+                                      (Đã thu: {formatMoney(item.paid)})
+                                    </span>
+                                  )}
+                                  {item.remaining !== undefined && item.remaining > 0 && (
+                                    <span style={{ marginLeft: '0.5rem', color: '#DC2626', fontWeight: '600' }}>
+                                      [Còn nợ: {formatMoney(item.remaining)}]
+                                    </span>
+                                  )}
+                                </div>
+                              )
                             )}
 
                             {item.reason && (
                               <div style={{ fontSize: '12px', color: '#4B5563', fontStyle: 'italic' }}>
-                                Lý do bàn giao: {item.reason} ({item.from} ➔ {item.to})
+                                Lý do bàn giao: {item.reason} ({item.from} → {item.to})
                               </div>
                             )}
 
@@ -836,8 +1013,9 @@ export const CustomersPage: React.FC = () => {
           {/* CỘT 3 (25%): THỐNG KÊ TÀI CHÍNH & CÔNG NỢ */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="card" style={{ padding: '1.25rem' }}>
-              <h3 style={{ fontSize: '12.5px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '0.85rem' }}>
-                💰 Tổng quan Công nợ
+              <h3 style={{ fontSize: '12.5px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <CreditCard size={14} className="text-[#E53935]" />
+                <span>Tổng quan Công nợ</span>
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -893,8 +1071,9 @@ export const CustomersPage: React.FC = () => {
             </div>
 
             <div className="card" style={{ padding: '1.25rem' }}>
-              <h3 style={{ fontSize: '12.5px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                📝 Ghi chú chăm sóc VPP
+              <h3 style={{ fontSize: '12.5px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <FileText size={14} className="text-[#E53935]" />
+                <span>Ghi chú chăm sóc VPP</span>
               </h3>
               <div style={{ fontSize: '12.5px', color: '#4B5563', lineHeight: '1.5', minHeight: '80px', backgroundColor: '#FEF9C3', padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid #FEF08A' }}>
                 {selectedCustomer?.notes || 'Chưa có ghi chú chăm sóc đặc thù cho khách hàng này.'}
@@ -955,11 +1134,11 @@ export const CustomersPage: React.FC = () => {
                         }}
                         title={colKey !== 'actions' && colKey !== 'stt' ? 'Kéo để đổi thứ tự cột' : undefined}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', whiteSpace: 'nowrap' }}>
                           {colKey !== 'actions' && colKey !== 'stt' && (
                             <GripVertical size={13} style={{ color: '#9CA3AF', cursor: 'grab', flexShrink: 0 }} />
                           )}
-                          <span className="truncate">{columnLabels[colKey] || colKey}</span>
+                          <span className="whitespace-nowrap select-none font-semibold">{columnLabels[colKey] || colKey}</span>
                         </div>
                         {colKey !== 'actions' && (
                           <div
@@ -988,16 +1167,19 @@ export const CustomersPage: React.FC = () => {
                   </tr>
                 ) : (
                   customers.map((c, idx) => {
-                    const isSelected = c.id === selectedCustomerId;
                     return (
                       <tr
                         key={c.id}
-                        onClick={() => setSelectedCustomerId(c.id)}
+                        onClick={() => {
+                          handleSelectCustomer(c.id);
+                          setViewMode('split');
+                        }}
+                        className="hover:bg-gray-50 transition-colors"
                         style={{
-                          backgroundColor: isSelected ? '#FFEBEE' : undefined,
                           borderBottom: '1px solid #F3F4F6',
                           cursor: 'pointer'
                         }}
+                        title={`Nhấn để xem chi tiết khách hàng ${c.name}`}
                       >
                         {columnOrder
                           .filter((colKey) => visibleColumns[colKey] !== false)
@@ -1011,7 +1193,7 @@ export const CustomersPage: React.FC = () => {
                                 );
                               case 'code':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontWeight: '600', color: '#E53935', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', fontFamily: 'monospace' }}>
+                                  <td key={colKey} className="table-td" style={{ fontWeight: '600', color: '#E53935', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', fontFamily: 'monospace', textAlign: 'center' }}>
                                     {c.code}
                                   </td>
                                 );
@@ -1035,13 +1217,16 @@ export const CustomersPage: React.FC = () => {
                               }
                               case 'phone':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontSize: '12.5px', color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', fontFamily: 'monospace' }}>
-                                    📞 {c.phone}
+                                  <td key={colKey} className="table-td" style={{ fontSize: '12.5px', color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', fontFamily: 'monospace', textAlign: 'center' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                                      <Phone size={12} className="text-gray-400" />
+                                      {c.phone}
+                                    </span>
                                   </td>
                                 );
                               case 'taxCode':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontSize: '12px', color: '#4B5563', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                  <td key={colKey} className="table-td" style={{ fontSize: '12px', color: '#4B5563', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textAlign: 'center' }}>
                                     {c.taxCode ? (
                                       <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{c.taxCode}</span>
                                     ) : (
@@ -1073,9 +1258,26 @@ export const CustomersPage: React.FC = () => {
                                     </span>
                                   </td>
                                 );
+                              case 'totalDebt': {
+                                const debt = Number(c.totalDebt || 0);
+                                return (
+                                  <td key={colKey} className="table-td" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textAlign: 'right' }}>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', width: '100%' }}>
+                                      <span style={{ fontWeight: '700', color: debt > 0 ? (c.isHighDebt ? '#DC2626' : '#B45309') : '#059669', fontSize: '12.5px', fontVariantNumeric: 'tabular-nums' }}>
+                                        {formatMoney(debt)}
+                                      </span>
+                                      {c.isHighDebt && (
+                                        <span className="badge badge-red" style={{ fontSize: '10px', padding: '2px 5px', fontWeight: 600 }} title="Khách nợ lớn trên 50 triệu!">
+                                          &gt; 50tr ⚠️
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                );
+                              }
                               case 'creditBalance':
                                 return (
-                                  <td key={colKey} className="table-td" style={{ fontWeight: '600', color: Number(c.creditBalance) > 0 ? '#15803D' : '#6B7280', fontSize: '12.5px', whiteSpace: 'nowrap', overflow: 'hidden', fontVariantNumeric: 'tabular-nums' }}>
+                                  <td key={colKey} className="table-td" style={{ fontWeight: '600', color: Number(c.creditBalance) > 0 ? '#15803D' : '#6B7280', fontSize: '12.5px', whiteSpace: 'nowrap', overflow: 'hidden', fontVariantNumeric: 'tabular-nums', textAlign: 'center' }}>
                                     {formatMoney(Number(c.creditBalance) || 0)}
                                   </td>
                                 );
@@ -1113,40 +1315,46 @@ export const CustomersPage: React.FC = () => {
                                     key={colKey}
                                     className="table-td sticky-action-td"
                                     style={{
-                                      backgroundColor: isSelected ? '#FEF2F2' : undefined,
                                       whiteSpace: 'nowrap'
                                     }}
+                                    onClick={(e) => e.stopPropagation()}
                                   >
-                                    <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', justifyContent: 'center' }}>
                                       <button
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           handleSelectCustomer(c.id);
                                           setViewMode('split');
                                         }}
                                         className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '11px', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
+                                        style={{ padding: '0.35rem 0.5rem' }}
                                         title="Xem chi tiết & timeline dạng 3 phần"
                                       >
-                                        <Eye size={12} color="#E53935" />
-                                        <span>Chi tiết</span>
+                                        <Eye size={13} color="#E53935" />
                                       </button>
                                       {hasPermission('B_CUSTOMERS', 'update') && (
                                         <button
-                                          onClick={() => openEditModal(c)}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openEditModal(c);
+                                          }}
                                           className="btn btn-secondary btn-sm"
-                                          style={{ fontSize: '11px', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
+                                          style={{ padding: '0.35rem 0.5rem' }}
+                                          title="Chỉnh sửa thông tin khách hàng"
                                         >
-                                          <span>Sửa</span>
+                                          <Edit2 size={13} />
                                         </button>
                                       )}
                                       <button
-                                        onClick={() => openHandoverModal(c)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openHandoverModal(c);
+                                        }}
                                         className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '11px', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
+                                        style={{ padding: '0.35rem 0.5rem' }}
                                         title="Bàn giao khách hàng"
                                       >
-                                        <UserCheck size={12} color="#E53935" />
-                                        <span>Bàn giao</span>
+                                        <UserCheck size={13} color="#E53935" />
                                       </button>
                                     </div>
                                   </td>
@@ -1224,8 +1432,9 @@ export const CustomersPage: React.FC = () => {
                       required
                     />
                     {phoneWarning && (
-                      <div style={{ fontSize: '11.5px', color: '#DC2626', marginTop: '0.25rem', fontWeight: '500' }}>
-                        {phoneWarning}
+                      <div style={{ fontSize: '11.5px', color: '#DC2626', marginTop: '0.25rem', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <AlertTriangle size={13} className="shrink-0" />
+                        <span>{phoneWarning}</span>
                       </div>
                     )}
                   </div>
@@ -1242,8 +1451,9 @@ export const CustomersPage: React.FC = () => {
                       onChange={(e) => handleTaxChange(e.target.value)}
                     />
                     {taxWarning && (
-                      <div style={{ fontSize: '11.5px', color: '#DC2626', marginTop: '0.25rem', fontWeight: '500' }}>
-                        {taxWarning}
+                      <div style={{ fontSize: '11.5px', color: '#DC2626', marginTop: '0.25rem', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <AlertTriangle size={13} className="shrink-0" />
+                        <span>{taxWarning}</span>
                       </div>
                     )}
                   </div>
@@ -1341,6 +1551,33 @@ export const CustomersPage: React.FC = () => {
                   </select>
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                      Hạn mức tín dụng / nợ (VNĐ)
+                    </label>
+                    <input
+                      type="number"
+                      className="input"
+                      placeholder="50000000"
+                      value={formData.creditLimit}
+                      onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                      Số ngày nợ tối đa (Ngày)
+                    </label>
+                    <input
+                      type="number"
+                      className="input"
+                      placeholder="30"
+                      value={formData.maxDebtDays}
+                      onChange={(e) => setFormData({ ...formData, maxDebtDays: Number(e.target.value) || 30 })}
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '500', marginBottom: '0.25rem' }}>Ghi chú đặc thù</label>
                   <textarea
@@ -1357,8 +1594,19 @@ export const CustomersPage: React.FC = () => {
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
                   Hủy
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  {editingId ? 'Cập nhật' : 'Tạo mới'}
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn btn-primary flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>{editingId ? 'Đang cập nhật...' : 'Đang tạo mới...'}</span>
+                    </>
+                  ) : (
+                    <span>{editingId ? 'Cập nhật' : 'Tạo mới'}</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -1428,8 +1676,19 @@ export const CustomersPage: React.FC = () => {
                 <button type="button" onClick={() => setIsHandoverModalOpen(false)} className="btn btn-secondary">
                   Hủy
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Xác nhận bàn giao
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn btn-primary flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>Đang bàn giao...</span>
+                    </>
+                  ) : (
+                    <span>Xác nhận bàn giao</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -1450,6 +1709,18 @@ export const CustomersPage: React.FC = () => {
         requiredFields={['Tên khách hàng', 'Số điện thoại']}
         fieldMappingHelp="Điền Tên khách hàng, SĐT (bắt buộc). Mã số thuế, Địa chỉ, Người liên hệ, Loại khách (ENTERPRISE/SCHOOL/INDIVIDUAL)."
         onImport={handleImportCustomers}
+      />
+      {/* MODAL IN ĐỐI CHIẾU CÔNG NỢ A4 */}
+      <DebtConfirmationModal
+        isOpen={isDebtModalOpen}
+        onClose={() => setIsDebtModalOpen(false)}
+        customer={selectedCustomer}
+      />
+
+      <Toast
+        show={!!toastMessage}
+        message={toastMessage || ''}
+        onClose={() => setToastMessage(null)}
       />
     </div>
   );

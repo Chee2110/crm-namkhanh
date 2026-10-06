@@ -424,23 +424,23 @@ export const InventoryReportsPage: React.FC = () => {
                   <thead>
                     <tr className="bg-gray-50/75 border-b border-gray-200 text-gray-600 font-semibold uppercase tracking-wider text-[11px]">
                       <th className="py-3 px-4 w-12 text-center">STT</th>
-                      <th className="py-3 px-4 w-32">Mã Danh Mục</th>
+                      <th className="py-3 px-4 w-32 text-center">Mã Danh Mục</th>
                       <th className="py-3 px-4">Tên Danh Mục Hàng Hóa</th>
-                      <th className="py-3 px-4 text-right">Tổng SL Tồn</th>
-                      <th className="py-3 px-4 text-right">Giá Trị Tồn (VND)</th>
-                      <th className="py-3 px-4 text-right w-36">Tỷ Trọng (%)</th>
+                      <th className="py-3 px-4 text-center">Tổng SL Tồn</th>
+                      <th className="py-3 px-4 text-center">Giá Trị Tồn (VND)</th>
+                      <th className="py-3 px-4 text-center w-36">Tỷ Trọng (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700">
                     {filteredItems.map((item, idx) => (
                       <tr key={idx} className="hover:bg-red-50/30 transition-colors">
                         <td className="py-3 px-4 text-center text-gray-400">{idx + 1}</td>
-                        <td className="py-3 px-4 font-mono font-semibold text-gray-800">{item.code}</td>
+                        <td className="py-3 px-4 font-mono font-semibold text-gray-800 text-center">{item.code}</td>
                         <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
-                        <td className="py-3 px-4 text-right font-semibold text-blue-700">
+                        <td className="py-3 px-4 text-center font-semibold text-blue-700">
                           {formatNumber(item.quantity)}
                         </td>
-                        <td className="py-3 px-4 text-right font-bold text-gray-900">
+                        <td className="py-3 px-4 text-center font-bold text-gray-900">
                           {formatCurrency(item.value)}
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -481,20 +481,20 @@ export const InventoryReportsPage: React.FC = () => {
                   <thead>
                     <tr className="bg-gray-50/75 border-b border-gray-200 text-gray-600 font-semibold uppercase tracking-wider text-[11px]">
                       <th className="py-3 px-4 w-12 text-center">STT</th>
-                      <th className="py-3 px-4 w-28">Mã Loại</th>
+                      <th className="py-3 px-4 w-28 text-center">Mã Loại</th>
                       <th className="py-3 px-4">Tên Loại Hàng</th>
                       <th className="py-3 px-4">Thuộc Danh Mục</th>
                       <th className="py-3 px-4 w-20 text-center">ĐVT</th>
-                      <th className="py-3 px-4 text-right">SL Tồn</th>
-                      <th className="py-3 px-4 text-right">Giá Trị Tồn (VND)</th>
-                      <th className="py-3 px-4 text-right w-36">Tỷ Trọng (%)</th>
+                      <th className="py-3 px-4 text-center">SL Tồn</th>
+                      <th className="py-3 px-4 text-center">Giá Trị Tồn (VND)</th>
+                      <th className="py-3 px-4 text-center w-36">Tỷ Trọng (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700">
                     {filteredItems.map((item, idx) => (
                       <tr key={idx} className="hover:bg-red-50/30 transition-colors">
                         <td className="py-3 px-4 text-center text-gray-400">{idx + 1}</td>
-                        <td className="py-3 px-4 font-mono font-semibold text-gray-800">{item.code}</td>
+                        <td className="py-3 px-4 font-mono font-semibold text-gray-800 text-center">{item.code}</td>
                         <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
                         <td className="py-3 px-4 text-gray-600">{item.categoryName || 'Chung'}</td>
                         <td className="py-3 px-4 text-center">
@@ -502,10 +502,10 @@ export const InventoryReportsPage: React.FC = () => {
                             {item.unit || '-'}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right font-semibold text-blue-700">
+                        <td className="py-3 px-4 text-center font-semibold text-blue-700">
                           {formatNumber(item.quantity)}
                         </td>
-                        <td className="py-3 px-4 text-right font-bold text-gray-900">
+                        <td className="py-3 px-4 text-center font-bold text-gray-900">
                           {formatCurrency(item.value)}
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -546,16 +546,16 @@ export const InventoryReportsPage: React.FC = () => {
                   <thead>
                     <tr className="bg-gray-50/75 border-b border-gray-200 text-gray-600 font-semibold uppercase tracking-wider text-[11px]">
                       <th className="py-3 px-3 w-10 text-center">STT</th>
-                      <th className="py-3 px-3 w-28">Mã SKU</th>
-                      <th className="py-3 px-3 w-28">Mã Vạch</th>
+                      <th className="py-3 px-3 w-28 text-center">Mã SKU</th>
+                      <th className="py-3 px-3 w-28 text-center">Mã Vạch</th>
                       <th className="py-3 px-4">Tên Sản Phẩm VPP</th>
                       <th className="py-3 px-3">Loại / Danh Mục</th>
                       <th className="py-3 px-3">Kho</th>
                       <th className="py-3 px-2 text-center">ĐVT</th>
-                      <th className="py-3 px-3 text-right">Tồn Kho</th>
-                      <th className="py-3 px-3 text-right">Định Mức</th>
-                      <th className="py-3 px-3 text-right">Giá Vốn</th>
-                      <th className="py-3 px-3 text-right">Giá Trị Tồn</th>
+                      <th className="py-3 px-3 text-center">Tồn Kho</th>
+                      <th className="py-3 px-3 text-center">Định Mức</th>
+                      <th className="py-3 px-3 text-center">Giá Vốn</th>
+                      <th className="py-3 px-3 text-center">Giá Trị Tồn</th>
                       <th className="py-3 px-3 text-center">Trạng Thái</th>
                     </tr>
                   </thead>
@@ -568,8 +568,8 @@ export const InventoryReportsPage: React.FC = () => {
                         }`}
                       >
                         <td className="py-3 px-3 text-center text-gray-400">{idx + 1}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-gray-800">{item.code}</td>
-                        <td className="py-3 px-3 font-mono text-[11px] text-gray-500">{item.barcode || '-'}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-gray-800 text-center">{item.code}</td>
+                        <td className="py-3 px-3 font-mono text-[11px] text-gray-500 text-center">{item.barcode || '-'}</td>
                         <td className="py-3 px-4">
                           <div className="font-medium text-gray-900">{item.name}</div>
                         </td>
@@ -585,16 +585,16 @@ export const InventoryReportsPage: React.FC = () => {
                             {item.unit}
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-right font-bold text-blue-700">
+                        <td className="py-3 px-3 text-center font-bold text-blue-700">
                           {formatNumber(item.quantity)}
                         </td>
-                        <td className="py-3 px-3 text-right text-gray-500 font-medium">
+                        <td className="py-3 px-3 text-center text-gray-500 font-medium">
                           {formatNumber(item.minStockLevel || 0)}
                         </td>
-                        <td className="py-3 px-3 text-right text-gray-700 font-medium">
+                        <td className="py-3 px-3 text-center text-gray-700 font-medium">
                           {formatCurrency(item.costPrice || 0)}
                         </td>
-                        <td className="py-3 px-3 text-right font-bold text-gray-900">
+                        <td className="py-3 px-3 text-center font-bold text-gray-900">
                           {formatCurrency(item.value)}
                         </td>
                         <td className="py-3 px-3 text-center">

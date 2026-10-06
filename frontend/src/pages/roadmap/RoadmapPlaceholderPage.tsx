@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Clock, CheckCircle2, ArrowRight, Package, Target } from 'lucide-react';
 
 interface RoadmapPlaceholderProps {
   sprint: string;
@@ -69,8 +69,9 @@ export const RoadmapPlaceholderPage: React.FC<RoadmapPlaceholderProps> = ({
           border: '1px solid #F3F4F6'
         }}
       >
-        <div style={{ fontWeight: '600', fontSize: '13px', color: '#374151', marginBottom: '0.5rem' }}>
-          📦 Các chức năng được xây dựng trong {sprint}:
+        <div style={{ fontWeight: '600', fontSize: '13px', color: '#374151', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <Package size={15} color="#E53935" />
+          <span>Các chức năng được xây dựng trong {sprint}:</span>
         </div>
         <ul style={{ listStyleType: 'none', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
           {modules.map((m, i) => (
@@ -81,8 +82,9 @@ export const RoadmapPlaceholderPage: React.FC<RoadmapPlaceholderProps> = ({
           ))}
         </ul>
 
-        <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #E5E7EB', fontSize: '12px', color: '#6B7280' }}>
-          🎯 <strong>Tiêu chuẩn đầu ra (Deliverables):</strong> {deliverables}
+        <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #E5E7EB', fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'flex-start', gap: '0.35rem' }}>
+          <Target size={14} color="#16A34A" style={{ marginTop: '2px', flexShrink: 0 }} />
+          <span><strong>Tiêu chuẩn đầu ra (Deliverables):</strong> {deliverables}</span>
         </div>
       </div>
 

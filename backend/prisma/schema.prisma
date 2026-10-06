@@ -262,6 +262,11 @@ model Product {
   supplier      Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
   // Quy cách thông số kỹ thuật VPP
+  brand         String?         // Thương hiệu (Double, Thiên Long, ...)
+  specification String?         // Quy cách (500 tờ/ream, 20 cây/hộp, ...)
+  subTypeCode   String?         @map("sub_type_code") // Mã nhóm loại
+  subTypeName   String?         @map("sub_type_name") // Tên nhóm loại
+  maxStockLevel Int?            @default(1000) @map("max_stock_level") // Định mức tồn kho tối đa
   color         String?
   length        Decimal?        @db.Decimal(10, 2) // mm
   width         Decimal?        @db.Decimal(10, 2) // mm
@@ -302,6 +307,8 @@ model Customer {
   manager         User?                     @relation("CustomerManager", fields: [managerId], references: [id], onDelete: SetNull)
   status          String                    @default("ACTIVE") // ACTIVE, INACTIVE
   creditBalance   Decimal                   @default(0) @map("credit_balance") @db.Decimal(15, 2) // Số dư ký quỹ / Tiền trả trước (Mục IX)
+  creditLimit     Decimal                   @default(50000000) @map("credit_limit") @db.Decimal(15, 2) // Hạn mức tín dụng / nợ tối đa (VNĐ)
+  maxDebtDays     Int                       @default(30) @map("max_debt_days") // Số ngày nợ tối đa được phép
   createdAt       DateTime                  @default(now()) @map("created_at")
   updatedAt       DateTime                  @updatedAt @map("updated_at")
 

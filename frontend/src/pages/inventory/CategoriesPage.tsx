@@ -25,19 +25,27 @@ export const CategoriesPage: React.FC = () => {
 
   const defaultCategoryWidths: Record<string, number> = {
     stt: 60,
-    code: 140,
+    code: 150,
     name: 260,
     warehouse: 200,
     types: 150,
-    skuCount: 130,
+    skuCount: 150,
     actions: 140
   };
 
   const { columnWidths, startResize, getTableWidth } = useTableResize({
     tableKey: 'categories',
     defaultWidths: defaultCategoryWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 120 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      code: 120,
+      name: 180,
+      warehouse: 150,
+      types: 130,
+      skuCount: 130,
+      actions: 120
+    }
   });
 
   // Modal
@@ -256,7 +264,7 @@ export const CategoriesPage: React.FC = () => {
                     <td className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
                       {idx + 1}
                     </td>
-                    <td className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden">
+                    <td className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
                       {cat.code}
                     </td>
                     <td className="py-2.5 px-3.5 overflow-hidden">

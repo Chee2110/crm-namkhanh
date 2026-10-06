@@ -12,11 +12,13 @@ import {
   AlertCircle,
   X,
   Building,
-  Award
+  Award,
+  RefreshCw
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { SalesPlan, SalesPlanItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { Toast } from '../../components/common/Toast';
 
 export const SalesPlansPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -93,6 +95,26 @@ export const SalesPlansPage: React.FC = () => {
       loadData();
     } catch (err: any) {
       setFormError(err.response?.data?.message || 'Có lỗi xảy ra khi tạo kế hoạch');
+    }
+  };
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncActuals = async (planId: string) => {
+    try {
+      setSyncing(true);
+      await api.post(`/sales-plans/${planId}/sync-actuals`);
+      await loadData();
+      if (isCompareModalOpen && compareData?.plan?.id === planId) {
+        const res = await api.get(`/sales-plans/${planId}/compare`);
+        setCompareData(res.data);
+      }
+      setToastMessage('Đã đồng bộ số liệu thực tế từ các đơn hàng thành công!');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Có lỗi xảy ra khi đồng bộ số liệu thực tế');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -245,11 +267,19 @@ export const SalesPlansPage: React.FC = () => {
 
                   <div className="flex items-center gap-1">
                     <button
+                      onClick={() => handleSyncActuals(plan.id)}
+                      className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer"
+                      title="Đồng bộ số liệu thực tế từ các đơn hàng"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
                       onClick={() => handleViewCompare(plan.id)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition-colors"
+                      className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer"
+                      title="Đối chiếu kế hoạch & thực tế"
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      Đối chiếu
                     </button>
 
                     {hasPermission('B_SALES_PLANS', 'delete') && (
@@ -348,14 +378,14 @@ export const SalesPlansPage: React.FC = () => {
                       <th className="p-2.5">Nhóm mặt hàng</th>
                       <th className="p-2.5 w-20">ĐVT</th>
                       <th className="p-2.5 w-32">Chỉ tiêu SL</th>
-                      <th className="p-2.5 w-44 text-right">Chỉ tiêu Doanh thu (VNĐ)</th>
+                      <th className="p-2.5 w-44 text-center">Chỉ tiêu Doanh thu (VNĐ)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {formData.items.map((it, idx) => (
                       <tr key={idx}>
                         <td className="p-2.5 font-semibold text-gray-800">{it.category}</td>
-                        <td className="p-2.5 text-gray-500">{it.unit}</td>
+                        <td className="p-2.5 text-center text-gray-500">{it.unit}</td>
                         <td className="p-2.5">
                           <input
                             type="number"
@@ -369,7 +399,7 @@ export const SalesPlansPage: React.FC = () => {
                             className="w-full p-1 border border-gray-200 rounded text-center"
                           />
                         </td>
-                        <td className="p-2.5 text-right">
+                        <td className="p-2.5 text-center">
                           <input
                             type="number"
                             min="0"
@@ -380,7 +410,7 @@ export const SalesPlansPage: React.FC = () => {
                               updated[idx].targetRevenue = Math.max(0, parseInt(e.target.value) || 0);
                               setFormData({ ...formData, items: updated });
                             }}
-                            className="w-full p-1 border border-gray-200 rounded text-right font-bold text-[#E53935]"
+                            className="w-full p-1 border border-gray-200 rounded text-center font-bold text-[#E53935]"
                           />
                         </td>
                       </tr>
@@ -444,12 +474,23 @@ export const SalesPlansPage: React.FC = () => {
                   <p className="text-xs text-gray-500">{compareData.plan.title}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsCompareModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleSyncActuals(compareData.plan.id)}
+                  disabled={syncing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-semibold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+                  title="Đồng bộ số liệu thực tế từ các đơn hàng đã hoàn thành trong kỳ"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Đang đồng bộ...' : 'Đồng bộ từ Đơn hàng thực tế'}
+                </button>
+                <button
+                  onClick={() => setIsCompareModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -484,8 +525,8 @@ export const SalesPlansPage: React.FC = () => {
                       <th className="p-3 text-center">ĐVT</th>
                       <th className="p-3 text-center">Chỉ tiêu SL</th>
                       <th className="p-3 text-center">Thực tế SL</th>
-                      <th className="p-3 text-right">Chỉ tiêu Doanh thu</th>
-                      <th className="p-3 text-right">Thực tế Doanh thu</th>
+                      <th className="p-3 text-center">Chỉ tiêu Doanh thu</th>
+                      <th className="p-3 text-center">Thực tế Doanh thu</th>
                       <th className="p-3 text-center">% Doanh thu</th>
                       <th className="p-3 text-center">Đánh giá</th>
                     </tr>
@@ -499,10 +540,10 @@ export const SalesPlansPage: React.FC = () => {
                         <td className="p-3 text-center font-semibold text-gray-900">
                           {item.actualQuantity.toLocaleString('vi-VN')}
                         </td>
-                        <td className="p-3 text-right font-medium text-gray-600">
+                        <td className="p-3 text-center font-medium text-gray-600">
                           {formatVND(item.targetRevenue)}
                         </td>
-                        <td className="p-3 text-right font-bold text-emerald-600">
+                        <td className="p-3 text-center font-bold text-emerald-600">
                           {formatVND(item.actualRevenue)}
                         </td>
                         <td className="p-3 text-center">
@@ -534,6 +575,13 @@ export const SalesPlansPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <Toast
+        show={!!toastMessage}
+        message={toastMessage || ''}
+        type="success"
+        onClose={() => setToastMessage(null)}
+      />
     </div>
   );
 };

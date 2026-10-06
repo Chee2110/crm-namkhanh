@@ -66,8 +66,14 @@ export class ProductsService {
     name: string;
     category?: string;
     categoryId?: string;
+    categoryCode?: string;
+    categoryName?: string;
     productTypeId?: string;
+    productTypeCode?: string;
+    productTypeName?: string;
     warehouseId?: string;
+    warehouseCode?: string;
+    warehouseName?: string;
     supplierId?: string;
     supplierName?: string;
     supplierPhone?: string;
@@ -78,6 +84,12 @@ export class ProductsService {
     vatRate?: number;
     stockQuantity?: number;
     minStockLevel?: number;
+    maxStockLevel?: number;
+    brand?: string;
+    specification?: string;
+    subTypeCode?: string;
+    subTypeName?: string;
+    imageUrl?: string;
     color?: string;
     length?: number;
     width?: number;
@@ -123,9 +135,51 @@ export class ProductsService {
       if (!sup) finalSupplierId = null;
     }
 
+    let finalWarehouseId = data.warehouseId && data.warehouseId.trim() ? data.warehouseId.trim() : null;
+    if (!finalWarehouseId && (data.warehouseCode || data.warehouseName)) {
+      const wCode = (data.warehouseCode || '').trim();
+      const wName = (data.warehouseName || '').trim();
+      let wh = null;
+      if (wCode) wh = await prisma.warehouse.findUnique({ where: { code: wCode } });
+      if (!wh && wName) wh = await prisma.warehouse.findFirst({ where: { name: { equals: wName, mode: 'insensitive' } } });
+      if (!wh && (wCode || wName)) {
+        wh = await prisma.warehouse.create({
+          data: {
+            code: wCode || `WH-${Date.now().toString().slice(-4)}`,
+            name: wName || wCode,
+            status: 'ACTIVE'
+          }
+        });
+      }
+      if (wh) finalWarehouseId = wh.id;
+    } else if (finalWarehouseId) {
+      const wh = await prisma.warehouse.findUnique({ where: { id: finalWarehouseId } });
+      if (!wh) finalWarehouseId = null;
+    }
+
     let finalCategoryId = data.categoryId && data.categoryId.trim() ? data.categoryId.trim() : null;
-    let catName = data.category && data.category.trim() ? data.category.trim() : 'Văn phòng phẩm';
-    if (finalCategoryId) {
+    let catName = data.category && data.category.trim() ? data.category.trim() : '';
+    if (!finalCategoryId && (data.categoryCode || data.categoryName)) {
+      const cCode = (data.categoryCode || '').trim();
+      const cName = (data.categoryName || '').trim();
+      let cat = null;
+      if (cCode) cat = await prisma.category.findUnique({ where: { code: cCode } });
+      if (!cat && cName) cat = await prisma.category.findFirst({ where: { name: { equals: cName, mode: 'insensitive' } } });
+      if (!cat && (cCode || cName)) {
+        cat = await prisma.category.create({
+          data: {
+            code: cCode || `DM-${Date.now().toString().slice(-4)}`,
+            name: cName || cCode,
+            warehouseId: finalWarehouseId,
+            status: 'ACTIVE'
+          }
+        });
+      }
+      if (cat) {
+        finalCategoryId = cat.id;
+        catName = cat.name;
+      }
+    } else if (finalCategoryId) {
       const cat = await prisma.category.findUnique({ where: { id: finalCategoryId } });
       if (cat) {
         catName = cat.name;
@@ -133,15 +187,28 @@ export class ProductsService {
         finalCategoryId = null;
       }
     }
-
-    let finalWarehouseId = data.warehouseId && data.warehouseId.trim() ? data.warehouseId.trim() : null;
-    if (finalWarehouseId) {
-      const wh = await prisma.warehouse.findUnique({ where: { id: finalWarehouseId } });
-      if (!wh) finalWarehouseId = null;
-    }
+    if (!catName) catName = 'Văn phòng phẩm';
 
     let finalProductTypeId = data.productTypeId && data.productTypeId.trim() ? data.productTypeId.trim() : null;
-    if (finalProductTypeId) {
+    if (!finalProductTypeId && (data.productTypeCode || data.productTypeName) && finalCategoryId) {
+      const ptCode = (data.productTypeCode || '').trim();
+      const ptName = (data.productTypeName || '').trim();
+      let pt = null;
+      if (ptCode) pt = await prisma.productType.findUnique({ where: { code: ptCode } });
+      if (!pt && ptName) pt = await prisma.productType.findFirst({ where: { name: { equals: ptName, mode: 'insensitive' }, categoryId: finalCategoryId } });
+      if (!pt && (ptCode || ptName)) {
+        pt = await prisma.productType.create({
+          data: {
+            code: ptCode || `LH-${Date.now().toString().slice(-4)}`,
+            name: ptName || ptCode,
+            categoryId: finalCategoryId,
+            unit: data.unit ? data.unit.trim() : undefined,
+            status: 'ACTIVE'
+          }
+        });
+      }
+      if (pt) finalProductTypeId = pt.id;
+    } else if (finalProductTypeId) {
       const pt = await prisma.productType.findUnique({ where: { id: finalProductTypeId } });
       if (!pt) finalProductTypeId = null;
     }
@@ -162,7 +229,13 @@ export class ProductsService {
         vatRate: data.vatRate !== undefined ? Number(data.vatRate) : 8,
         stockQuantity: data.stockQuantity !== undefined ? Number(data.stockQuantity) : 100,
         minStockLevel: data.minStockLevel !== undefined ? Number(data.minStockLevel) : 20,
+        maxStockLevel: data.maxStockLevel !== undefined ? Number(data.maxStockLevel) : 1000,
+        brand: data.brand && data.brand.trim() ? data.brand.trim() : null,
+        specification: data.specification && data.specification.trim() ? data.specification.trim() : null,
+        subTypeCode: data.subTypeCode && data.subTypeCode.trim() ? data.subTypeCode.trim() : null,
+        subTypeName: data.subTypeName && data.subTypeName.trim() ? data.subTypeName.trim() : null,
         color: data.color && data.color.trim() ? data.color.trim() : null,
+        imageUrl: data.imageUrl && data.imageUrl.trim() ? data.imageUrl.trim() : null,
         length: data.length !== undefined && data.length !== null && Number(data.length) !== 0 ? Number(data.length) : null,
         width: data.width !== undefined && data.width !== null && Number(data.width) !== 0 ? Number(data.width) : null,
         height: data.height !== undefined && data.height !== null && Number(data.height) !== 0 ? Number(data.height) : null,
@@ -271,6 +344,11 @@ export class ProductsService {
       updatePayload.category = data.category.trim();
     }
 
+    if (data.maxStockLevel !== undefined) updatePayload.maxStockLevel = Number(data.maxStockLevel) || 1000;
+    if (data.brand !== undefined) updatePayload.brand = data.brand && data.brand.trim() ? data.brand.trim() : null;
+    if (data.specification !== undefined) updatePayload.specification = data.specification && data.specification.trim() ? data.specification.trim() : null;
+    if (data.subTypeCode !== undefined) updatePayload.subTypeCode = data.subTypeCode && data.subTypeCode.trim() ? data.subTypeCode.trim() : null;
+    if (data.subTypeName !== undefined) updatePayload.subTypeName = data.subTypeName && data.subTypeName.trim() ? data.subTypeName.trim() : null;
     if (data.color !== undefined) updatePayload.color = data.color && data.color.trim() ? data.color.trim() : null;
     if (data.length !== undefined) updatePayload.length = data.length !== '' && data.length !== null && Number(data.length) !== 0 ? Number(data.length) : null;
     if (data.width !== undefined) updatePayload.width = data.width !== '' && data.width !== null && Number(data.width) !== 0 ? Number(data.width) : null;
@@ -278,7 +356,7 @@ export class ProductsService {
     if (data.weight !== undefined) updatePayload.weight = data.weight !== '' && data.weight !== null && Number(data.weight) !== 0 ? Number(data.weight) : null;
     if (data.description !== undefined) updatePayload.description = data.description && data.description.trim() ? data.description.trim() : null;
     if (data.status !== undefined) updatePayload.status = data.status;
-    if (data.imageUrl !== undefined) updatePayload.imageUrl = data.imageUrl;
+    if (data.imageUrl !== undefined) updatePayload.imageUrl = data.imageUrl && data.imageUrl.trim() ? data.imageUrl.trim() : null;
 
     return prisma.product.update({
       where: { id },

@@ -158,6 +158,70 @@ export class SalesPlansService {
     };
   }
 
+  async syncActuals(id: string) {
+    const plan = await this.getSalesPlanById(id);
+    const year = plan.year || new Date().getFullYear();
+
+    let startDate = new Date(year, 0, 1);
+    let endDate = new Date(year, 11, 31, 23, 59, 59);
+
+    if (plan.periodType === 'MONTH') {
+      const match = plan.periodValue.match(/\d+/);
+      const monthNum = match ? parseInt(match[0], 10) : 1;
+      const validMonth = Math.min(Math.max(monthNum, 1), 12);
+      startDate = new Date(year, validMonth - 1, 1);
+      endDate = new Date(year, validMonth, 0, 23, 59, 59);
+    } else if (plan.periodType === 'QUARTER') {
+      const match = plan.periodValue.match(/\d+/);
+      const qNum = match ? parseInt(match[0], 10) : 1;
+      const validQ = Math.min(Math.max(qNum, 1), 4);
+      startDate = new Date(year, (validQ - 1) * 3, 1);
+      endDate = new Date(year, validQ * 3, 0, 23, 59, 59);
+    }
+
+    const orderWhere: any = {
+      orderDate: { gte: startDate, lte: endDate },
+      deliveryStatus: { not: 'CANCELLED' }
+    };
+
+    if (plan.departmentId) {
+      orderWhere.manager = { departmentId: plan.departmentId };
+    }
+
+    const orderItems = await prisma.orderItem.findMany({
+      where: { order: orderWhere },
+      include: {
+        product: {
+          include: { categoryRel: true }
+        }
+      }
+    });
+
+    await prisma.$transaction(async (tx: any) => {
+      for (const it of plan.items) {
+        const matchingItems = orderItems.filter((oi: any) => {
+          const catName = oi.product?.categoryRel?.name || oi.product?.category || '';
+          return (
+            catName.toLowerCase().includes(it.category.toLowerCase()) ||
+            it.category.toLowerCase().includes(catName.toLowerCase())
+          );
+        });
+        const actualQty = matchingItems.reduce((sum: number, oi: any) => sum + oi.quantity, 0);
+        const actualRev = matchingItems.reduce((sum: number, oi: any) => sum + Number(oi.total), 0);
+
+        await tx.salesPlanItem.update({
+          where: { id: it.id },
+          data: {
+            actualQuantity: actualQty,
+            actualRevenue: actualRev
+          }
+        });
+      }
+    });
+
+    return this.comparePlan(id);
+  }
+
   async deleteSalesPlan(id: string) {
     const plan = await prisma.salesPlan.findUnique({ where: { id } });
     if (!plan) throw new Error('Không tìm thấy kế hoạch kinh doanh');

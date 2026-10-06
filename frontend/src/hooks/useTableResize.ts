@@ -20,7 +20,14 @@ export function useTableResize({
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        return { ...defaultWidths, ...parsed };
+        const merged: Record<string, number> = { ...defaultWidths, ...parsed };
+        for (const [k, defVal] of Object.entries(defaultWidths)) {
+          const colMin = minWidths[k] || minWidth;
+          if (!merged[k] || merged[k] < colMin) {
+            merged[k] = Math.max(defVal, colMin);
+          }
+        }
+        return merged;
       }
     } catch {
       // fallback to defaults on parse error

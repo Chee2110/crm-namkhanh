@@ -27,17 +27,25 @@ export const ProductTypesPage: React.FC = () => {
     stt: 60,
     code: 140,
     name: 260,
-    category: 200,
-    unit: 90,
-    skuCount: 130,
+    category: 220,
+    unit: 120,
+    skuCount: 150,
     actions: 140
   };
 
   const { columnWidths, startResize, getTableWidth } = useTableResize({
     tableKey: 'product_types',
     defaultWidths: defaultTypeWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 120 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      code: 110,
+      name: 180,
+      category: 160,
+      unit: 90,
+      skuCount: 130,
+      actions: 120
+    }
   });
 
   // Modal
@@ -259,7 +267,7 @@ export const ProductTypesPage: React.FC = () => {
                     <td className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
                       {idx + 1}
                     </td>
-                    <td className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden">
+                    <td className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
                       {t.code}
                     </td>
                     <td className="py-2.5 px-3.5 overflow-hidden">

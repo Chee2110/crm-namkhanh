@@ -9,7 +9,8 @@ import {
   FileCheck,
   AlertCircle,
   Eye,
-  FileCode
+  FileCode,
+  X
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { LegalDocument } from '../../types';
@@ -26,19 +27,28 @@ export const DocumentsPage: React.FC = () => {
   const defaultDocWidths: Record<string, number> = {
     stt: 60,
     code: 140,
-    title: 260,
-    fileName: 220,
-    fileSize: 110,
-    uploadedBy: 160,
-    createdAt: 120,
+    title: 280,
+    fileName: 240,
+    fileSize: 130,
+    uploadedBy: 170,
+    createdAt: 130,
     actions: 140
   };
 
   const { columnWidths, startResize, getTableWidth } = useTableResize({
     tableKey: 'documents',
     defaultWidths: defaultDocWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 120 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      code: 110,
+      title: 200,
+      fileName: 160,
+      fileSize: 110,
+      uploadedBy: 130,
+      createdAt: 110,
+      actions: 120
+    }
   });
 
   // Modal State
@@ -254,35 +264,35 @@ export const DocumentsPage: React.FC = () => {
         >
           <thead className="bg-slate-50/90 border-b border-gray-200">
             <tr style={{ whiteSpace: 'nowrap' }}>
-              <th className="table-th text-center select-none" style={{ width: `${columnWidths.stt || defaultDocWidths.stt}px`, position: 'relative' }}>
+              <th className="table-th text-center select-none" style={{ width: `${columnWidths.stt || defaultDocWidths.stt}px`, position: 'relative', textAlign: 'center' }}>
                 <span>STT</span>
                 <div className="col-resizer" onMouseDown={(e) => startResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
               </th>
-              <th className="table-th select-none" style={{ width: `${columnWidths.code || defaultDocWidths.code}px`, position: 'relative' }}>
+              <th className="table-th text-center select-none" style={{ width: `${columnWidths.code || defaultDocWidths.code}px`, position: 'relative', textAlign: 'center' }}>
                 <span>Mã hồ sơ</span>
                 <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
               </th>
-              <th className="table-th select-none" style={{ width: `${columnWidths.title || defaultDocWidths.title}px`, position: 'relative' }}>
+              <th className="table-th text-center select-none" style={{ width: `${columnWidths.title || defaultDocWidths.title}px`, position: 'relative', textAlign: 'center' }}>
                 <span>Tên hồ sơ giấy tờ</span>
                 <div className="col-resizer" onMouseDown={(e) => startResize('title', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
               </th>
-              <th className="table-th select-none" style={{ width: `${columnWidths.fileName || defaultDocWidths.fileName}px`, position: 'relative' }}>
+              <th className="table-th text-center select-none" style={{ width: `${columnWidths.fileName || defaultDocWidths.fileName}px`, position: 'relative', textAlign: 'center' }}>
                 <span>Tên tệp đính kèm</span>
                 <div className="col-resizer" onMouseDown={(e) => startResize('fileName', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
               </th>
-              <th className="table-th select-none" style={{ width: `${columnWidths.fileSize || defaultDocWidths.fileSize}px`, position: 'relative' }}>
+              <th className="table-th text-center select-none" style={{ width: `${columnWidths.fileSize || defaultDocWidths.fileSize}px`, position: 'relative', textAlign: 'center' }}>
                 <span>Dung lượng</span>
                 <div className="col-resizer" onMouseDown={(e) => startResize('fileSize', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
               </th>
-              <th className="table-th select-none" style={{ width: `${columnWidths.uploadedBy || defaultDocWidths.uploadedBy}px`, position: 'relative' }}>
+              <th className="table-th text-center select-none" style={{ width: `${columnWidths.uploadedBy || defaultDocWidths.uploadedBy}px`, position: 'relative', textAlign: 'center' }}>
                 <span>Người tải lên</span>
                 <div className="col-resizer" onMouseDown={(e) => startResize('uploadedBy', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
               </th>
-              <th className="table-th select-none" style={{ width: `${columnWidths.createdAt || defaultDocWidths.createdAt}px`, position: 'relative' }}>
+              <th className="table-th text-center select-none" style={{ width: `${columnWidths.createdAt || defaultDocWidths.createdAt}px`, position: 'relative', textAlign: 'center' }}>
                 <span>Ngày tạo</span>
                 <div className="col-resizer" onMouseDown={(e) => startResize('createdAt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
               </th>
-              <th className="table-th sticky-action-th" style={{ width: `${columnWidths.actions || defaultDocWidths.actions}px`, textAlign: 'right' }}>
+              <th className="table-th sticky-action-th" style={{ width: `${columnWidths.actions || defaultDocWidths.actions}px`, textAlign: 'center' }}>
                 <span>Thao tác</span>
               </th>
             </tr>
@@ -304,7 +314,7 @@ export const DocumentsPage: React.FC = () => {
               documents.map((doc, index) => (
                 <tr key={doc.id} className="table-tr">
                   <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{index + 1}</td>
-                  <td className="table-td whitespace-nowrap overflow-hidden">
+                  <td className="table-td whitespace-nowrap overflow-hidden text-center">
                     <span className="font-semibold text-xs text-[#E53935] font-mono">
                       {doc.code}
                     </span>
@@ -344,7 +354,6 @@ export const DocumentsPage: React.FC = () => {
                         title="Tải về"
                       >
                         <Download size={13} />
-                        <span>Tải về</span>
                       </a>
 
                       {/* Xem trước nếu là link web hoặc file trực tiếp */}
@@ -390,8 +399,9 @@ export const DocumentsPage: React.FC = () => {
               <button
                 onClick={() => setIsModalOpen(false)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}
+                title="Đóng"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 

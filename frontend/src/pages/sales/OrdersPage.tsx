@@ -27,13 +27,22 @@ import {
   SlidersHorizontal,
   PackageMinus,
   Undo2,
-  GripVertical
+  GripVertical,
+  Lightbulb,
+  ArrowLeft,
+  Edit2,
+  FileSpreadsheet,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Order, Customer, Product, User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { OrderPrintModal } from './components/OrderPrintModal';
+import { ImportItemsModal } from '../../components/common/ImportItemsModal';
 import { useTableResize } from '../../hooks/useTableResize';
+import { ProductSearchSelect } from '../../components/common/ProductSearchSelect';
+import { Toast } from '../../components/common/Toast';
 
 export const OrdersPage: React.FC = () => {
   const { user, hasPermission } = useAuth();
@@ -49,8 +58,11 @@ export const OrdersPage: React.FC = () => {
   const [paymentFilter, setPaymentFilter] = useState('');
   const [invoiceFilter, setInvoiceFilter] = useState('');
 
-  // Modals
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  // Trang Tạo Đơn hàng mới (thay thế popup/modal thành trang riêng)
+  const [isCreatePage, setIsCreatePage] = useState(false);
+  const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isHandoverModalOpen, setIsHandoverModalOpen] = useState(false);
@@ -62,6 +74,7 @@ export const OrdersPage: React.FC = () => {
   // In ấn phiếu xuất kho kiêm giao hàng A4
   const [selectedPrintOrder, setSelectedPrintOrder] = useState<Order | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isImportItemsModalOpen, setIsImportItemsModalOpen] = useState(false);
 
   // Cấu hình Ẩn/Hiện cột (Column Visibility) & Kéo thả (Drag & Drop)
   const defaultVisibleCols: Record<string, boolean> = {
@@ -132,22 +145,35 @@ export const OrdersPage: React.FC = () => {
     code: 160,
     customer: 300,
     deliveryAddress: 220,
-    phone: 130,
-    dates: 150,
-    delivery: 130,
+    phone: 140,
+    dates: 160,
+    delivery: 140,
     invoice: 130,
-    totalAmount: 150,
+    totalAmount: 170,
     paidAmount: 140,
-    remainingAmount: 150,
-    manager: 140,
-    actions: 140
+    remainingAmount: 160,
+    manager: 150,
+    actions: 310
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'orders',
+    tableKey: 'orders_v4',
     defaultWidths: defaultOrderWidths,
     minWidth: 60,
-    minWidths: { actions: 120 }
+    minWidths: {
+      code: 130,
+      customer: 200,
+      deliveryAddress: 150,
+      phone: 120,
+      dates: 140,
+      delivery: 120,
+      invoice: 110,
+      totalAmount: 150,
+      paidAmount: 120,
+      remainingAmount: 140,
+      manager: 130,
+      actions: 280
+    }
   });
 
   const [draggedCol, setDraggedCol] = useState<string | null>(null);
@@ -215,6 +241,8 @@ export const OrdersPage: React.FC = () => {
     setIsPrintModalOpen(true);
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Cancel Refund State
   const [cancelRefundData, setCancelRefundData] = useState({
     refundOption: 'CREDIT_BALANCE' as 'CREDIT_BALANCE' | 'CASH_REFUND',
@@ -248,6 +276,7 @@ export const OrdersPage: React.FC = () => {
   const [createData, setCreateData] = useState({
     customerId: '',
     quotationId: '',
+    orderDate: new Date().toISOString().split('T')[0],
     deliveryDate: '',
     deliveryAddress: '',
     contactPerson: '',
@@ -376,6 +405,48 @@ export const OrdersPage: React.FC = () => {
     setCreateData({ ...createData, items: updated });
   };
 
+  const handleProductSelectInRow = (index: number, product: Product) => {
+    const updated = [...createData.items];
+    updated[index] = {
+      ...updated[index],
+      productId: product.id,
+      productCode: product.code,
+      productName: product.name,
+      unit: product.unit,
+      unitPrice: Number(product.sellingPrice || 0)
+    };
+    setCreateData({ ...createData, items: updated });
+  };
+
+  const handleAddEmptyRow = () => {
+    const defaultProd = products[0];
+    if (!defaultProd) return;
+    setCreateData({
+      ...createData,
+      items: [
+        ...createData.items,
+        {
+          productId: defaultProd.id,
+          productCode: defaultProd.code,
+          productName: defaultProd.name,
+          unit: defaultProd.unit,
+          quantity: 1,
+          unitPrice: Number(defaultProd.sellingPrice || 0),
+          vatRate: createData.vatRate
+        }
+      ]
+    });
+  };
+
+  const handleBulkImportItems = (importedItems: any[]) => {
+    const validExisting = createData.items.filter((it) => it.productId || it.productCode);
+    setCreateData({
+      ...createData,
+      items: [...validExisting, ...importedItems]
+    });
+    setToastMessage(`Đã nhập thành công ${importedItems.length} sản phẩm từ file Excel/CSV!`);
+  };
+
   // Tính toán nháp cho Modal Tạo đơn
   const subtotal = createData.items.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0);
   const vatAmount = (subtotal * createData.vatRate) / 100;
@@ -383,6 +454,48 @@ export const OrdersPage: React.FC = () => {
   const customerCredit = Number(customers.find((c) => c.id === createData.customerId)?.creditBalance || 0);
   const creditDeduction = createData.useCreditBalance ? Math.min(totalAmount, customerCredit) : 0;
   const draftRemaining = Math.max(0, totalAmount - creditDeduction - (Number(createData.paidAmount) || 0));
+
+  // Kiểm soát hạn mức tín dụng khách hàng (Feature 2)
+  const selectedOrderCustomer = customers.find((c) => c.id === createData.customerId);
+  const customerCreditLimit = Number(selectedOrderCustomer?.creditLimit) || 50000000;
+  const customerOldDebt = orders
+    .filter((o) => o.customerId === createData.customerId && (!editingOrder || o.id !== editingOrder.id))
+    .reduce((sum, o) => sum + Number(o.remainingAmount || 0), 0);
+  const projectedTotalDebt = customerOldDebt + (totalAmount - (Number(createData.paidAmount) || 0) - creditDeduction);
+  const isExceedingCreditLimit = Boolean(createData.customerId && projectedTotalDebt > customerCreditLimit);
+
+  const openEditOrder = (order: Order) => {
+    setEditingOrder(order);
+    setCreateData({
+      customerId: order.customerId,
+      quotationId: order.quotationId || '',
+      orderDate: order.orderDate ? new Date(order.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      deliveryDate: order.deliveryDate ? new Date(order.deliveryDate).toISOString().split('T')[0] : '',
+      deliveryAddress: order.deliveryAddress || '',
+      contactPerson: order.contactPerson || '',
+      phone: order.phone || '',
+      deliveryStatus: order.deliveryStatus,
+      paymentStatus: order.paymentStatus,
+      invoiceStatus: order.invoiceStatus,
+      paidAmount: Number(order.paidAmount) || 0,
+      vatRate: order.vatRate !== undefined ? Number(order.vatRate) : 8,
+      useCreditBalance: false,
+      notes: order.notes || '',
+      items: (order.items && order.items.length > 0)
+        ? order.items.map((it) => ({
+            productId: it.productId || '',
+            productCode: it.productCode,
+            productName: it.productName,
+            unit: it.unit,
+            quantity: Number(it.quantity) || 1,
+            unitPrice: Number(it.unitPrice) || 0,
+            vatRate: it.vatRate !== undefined ? Number(it.vatRate) : (order.vatRate ?? 8)
+          }))
+        : []
+    });
+    setFormError(null);
+    setIsCreatePage(true);
+  };
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -398,17 +511,32 @@ export const OrdersPage: React.FC = () => {
     }
 
     try {
-      await api.post('/orders', {
-        ...createData,
-        deliveryDate: createData.deliveryDate ? new Date(createData.deliveryDate) : undefined,
-        paidAmount: Number(createData.paidAmount) || 0,
-        useCreditBalance: Boolean(createData.useCreditBalance)
-      });
+      setIsSubmitting(true);
+      if (editingOrder) {
+        await api.put(`/orders/${editingOrder.id}`, {
+          ...createData,
+          orderDate: createData.orderDate ? new Date(createData.orderDate) : undefined,
+          deliveryDate: createData.deliveryDate ? new Date(createData.deliveryDate) : undefined,
+          paidAmount: Number(createData.paidAmount) || 0
+        });
+        setToastMessage(`Đã cập nhật thành công đơn hàng ${editingOrder.code}!`);
+      } else {
+        await api.post('/orders', {
+          ...createData,
+          orderDate: createData.orderDate ? new Date(createData.orderDate) : undefined,
+          deliveryDate: createData.deliveryDate ? new Date(createData.deliveryDate) : undefined,
+          paidAmount: Number(createData.paidAmount) || 0,
+          useCreditBalance: Boolean(createData.useCreditBalance)
+        });
+        setToastMessage('Đã lập thành công đơn hàng mới!');
+      }
 
-      setIsCreateModalOpen(false);
+      setIsCreatePage(false);
+      setEditingOrder(null);
       setCreateData({
         customerId: '',
         quotationId: '',
+        orderDate: new Date().toISOString().split('T')[0],
         deliveryDate: '',
         deliveryAddress: '',
         contactPerson: '',
@@ -424,8 +552,50 @@ export const OrdersPage: React.FC = () => {
       });
       loadData();
     } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Có lỗi xảy ra khi tạo đơn hàng');
+      setFormError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu đơn hàng');
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const handleCancelCreate = () => {
+    const isDirty = Boolean(
+      createData.customerId ||
+      createData.items.some((it) => it.productId || it.productCode) ||
+      createData.deliveryAddress ||
+      createData.contactPerson ||
+      createData.phone ||
+      createData.notes
+    );
+    if (isDirty) {
+      setIsDiscardModalOpen(true);
+    } else {
+      setIsCreatePage(false);
+      setEditingOrder(null);
+    }
+  };
+
+  const handleConfirmDiscard = () => {
+    setIsDiscardModalOpen(false);
+    setIsCreatePage(false);
+    setEditingOrder(null);
+    setCreateData({
+      customerId: '',
+      quotationId: '',
+      orderDate: new Date().toISOString().split('T')[0],
+      deliveryDate: '',
+      deliveryAddress: '',
+      contactPerson: '',
+      phone: '',
+      deliveryStatus: 'PENDING',
+      paymentStatus: 'UNPAID',
+      invoiceStatus: 'NOT_ISSUED',
+      paidAmount: 0,
+      vatRate: 8,
+      useCreditBalance: false,
+      notes: '',
+      items: []
+    });
   };
 
   const openPaymentModal = (order: Order) => {
@@ -445,12 +615,15 @@ export const OrdersPage: React.FC = () => {
     if (!selectedOrder) return;
 
     try {
+      setIsSubmitting(true);
       await api.put(`/orders/${selectedOrder.id}`, updatePaymentData);
       setIsPaymentModalOpen(false);
       setSelectedOrder(null);
       loadData();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Cập nhật đơn hàng thất bại');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -465,22 +638,36 @@ export const OrdersPage: React.FC = () => {
     if (!selectedOrder || !handoverData.toUserId) return;
 
     try {
+      setIsSubmitting(true);
       await api.post(`/orders/${selectedOrder.id}/handover`, handoverData);
       setIsHandoverModalOpen(false);
       setSelectedOrder(null);
       loadData();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Bàn giao đơn hàng thất bại');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: string, code: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa đơn hàng ${code}?`)) return;
+  const handleDelete = async (id: string, code: string, deliveryStatus?: string) => {
+    let confirmMsg = `Bạn có chắc chắn muốn xóa đơn hàng ${code}?`;
+    if (deliveryStatus === 'DELIVERED') {
+      confirmMsg = `⚠️ Đơn hàng ${code} đang ở trạng thái ĐÃ GIAO HÀNG.\nNếu xóa, hệ thống sẽ tự động hoàn trả số lượng hàng về kho cho các sản phẩm trong đơn.\n\nBạn có chắc chắn muốn xóa vĩnh viễn đơn hàng này không?`;
+    }
+    if (!confirm(confirmMsg)) return;
     try {
       await api.delete(`/orders/${id}`);
+      setToastMessage(`Đã xóa thành công đơn hàng ${code}!`);
+      setIsDetailModalOpen(false);
+      setSelectedOrder(null);
+      if (isCreatePage && editingOrder?.id === id) {
+        setIsCreatePage(false);
+        setEditingOrder(null);
+      }
       loadData();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Không thể xóa đơn hàng đã giao hoặc đã thanh toán');
+      alert(err.response?.data?.message || 'Có lỗi xảy ra khi xóa đơn hàng');
     }
   };
 
@@ -662,6 +849,7 @@ export const OrdersPage: React.FC = () => {
     }
 
     try {
+      setIsSubmitting(true);
       await api.post(`/orders/${selectedOrder.id}/returns`, {
         returnReason: returnData.returnReason,
         refundOption: returnData.refundOption,
@@ -682,6 +870,8 @@ export const OrdersPage: React.FC = () => {
       loadData();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Lỗi khi lập phiếu đổi trả hàng');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -735,15 +925,583 @@ export const OrdersPage: React.FC = () => {
     }
   };
 
+  if (isCreatePage) {
+    return (
+      <div className="space-y-4">
+        {/* Navigation & Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleCancelCreate}
+              className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
+              title="Quay lại danh sách đơn hàng"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Quay lại</span>
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-[#E53935]">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-gray-900 m-0">
+                  {editingOrder ? `Chỉnh Sửa Đơn Hàng [${editingOrder.code}]` : 'Lập Đơn Hàng Mới - VPP Nam Khánh'}
+                </h2>
+                <p className="text-xs text-gray-500 m-0 mt-0.5">
+                  {editingOrder
+                    ? 'Cập nhật thông tin chi tiết đơn hàng, khách hàng và danh sách sản phẩm'
+                    : 'Tự động tính toán công nợ và áp thuế VAT 8% ngành văn phòng phẩm'}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {editingOrder && hasPermission('B_ORDERS', 'delete') && (
+              <button
+                type="button"
+                onClick={() => handleDelete(editingOrder.id, editingOrder.code, editingOrder.deliveryStatus)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+                title="Xóa đơn hàng này khỏi hệ thống"
+              >
+                <Trash2 className="w-4 h-4 text-red-600" />
+                <span>Xóa đơn hàng</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleCancelCreate}
+              className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 cursor-pointer"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              type="button"
+              onClick={handleCreateOrder}
+              disabled={isSubmitting}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-sm font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Đang lưu đơn hàng...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  <span>{editingOrder ? 'Cập nhật Đơn hàng' : 'Xác nhận lưu Đơn hàng'}</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Card Form Chi tiết */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <form onSubmit={handleCreateOrder} className="space-y-6">
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-[#E53935] flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {formError}
+              </div>
+            )}
+
+            {/* Cảnh báo Hạn mức tín dụng Khách hàng (Credit Limit Control) */}
+            {selectedOrderCustomer && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs flex items-start gap-3 transition-colors ${
+                  isExceedingCreditLimit
+                    ? 'bg-red-50 border-red-300 text-red-900'
+                    : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                }`}
+              >
+                {isExceedingCreditLimit ? (
+                  <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                ) : (
+                  <FileCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold uppercase tracking-wide text-[11px]">
+                      {isExceedingCreditLimit
+                        ? '⚠️ CẢNH BÁO: ĐƠN HÀNG VƯỢT HẠN MỨC TÍN DỤNG ĐƯỢC CẤP'
+                        : 'Kiểm soát hạn mức tín dụng khách hàng: Hợp lệ'}
+                    </span>
+                    <span className="font-mono text-[11px] font-semibold">
+                      Hạn mức: {customerCreditLimit.toLocaleString('vi-VN')} VNĐ
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-0.5 text-gray-700">
+                    <p>
+                      Nợ cũ hiện tại: <strong className="text-gray-900">{customerOldDebt.toLocaleString('vi-VN')} đ</strong>
+                    </p>
+                    <p>
+                      Đơn hàng này: <strong className="text-gray-900">{totalAmount.toLocaleString('vi-VN')} đ</strong>
+                    </p>
+                    <p>
+                      Dự kiến tổng nợ: <strong className={isExceedingCreditLimit ? 'text-red-600 font-bold' : 'text-emerald-700 font-bold'}>{projectedTotalDebt.toLocaleString('vi-VN')} đ</strong>
+                    </p>
+                  </div>
+                  {isExceedingCreditLimit && (
+                    <p className="text-red-700 text-[11.5px] font-semibold pt-1 border-t border-red-200">
+                      Khách hàng sẽ vượt quá hạn mức tín dụng cho phép {(projectedTotalDebt - customerCreditLimit).toLocaleString('vi-VN')} VNĐ (Số ngày nợ tối đa: {selectedOrderCustomer.maxDebtDays || 30} ngày). Vui lòng yêu cầu thanh toán bớt nợ cũ hoặc xin phê duyệt cấp trên trước khi giao hàng!
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Thông tin chung đơn hàng */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Khách hàng đặt hàng <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={createData.customerId}
+                  onChange={(e) => handleCustomerSelect(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+                >
+                  <option value="">-- Chọn khách hàng --</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.code}) - {c.phone}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Người nhận hàng</label>
+                <input
+                  type="text"
+                  placeholder="Tên người nhận tại kho/VP"
+                  value={createData.contactPerson}
+                  onChange={(e) => setCreateData({ ...createData, contactPerson: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Số điện thoại nhận</label>
+                <input
+                  type="text"
+                  placeholder="SĐT liên hệ giao hàng"
+                  value={createData.phone}
+                  onChange={(e) => setCreateData({ ...createData, phone: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Địa chỉ giao hàng</label>
+                <input
+                  type="text"
+                  placeholder="Địa chỉ giao cụ thể..."
+                  value={createData.deliveryAddress}
+                  onChange={(e) => setCreateData({ ...createData, deliveryAddress: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Ngày đặt hàng <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={createData.orderDate}
+                  onChange={(e) => setCreateData({ ...createData, orderDate: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Ngày hẹn giao</label>
+                <input
+                  type="date"
+                  value={createData.deliveryDate}
+                  onChange={(e) => setCreateData({ ...createData, deliveryDate: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+                />
+              </div>
+            </div>
+
+            {/* Số dư trả trước / Ký quỹ của khách (Credit Balance) */}
+            {(() => {
+              const selectedCust = customers.find((c) => c.id === createData.customerId);
+              const creditBal = Number(selectedCust?.creditBalance || 0);
+              if (creditBal <= 0) return null;
+              return (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <CreditCard className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-emerald-900">
+                        Khách hàng có số dư trả trước / ký quỹ: {formatVND(creditBal)}
+                      </p>
+                      <p className="text-[11px] text-emerald-700">
+                        Tích chọn để tự động cấn trừ số dư này vào tiền thanh toán đơn hàng.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-bold text-emerald-800 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-emerald-300 shadow-sm hover:bg-emerald-100/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={createData.useCreditBalance}
+                      onChange={(e) => setCreateData({ ...createData, useCreditBalance: e.target.checked })}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span>Cấn trừ số dư ví</span>
+                  </label>
+                </div>
+              );
+            })()}
+
+            {/* Danh sách mặt hàng VPP trong đơn */}
+            <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2 m-0">
+                  <ShoppingBag className="w-4 h-4 text-[#E53935]" />
+                  Danh mục hàng hóa VPP xuất bán ({createData.items.length})
+                </h4>
+                <div className="flex items-center gap-2 flex-1 max-w-md justify-end">
+                  <ProductSearchSelect
+                    products={products}
+                    onSelect={(p) => handleAddItem(p.id)}
+                    placeholder="+ Tìm & thêm nhanh sản phẩm vào đơn..."
+                    clearOnSelect={true}
+                    minWidth={360}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddEmptyRow}
+                    className="px-2.5 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center gap-1 shrink-0 cursor-pointer"
+                    title="Thêm một dòng trống vào đơn hàng"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Thêm dòng</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsImportItemsModalOpen(true)}
+                    className="px-2.5 py-1.5 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-semibold transition-colors shadow-sm flex items-center gap-1 shrink-0 cursor-pointer"
+                    title="Tải lên danh sách sản phẩm từ file Excel hoặc CSV"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Nhập Excel/CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              {createData.items.length === 0 ? (
+                <div className="py-8 text-center text-gray-400 bg-white rounded-lg border border-dashed border-gray-300 text-xs">
+                  Chưa có mặt hàng nào. Chọn hoặc tìm kiếm sản phẩm từ thanh trên để thêm vào đơn.
+                </div>
+              ) : (
+                <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-gray-100/70 border-b border-gray-200 text-gray-700">
+                      <tr>
+                        <th className="p-2.5 min-w-[300px] text-center">Mã & Tên SP (Nhập tìm kiếm)</th>
+                        <th className="p-2.5 w-24 text-center">ĐVT</th>
+                        <th className="p-2.5 w-28 text-center">Số lượng</th>
+                        <th className="p-2.5 w-36 text-center">Đơn giá (VNĐ)</th>
+                        <th className="p-2.5 w-36 text-center">Thành tiền</th>
+                        <th className="p-2.5 w-14 text-center">Xóa</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {createData.items.map((item, index) => {
+                        const prod = products.find((p) => p.id === item.productId);
+                        const isExcessStock = prod !== undefined && prod.stockQuantity < item.quantity;
+                        return (
+                          <tr key={index} className="hover:bg-gray-50/50">
+                            <td className="p-2 min-w-[300px]">
+                              <ProductSearchSelect
+                                products={products}
+                                selectedProductId={item.productId}
+                                valueDisplay={item.productName ? `[${item.productCode}] ${item.productName}` : ''}
+                                onSelect={(product) => handleProductSelectInRow(index, product)}
+                                placeholder="Nhập tên hoặc mã sản phẩm..."
+                                minWidth={320}
+                              />
+                              {prod && (
+                                <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-500">
+                                  <span>
+                                    Tồn kho: <strong className={prod.stockQuantity <= 0 ? 'text-red-600 font-bold' : 'text-gray-800 font-semibold'}>{prod.stockQuantity} {prod.unit}</strong>
+                                  </span>
+                                  {isExcessStock && (
+                                    <span className="text-amber-600 font-medium flex items-center gap-0.5">
+                                      <AlertCircle className="w-3 h-3 text-amber-500 inline shrink-0" />
+                                      Cần xuất quá tồn kho ({item.quantity}/{prod.stockQuantity})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-2.5 text-center text-gray-500">{item.unit}</td>
+                            <td className="p-2.5">
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  handleItemChange(index, 'quantity', Math.max(1, parseInt(e.target.value) || 1))
+                                }
+                                className={`w-full p-1 border rounded text-center focus:outline-none ${
+                                  isExcessStock
+                                    ? 'border-amber-400 bg-amber-50/40 text-amber-900 focus:border-amber-500'
+                                    : 'border-gray-200 focus:border-[#E53935]'
+                                }`}
+                              />
+                            </td>
+                          <td className="p-2.5 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1000"
+                              value={item.unitPrice}
+                              onChange={(e) =>
+                                handleItemChange(index, 'unitPrice', Math.max(0, parseInt(e.target.value) || 0))
+                              }
+                              className="w-full p-1 border border-gray-200 rounded text-center focus:outline-none focus:border-[#E53935]"
+                            />
+                          </td>
+                          <td className="p-2.5 text-center font-semibold text-gray-900">
+                            {formatVND(item.quantity * item.unitPrice)}
+                          </td>
+                          <td className="p-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(index)}
+                              className="text-gray-400 hover:text-red-500 p-1 cursor-pointer"
+                              title="Xóa sản phẩm khỏi đơn"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Thanh toán & Công nợ tự động */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-red-50/30 p-5 rounded-xl border border-red-100">
+              <div className="space-y-3 text-xs">
+                <label className="block font-semibold text-gray-700">Ghi chú giao hàng & đóng gói</label>
+                <textarea
+                  rows={4}
+                  placeholder="Ghi chú yêu cầu giao giờ hành chính, bốc xếp hàng..."
+                  value={createData.notes}
+                  onChange={(e) => setCreateData({ ...createData, notes: e.target.value })}
+                  className="w-full p-2.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+                />
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">
+                    {editingOrder ? 'Trạng thái giao hàng' : 'Trạng thái giao hàng ban đầu'}
+                  </label>
+                  <select
+                    value={createData.deliveryStatus}
+                    onChange={(e) => setCreateData({ ...createData, deliveryStatus: e.target.value })}
+                    className="w-full p-2 text-xs border border-gray-200 rounded-lg bg-white"
+                  >
+                    <option value="PENDING">Chờ xuất kho</option>
+                    <option value="DELIVERING">Giao ngay cho shiper/xe tải</option>
+                    {editingOrder && <option value="DELIVERED">Đã giao hàng</option>}
+                    {editingOrder && <option value="CANCELLED">Đã hủy</option>}
+                  </select>
+                </div>
+                {editingOrder && (
+                  <div>
+                    <label className="block font-semibold text-gray-700 mb-1">Trạng thái hóa đơn</label>
+                    <select
+                      value={createData.invoiceStatus}
+                      onChange={(e) => setCreateData({ ...createData, invoiceStatus: e.target.value })}
+                      className="w-full p-2 text-xs border border-gray-200 rounded-lg bg-white"
+                    >
+                      <option value="NOT_ISSUED">Chưa xuất HĐ</option>
+                      <option value="ISSUED">Đã xuất HĐ</option>
+                      <option value="CANCELLED">Hủy HĐ</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 text-sm bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex justify-between text-gray-600">
+                  <span>Tổng tiền hàng (chưa VAT):</span>
+                  <span className="font-semibold text-gray-900">{formatVND(subtotal)}</span>
+                </div>
+                <div className="flex justify-between items-center text-gray-600">
+                  <span>Thuế suất VAT:</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      value={createData.vatRate}
+                      onChange={(e) => setCreateData({ ...createData, vatRate: parseInt(e.target.value) || 0 })}
+                      className="w-14 p-1 text-xs border border-gray-200 rounded text-center"
+                    />
+                    <span className="text-xs font-semibold">% ({formatVND(vatAmount)})</span>
+                  </div>
+                </div>
+                <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
+                  <span>Tổng thanh toán đơn:</span>
+                  <span className="text-[#E53935]">{formatVND(totalAmount)}</span>
+                </div>
+
+                {createData.useCreditBalance && creditDeduction > 0 && (
+                  <div className="flex justify-between items-center text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1.5 rounded-md border border-emerald-200">
+                    <span>Khấu trừ từ số dư trả trước:</span>
+                    <span>-{formatVND(creditDeduction)}</span>
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-dashed border-gray-200 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-semibold text-gray-700">Khách trả trước / Thực thu:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={totalAmount}
+                      step="1000"
+                      value={createData.paidAmount}
+                      onChange={(e) => setCreateData({ ...createData, paidAmount: Math.max(0, parseInt(e.target.value) || 0) })}
+                      className="w-40 p-1.5 text-xs border border-emerald-300 rounded font-semibold text-emerald-700 text-right focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-xs font-bold text-[#E53935]">
+                    <span>Còn phải thu (Nợ tự động):</span>
+                    <span className="text-sm font-black">{formatVND(draftRemaining)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-gray-200">
+              <div>
+                {editingOrder && hasPermission('B_ORDERS', 'delete') && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(editingOrder.id, editingOrder.code, editingOrder.deliveryStatus)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+                    title="Xóa đơn hàng này khỏi hệ thống"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <span>Xóa đơn hàng</span>
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelCreate}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-sm font-semibold shadow-md transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang lưu đơn hàng...</span>
+                    </>
+                  ) : (
+                    <span>{editingOrder ? 'Cập nhật Đơn hàng' : 'Xác nhận lưu Đơn hàng'}</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        {/* MODAL IMPORT HÀNG HÓA TỪ EXCEL/CSV */}
+        <ImportItemsModal
+          isOpen={isImportItemsModalOpen}
+          onClose={() => setIsImportItemsModalOpen(false)}
+          products={products}
+          onImport={handleBulkImportItems}
+          defaultVatRate={createData.vatRate || 8}
+        />
+
+        {/* MODAL XÁC NHẬN HỦY BỎ KHI CÓ DỮ LIỆU CHƯA LƯU */}
+        {isDiscardModalOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Xác nhận rời khỏi trang tạo đơn</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Bạn đã nhập dữ liệu đơn hàng ({createData.items.length > 0 ? `${createData.items.length} sản phẩm` : 'thông tin khách hàng'}). Nếu quay lại lúc này, các thay đổi chưa lưu sẽ bị mất.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDiscardModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                >
+                  Tiếp tục chỉnh sửa
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDiscard}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors cursor-pointer shadow-sm"
+                >
+                  Đồng ý hủy bỏ
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* 4 THẺ TỔNG QUAN ĐƠN HÀNG & CÔNG NỢ */}
+      {/* 4 THẺ TỔNG QUAN ĐƠN HÀNG & CÔNG NỢ (TƯƠNG TÁC 1 CHẠM ĐỂ LỌC) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => {
+            if (deliveryFilter === 'PENDING') {
+              setDeliveryFilter('');
+            } else {
+              setDeliveryFilter('PENDING');
+            }
+          }}
+          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${
+            deliveryFilter === 'PENDING'
+              ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-400'
+              : 'bg-white border-gray-200 hover:border-amber-300'
+          }`}
+          title="Nhấn để lọc nhanh các đơn hàng chờ xuất kho"
+        >
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng đơn hàng</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng đơn hàng</p>
+              {deliveryFilter === 'PENDING' && (
+                <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Đang lọc</span>
+              )}
+            </div>
             <p className="text-2xl font-bold text-gray-900 mt-1">{orders.length}</p>
-            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1 font-semibold">
               <Clock className="w-3.5 h-3.5" /> {pendingDeliveryCount} đơn cần xử lý giao
             </p>
           </div>
@@ -752,20 +1510,44 @@ export const OrdersPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => {
+            setDeliveryFilter('');
+            setPaymentFilter('');
+            setInvoiceFilter('');
+            setSearch('');
+          }}
+          className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md hover:border-blue-300"
+          title="Nhấn để xem toàn bộ đơn hàng (Xóa bộ lọc)"
+        >
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng doanh số đơn</p>
             <p className="text-2xl font-bold text-gray-900 mt-1">{formatVND(totalRevenue)}</p>
-            <p className="text-xs text-gray-500 mt-1">Gồm VAT 8% VPP</p>
+            <p className="text-xs text-gray-500 mt-1">Gồm VAT 8% VPP (Bấm xem tất cả)</p>
           </div>
           <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
             <DollarSign className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => {
+            setPaymentFilter(paymentFilter === 'PAID' ? '' : 'PAID');
+          }}
+          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${
+            paymentFilter === 'PAID'
+              ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-400'
+              : 'bg-white border-gray-200 hover:border-emerald-300'
+          }`}
+          title="Nhấn để lọc các đơn hàng đã thanh toán đủ"
+        >
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Thực thu (Đã trả)</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Thực thu (Đã trả)</p>
+              {paymentFilter === 'PAID' && (
+                <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">Đang lọc</span>
+              )}
+            </div>
             <p className="text-2xl font-bold text-emerald-600 mt-1">{formatVND(totalPaid)}</p>
             <p className="text-xs text-emerald-700 mt-1">
               Đạt {totalRevenue > 0 ? Math.round((totalPaid / totalRevenue) * 100) : 0}% tổng giá trị
@@ -776,11 +1558,26 @@ export const OrdersPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-red-200 shadow-sm flex items-center justify-between bg-red-50/20">
+        <div
+          onClick={() => {
+            setPaymentFilter(paymentFilter === 'UNPAID' ? '' : 'UNPAID');
+          }}
+          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${
+            paymentFilter === 'UNPAID'
+              ? 'bg-red-100 border-red-500 ring-2 ring-red-400'
+              : 'bg-red-50/20 border-red-200 hover:border-red-400'
+          }`}
+          title="Nhấn để lọc các đơn hàng chưa thanh toán (còn nợ)"
+        >
           <div>
-            <p className="text-xs font-semibold text-[#E53935] uppercase tracking-wider">Còn phải thu (Nợ)</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-semibold text-[#E53935] uppercase tracking-wider">Còn phải thu (Nợ)</p>
+              {paymentFilter === 'UNPAID' && (
+                <span className="text-[10px] bg-red-200 text-red-900 px-1.5 py-0.5 rounded font-bold">Đang lọc</span>
+              )}
+            </div>
             <p className="text-2xl font-bold text-[#E53935] mt-1">{formatVND(totalRemaining)}</p>
-            <p className="text-xs text-gray-500 mt-1">Công thức: Giá trị đơn - Thực thu</p>
+            <p className="text-xs text-gray-500 mt-1">Bấm để lọc đơn nợ chưa thu</p>
           </div>
           <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center text-[#E53935]">
             <AlertCircle className="w-6 h-6" />
@@ -835,6 +1632,23 @@ export const OrdersPage: React.FC = () => {
             <option value="ISSUING">Đang xuất HĐ</option>
             <option value="ISSUED">Đã xuất HĐ</option>
           </select>
+
+          {(search || deliveryFilter || paymentFilter || invoiceFilter) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setDeliveryFilter('');
+                setPaymentFilter('');
+                setInvoiceFilter('');
+              }}
+              className="px-2.5 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-1 transition-colors cursor-pointer border border-red-200"
+              title="Khôi phục toàn bộ danh sách đơn hàng"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Xóa bộ lọc</span>
+            </button>
+          )}
 
           <button
             type="submit"
@@ -904,8 +1718,26 @@ export const OrdersPage: React.FC = () => {
           {hasPermission('B_ORDERS', 'create') && (
             <button
               onClick={() => {
+                setEditingOrder(null);
+                setCreateData({
+                  customerId: '',
+                  quotationId: '',
+                  orderDate: new Date().toISOString().split('T')[0],
+                  deliveryDate: '',
+                  deliveryAddress: '',
+                  contactPerson: '',
+                  phone: '',
+                  deliveryStatus: 'PENDING',
+                  paymentStatus: 'UNPAID',
+                  invoiceStatus: 'NOT_ISSUED',
+                  paidAmount: 0,
+                  vatRate: 8,
+                  useCreditBalance: false,
+                  notes: '',
+                  items: []
+                });
                 setFormError(null);
-                setIsCreateModalOpen(true);
+                setIsCreatePage(true);
               }}
               className="flex items-center gap-2 px-4 py-2 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap"
             >
@@ -939,17 +1771,11 @@ export const OrdersPage: React.FC = () => {
                       onDragOver={(e) => handleDragOver(e, colKey)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, colKey)}
-                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden ${
+                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${
                         colKey === 'actions' ? 'sticky-action-th' : ''
                       } ${
                         dragOverCol === colKey ? 'bg-red-100 border-l-2 border-[#E53935]' : ''
-                      } ${draggedCol === colKey ? 'opacity-50' : ''} ${
-                        colKey === 'totalAmount' || colKey === 'paidAmount' || colKey === 'remainingAmount'
-                          ? 'text-right'
-                          : colKey === 'manager' || colKey === 'actions'
-                          ? 'text-center'
-                          : ''
-                      }`}
+                      } ${draggedCol === colKey ? 'opacity-50' : ''}`}
                       style={{
                         width: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 140}px`,
                         position: colKey === 'actions' ? 'sticky' : 'relative',
@@ -958,16 +1784,10 @@ export const OrdersPage: React.FC = () => {
                       title="Kéo thả để thay đổi vị trí cột"
                     >
                       <div
-                        className={`inline-flex items-center gap-1.5 overflow-hidden w-full ${
-                          colKey === 'totalAmount' || colKey === 'paidAmount' || colKey === 'remainingAmount'
-                            ? 'justify-end'
-                            : colKey === 'manager' || colKey === 'actions'
-                            ? 'justify-center'
-                            : 'justify-start'
-                        }`}
+                        className="inline-flex items-center justify-center gap-1.5 w-full"
                       >
                         {colKey !== 'actions' && <GripVertical className="w-3 h-3 text-gray-400 opacity-60 flex-shrink-0" />}
-                        <span className="truncate">{columnLabels[colKey]}</span>
+                        <span className="whitespace-nowrap select-none font-semibold">{columnLabels[colKey]}</span>
                       </div>
                       {colKey !== 'actions' && (
                         <div
@@ -1001,15 +1821,22 @@ export const OrdersPage: React.FC = () => {
                 orders.map((order) => {
                   const rem = Number(order.remainingAmount) || 0;
                   return (
-                    <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr
+                      key={order.id}
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        setIsDetailModalOpen(true);
+                      }}
+                      className="hover:bg-red-50/40 transition-colors cursor-pointer"
+                    >
                       {columnOrder
                         .filter((k) => visibleColumns[k])
                         .map((colKey) => {
                           switch (colKey) {
                             case 'code':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden">
-                                  <div className="font-semibold text-gray-900 flex items-center gap-1.5 min-w-0" title={`Mã đơn: ${order.code}${order.quotation ? ` (Từ BG: ${order.quotation.code})` : ''}`}>
+                                <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden text-center">
+                                  <div className="font-semibold text-gray-900 flex items-center justify-center gap-1.5 min-w-0" title={`Mã đơn: ${order.code}${order.quotation ? ` (Từ BG: ${order.quotation.code})` : ''}`}>
                                     <ShoppingBag className="w-4 h-4 text-[#E53935] shrink-0" />
                                     <span className="font-mono">{order.code}</span>
                                     {order.quotation && (
@@ -1061,7 +1888,7 @@ export const OrdersPage: React.FC = () => {
                             }
                             case 'phone':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 text-xs font-mono text-gray-700 whitespace-nowrap overflow-hidden">
+                                <td key={colKey} className="py-3 px-3.5 text-xs font-mono text-gray-700 whitespace-nowrap overflow-hidden text-center">
                                   {order.phone || order.customer?.phone || 'N/A'}
                                 </td>
                               );
@@ -1095,25 +1922,22 @@ export const OrdersPage: React.FC = () => {
                               );
                             case 'totalAmount':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 text-right font-bold text-gray-900 whitespace-nowrap overflow-hidden tabular-nums">
+                                <td key={colKey} className="py-3 px-3.5 text-center font-bold text-gray-900 whitespace-nowrap overflow-hidden tabular-nums">
                                   {formatVND(Number(order.totalAmount))}
                                 </td>
                               );
                             case 'paidAmount':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 text-right font-medium text-emerald-600 whitespace-nowrap overflow-hidden tabular-nums">
+                                <td key={colKey} className="py-3 px-3.5 text-center font-medium text-emerald-600 whitespace-nowrap overflow-hidden tabular-nums">
                                   {formatVND(Number(order.paidAmount))}
                                 </td>
                               );
                             case 'remainingAmount':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 text-right whitespace-nowrap overflow-hidden">
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <span className={`font-bold tabular-nums ${rem > 0 ? 'text-[#E53935]' : 'text-emerald-700'}`}>
-                                      {formatVND(rem)}
-                                    </span>
-                                    {renderPaymentBadge(order.paymentStatus, rem)}
-                                  </div>
+                                <td key={colKey} className="py-3 px-3.5 text-center font-bold whitespace-nowrap overflow-hidden tabular-nums">
+                                  <span className={rem > 0 ? 'text-[#E53935]' : 'text-emerald-700'}>
+                                    {formatVND(rem)}
+                                  </span>
                                 </td>
                               );
                             case 'manager':
@@ -1124,19 +1948,19 @@ export const OrdersPage: React.FC = () => {
                                   </span>
                                 </td>
                               );
-                            case 'actions':
+                              case 'actions':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
-                                  <div className="flex items-center justify-center gap-1">
-                                    {/* In Phiếu xuất kho A4 */}
-                                    <button
-                                      title="In Phiếu xuất kho kiêm Biên bản giao hàng (A4)"
-                                      onClick={() => handleOpenPrint(order)}
-                                      className="p-1.5 text-gray-500 hover:text-[#E53935] hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                    >
-                                      <Printer className="w-4 h-4 text-[#E53935]" />
-                                    </button>
-
+                                <td
+                                  key={colKey}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="py-2 px-2 text-center sticky-action-td whitespace-nowrap bg-white overflow-hidden"
+                                  style={{
+                                    width: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 310}px`,
+                                    minWidth: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 310}px`,
+                                    maxWidth: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 310}px`
+                                  }}
+                                >
+                                  <div className="flex items-center justify-center gap-1 w-full">
                                     {/* Xem chi tiết đơn */}
                                     <button
                                       title="Xem chi tiết đơn hàng"
@@ -1144,9 +1968,40 @@ export const OrdersPage: React.FC = () => {
                                         setSelectedOrder(order);
                                         setIsDetailModalOpen(true);
                                       }}
-                                      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                      className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                                     >
                                       <Eye className="w-4 h-4" />
+                                    </button>
+
+                                    {/* Chỉnh sửa đơn hàng (Update) */}
+                                    {hasPermission('B_ORDERS', 'update') && (
+                                      <button
+                                        title="Chỉnh sửa đơn hàng"
+                                        onClick={() => openEditOrder(order)}
+                                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                                      >
+                                        <Edit2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+
+                                    {/* Xóa đơn hàng (Delete) */}
+                                    {hasPermission('B_ORDERS', 'delete') && (
+                                      <button
+                                        title="Xóa đơn hàng"
+                                        onClick={() => handleDelete(order.id, order.code, order.deliveryStatus)}
+                                        className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+
+                                    {/* In Phiếu xuất kho A4 */}
+                                    <button
+                                      title="In Phiếu xuất kho kiêm Biên bản giao hàng (A4)"
+                                      onClick={() => handleOpenPrint(order)}
+                                      className="p-1 text-gray-500 hover:text-[#E53935] hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                    >
+                                      <Printer className="w-4 h-4 text-[#E53935]" />
                                     </button>
 
                                     {/* Thu tiền / Cập nhật tiến độ */}
@@ -1154,7 +2009,7 @@ export const OrdersPage: React.FC = () => {
                                       <button
                                         title="Cập nhật thanh toán & Trạng thái"
                                         onClick={() => openPaymentModal(order)}
-                                        className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                                        className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
                                       >
                                         <DollarSign className="w-4 h-4" />
                                       </button>
@@ -1165,7 +2020,7 @@ export const OrdersPage: React.FC = () => {
                                       <button
                                         title="Điều chỉnh giá trị đơn hàng (+/-)"
                                         onClick={() => openAdjustModal(order)}
-                                        className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                                        className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
                                       >
                                         <Edit3 className="w-4 h-4" />
                                       </button>
@@ -1176,7 +2031,7 @@ export const OrdersPage: React.FC = () => {
                                       <button
                                         title="Hủy đơn & Hoàn tiền cọc"
                                         onClick={() => openCancelRefundModal(order)}
-                                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                        className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                       >
                                         <RotateCcw className="w-4 h-4" />
                                       </button>
@@ -1187,7 +2042,7 @@ export const OrdersPage: React.FC = () => {
                                       <button
                                         title="Lập phiếu trả hàng hoàn kho"
                                         onClick={() => openReturnModal(order)}
-                                        className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+                                        className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-md transition-colors cursor-pointer"
                                       >
                                         <PackageMinus className="w-4 h-4 text-orange-600" />
                                       </button>
@@ -1198,24 +2053,11 @@ export const OrdersPage: React.FC = () => {
                                       <button
                                         title="Bàn giao đơn hàng cho nhân viên khác"
                                         onClick={() => openHandoverModal(order)}
-                                        className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
+                                        className="p-1 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-md transition-colors cursor-pointer"
                                       >
                                         <ArrowRightLeft className="w-4 h-4" />
                                       </button>
                                     )}
-
-                                    {/* Xóa đơn nếu chưa giao và chưa có thanh toán */}
-                                    {hasPermission('B_ORDERS', 'delete') &&
-                                      order.deliveryStatus !== 'DELIVERED' &&
-                                      Number(order.paidAmount) === 0 && (
-                                        <button
-                                          title="Xóa đơn hàng"
-                                          onClick={() => handleDelete(order.id, order.code)}
-                                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </button>
-                                      )}
                                   </div>
                                 </td>
                               );
@@ -1233,321 +2075,7 @@ export const OrdersPage: React.FC = () => {
       </div>
 
 
-      {/* MODAL TẠO ĐƠN HÀNG MỚI */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-[#E53935]">
-                  <ShoppingBag className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">Lập Đơn Hàng Mới - VPP Nam Khánh</h3>
-                  <p className="text-xs text-gray-500">Tự động tính toán công nợ và áp thuế VAT 8% ngành văn phòng phẩm</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <form onSubmit={handleCreateOrder} className="flex-1 overflow-y-auto p-6 space-y-6">
-              {formError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-[#E53935] flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {formError}
-                </div>
-              )}
-
-              {/* Thông tin chung đơn hàng */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Khách hàng đặt hàng <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={createData.customerId}
-                    onChange={(e) => handleCustomerSelect(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
-                  >
-                    <option value="">-- Chọn khách hàng --</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.code}) - {c.phone}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Người nhận hàng</label>
-                  <input
-                    type="text"
-                    placeholder="Tên người nhận tại kho/VP"
-                    value={createData.contactPerson}
-                    onChange={(e) => setCreateData({ ...createData, contactPerson: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Số điện thoại nhận</label>
-                  <input
-                    type="text"
-                    placeholder="SĐT liên hệ giao hàng"
-                    value={createData.phone}
-                    onChange={(e) => setCreateData({ ...createData, phone: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Địa chỉ giao hàng</label>
-                  <input
-                    type="text"
-                    placeholder="Địa chỉ giao cụ thể..."
-                    value={createData.deliveryAddress}
-                    onChange={(e) => setCreateData({ ...createData, deliveryAddress: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Ngày hẹn giao</label>
-                  <input
-                    type="date"
-                    value={createData.deliveryDate}
-                    onChange={(e) => setCreateData({ ...createData, deliveryDate: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
-                  />
-                </div>
-              </div>
-
-              {/* Số dư trả trước / Ký quỹ của khách (Credit Balance) */}
-              {(() => {
-                const selectedCust = customers.find((c) => c.id === createData.customerId);
-                const creditBal = Number(selectedCust?.creditBalance || 0);
-                if (creditBal <= 0) return null;
-                return (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <CreditCard className="w-5 h-5 text-emerald-600 shrink-0" />
-                      <div>
-                        <p className="text-xs font-bold text-emerald-900">
-                          Khách hàng có số dư trả trước / ký quỹ: {formatVND(creditBal)}
-                        </p>
-                        <p className="text-[11px] text-emerald-700">
-                          Tích chọn để tự động cấn trừ số dư này vào tiền thanh toán đơn hàng.
-                        </p>
-                      </div>
-                    </div>
-                    <label className="flex items-center gap-2 text-xs font-bold text-emerald-800 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-emerald-300 shadow-sm hover:bg-emerald-100/50 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={createData.useCreditBalance}
-                        onChange={(e) => setCreateData({ ...createData, useCreditBalance: e.target.checked })}
-                        className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
-                      />
-                      <span>Cấn trừ số dư ví</span>
-                    </label>
-                  </div>
-                );
-              })()}
-
-              {/* Danh sách mặt hàng VPP trong đơn */}
-              <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                    <ShoppingBag className="w-4 h-4 text-[#E53935]" />
-                    Danh mục hàng hóa VPP xuất bán
-                  </h4>
-                  <div className="flex items-center gap-2">
-                    <select
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          handleAddItem(e.target.value);
-                          e.target.value = '';
-                        }
-                      }}
-                      className="text-xs border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#E53935]"
-                    >
-                      <option value="">+ Chọn nhanh sản phẩm từ kho VPP</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.code} - {p.name} ({formatVND(Number(p.sellingPrice))}/{p.unit})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {createData.items.length === 0 ? (
-                  <div className="py-8 text-center text-gray-400 bg-white rounded-lg border border-dashed border-gray-300 text-xs">
-                    Chưa có mặt hàng nào. Chọn sản phẩm từ danh sách trên để thêm vào đơn.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
-                    <table className="w-full text-xs text-left">
-                      <thead className="bg-gray-100/70 border-b border-gray-200 text-gray-700">
-                        <tr>
-                          <th className="p-2">Mã & Tên SP</th>
-                          <th className="p-2 w-20">ĐVT</th>
-                          <th className="p-2 w-24">Số lượng</th>
-                          <th className="p-2 w-32 text-right">Đơn giá (VNĐ)</th>
-                          <th className="p-2 w-32 text-right">Thành tiền</th>
-                          <th className="p-2 w-12 text-center">Xóa</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {createData.items.map((item, index) => (
-                          <tr key={index}>
-                            <td className="p-2">
-                              <span className="font-semibold text-gray-800">{item.productCode}</span> - {item.productName}
-                            </td>
-                            <td className="p-2 text-gray-500">{item.unit}</td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) =>
-                                  handleItemChange(index, 'quantity', Math.max(1, parseInt(e.target.value) || 1))
-                                }
-                                className="w-full p-1 border border-gray-200 rounded text-center focus:outline-none focus:border-[#E53935]"
-                              />
-                            </td>
-                            <td className="p-2 text-right">
-                              <input
-                                type="number"
-                                min="0"
-                                step="1000"
-                                value={item.unitPrice}
-                                onChange={(e) =>
-                                  handleItemChange(index, 'unitPrice', Math.max(0, parseInt(e.target.value) || 0))
-                                }
-                                className="w-full p-1 border border-gray-200 rounded text-right focus:outline-none focus:border-[#E53935]"
-                              />
-                            </td>
-                            <td className="p-2 text-right font-semibold text-gray-900">
-                              {formatVND(item.quantity * item.unitPrice)}
-                            </td>
-                            <td className="p-2 text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveItem(index)}
-                                className="text-gray-400 hover:text-red-500 p-1"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* Thanh toán & Công nợ tự động */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-red-50/30 p-4 rounded-xl border border-red-100">
-                <div className="space-y-3 text-xs">
-                  <label className="block font-semibold text-gray-700">Ghi chú giao hàng & đóng gói</label>
-                  <textarea
-                    rows={3}
-                    placeholder="Ghi chú yêu cầu giao giờ hành chính, bốc xếp hàng..."
-                    value={createData.notes}
-                    onChange={(e) => setCreateData({ ...createData, notes: e.target.value })}
-                    className="w-full p-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
-                  />
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">Trạng thái giao hàng ban đầu</label>
-                    <select
-                      value={createData.deliveryStatus}
-                      onChange={(e) => setCreateData({ ...createData, deliveryStatus: e.target.value })}
-                      className="w-full p-2 text-xs border border-gray-200 rounded-lg bg-white"
-                    >
-                      <option value="PENDING">Chờ xuất kho</option>
-                      <option value="DELIVERING">Giao ngay cho shiper/xe tải</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Tổng tiền hàng (chưa VAT):</span>
-                    <span className="font-semibold text-gray-900">{formatVND(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-gray-600">
-                    <span>Thuế suất VAT:</span>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        min="0"
-                        max="20"
-                        value={createData.vatRate}
-                        onChange={(e) => setCreateData({ ...createData, vatRate: parseInt(e.target.value) || 0 })}
-                        className="w-14 p-1 text-xs border border-gray-200 rounded text-center"
-                      />
-                      <span className="text-xs font-semibold">% ({formatVND(vatAmount)})</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
-                    <span>Tổng thanh toán đơn:</span>
-                    <span className="text-[#E53935]">{formatVND(totalAmount)}</span>
-                  </div>
-
-                  {createData.useCreditBalance && creditDeduction > 0 && (
-                    <div className="flex justify-between items-center text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
-                      <span>Khấu trừ từ số dư trả trước:</span>
-                      <span>-{formatVND(creditDeduction)}</span>
-                    </div>
-                  )}
-
-                  <div className="pt-2 border-t border-dashed border-gray-200 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-semibold text-gray-700">Khách trả trước / Thực thu:</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max={totalAmount}
-                        step="1000"
-                        value={createData.paidAmount}
-                        onChange={(e) => setCreateData({ ...createData, paidAmount: Math.max(0, parseInt(e.target.value) || 0) })}
-                        className="w-36 p-1.5 text-xs border border-emerald-300 rounded font-semibold text-emerald-700 text-right focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div className="flex justify-between items-center text-xs font-bold text-[#E53935]">
-                      <span>Còn phải thu (Nợ tự động):</span>
-                      <span className="text-sm font-black">{formatVND(draftRemaining)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-sm font-semibold shadow-md transition-colors"
-                >
-                  Xác nhận lưu Đơn hàng
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* MODAL CẬP NHẬT THANH TOÁN THỰC THU & TIẾN ĐỘ */}
       {isPaymentModalOpen && selectedOrder && (
@@ -1945,9 +2473,10 @@ export const OrdersPage: React.FC = () => {
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg font-mono font-bold focus:outline-none focus:border-amber-500"
                   placeholder="Ví dụ: -50000 hoặc 30000"
                 />
-                <p className="text-[11px] text-gray-500 mt-1">
-                  💡 Nhập số <strong>âm (-)</strong> để giảm trừ tiền (chiết khấu thêm, giảm giá bớt hàng lỗi). Nhập số <strong>dương (+)</strong> để tăng giá trị (phát sinh phụ phí, cộng thêm cước).
-                </p>
+                <div className="text-[11px] text-gray-500 mt-1 flex items-start gap-1.5">
+                  <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                  <span>Nhập số <strong>âm (-)</strong> để giảm trừ tiền (chiết khấu thêm, giảm giá bớt hàng lỗi). Nhập số <strong>dương (+)</strong> để tăng giá trị (phát sinh phụ phí, cộng thêm cước).</span>
+                </div>
               </div>
 
               {/* Preview giá trị sau điều chỉnh */}
@@ -2031,8 +2560,9 @@ export const OrdersPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleOrderReturn} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
-              <div className="p-3 bg-orange-50/50 border border-orange-200 rounded-xl text-[11.5px] text-orange-900 leading-relaxed">
-                💡 Nhập số lượng hàng thực tế khách trả lại kho. Hệ thống sẽ tự động <strong>hoàn tồn kho</strong> sản phẩm và xử lý công nợ hoặc hoàn tiền theo phương thức bạn chọn dưới đây.
+              <div className="p-3 bg-orange-50/50 border border-orange-200 rounded-xl text-[11.5px] text-orange-900 leading-relaxed flex items-start gap-1.5">
+                <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                <span>Nhập số lượng hàng thực tế khách trả lại kho. Hệ thống sẽ tự động <strong>hoàn tồn kho</strong> sản phẩm và xử lý công nợ hoặc hoàn tiền theo phương thức bạn chọn dưới đây.</span>
               </div>
 
               {/* Bảng sản phẩm trong đơn để nhập số lượng trả */}
@@ -2040,12 +2570,12 @@ export const OrdersPage: React.FC = () => {
                 <table className="w-full text-left">
                   <thead className="bg-gray-100/80 border-b border-gray-200 text-gray-700 font-bold uppercase text-[10px]">
                     <tr>
-                      <th className="p-2.5">Sản phẩm VPP</th>
+                      <th className="p-2.5 text-center">Sản phẩm VPP</th>
                       <th className="p-2.5 text-center w-16">ĐVT</th>
                       <th className="p-2.5 text-center w-20">Đã giao</th>
                       <th className="p-2.5 text-center w-24">SL Trả lại</th>
-                      <th className="p-2.5 text-right w-24">Đơn giá</th>
-                      <th className="p-2.5 text-right w-28">Thành tiền trả</th>
+                      <th className="p-2.5 text-center w-24">Đơn giá</th>
+                      <th className="p-2.5 text-center w-28">Thành tiền trả</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -2055,7 +2585,7 @@ export const OrdersPage: React.FC = () => {
                         <tr key={idx} className={item.returnQuantity > 0 ? 'bg-orange-50/30' : ''}>
                           <td className="p-2.5">
                             <div className="font-bold text-gray-900">{item.productName}</div>
-                            <div className="text-[10px] font-mono text-gray-500">{item.productCode}</div>
+                            <div className="text-[10px] font-mono text-gray-500 text-center">{item.productCode}</div>
                           </td>
                           <td className="p-2.5 text-center text-gray-600">{item.unit}</td>
                           <td className="p-2.5 text-center font-semibold text-gray-700">{item.orderQuantity}</td>
@@ -2074,8 +2604,8 @@ export const OrdersPage: React.FC = () => {
                               className="w-20 p-1 border border-orange-300 rounded text-center font-bold text-orange-700 focus:outline-none focus:ring-1 focus:ring-orange-500"
                             />
                           </td>
-                          <td className="p-2.5 text-right text-gray-700">{formatVND(item.unitPrice)}</td>
-                          <td className="p-2.5 text-right font-bold text-gray-900">
+                          <td className="p-2.5 text-center text-gray-700">{formatVND(item.unitPrice)}</td>
+                          <td className="p-2.5 text-center font-bold text-gray-900">
                             {formatVND(itemTotal)}
                           </td>
                         </tr>
@@ -2213,16 +2743,40 @@ export const OrdersPage: React.FC = () => {
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                {hasPermission('B_ORDERS', 'update') && (
+                  <button
+                    onClick={() => {
+                      const ord = selectedOrder;
+                      setIsDetailModalOpen(false);
+                      openEditOrder(ord);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    title="Chỉnh sửa toàn bộ thông tin đơn hàng này"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Chỉnh sửa
+                  </button>
+                )}
+                {hasPermission('B_ORDERS', 'delete') && (
+                  <button
+                    onClick={() => handleDelete(selectedOrder.id, selectedOrder.code, selectedOrder.deliveryStatus)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    title="Xóa đơn hàng này khỏi hệ thống"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Xóa đơn
+                  </button>
+                )}
                 <button
                   onClick={() => window.print()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-xs font-semibold"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   In phiếu A4
                 </button>
                 <button
                   onClick={() => setIsDetailModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg"
+                  className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2294,24 +2848,24 @@ export const OrdersPage: React.FC = () => {
                   <thead className="bg-gray-100 border-b border-gray-300 text-gray-800 font-bold uppercase text-[10px]">
                     <tr>
                       <th className="p-2.5 text-center w-10">STT</th>
-                      <th className="p-2.5 w-24">Mã SP</th>
-                      <th className="p-2.5">Tên sản phẩm văn phòng phẩm</th>
+                      <th className="p-2.5 text-center w-24">Mã SP</th>
+                      <th className="p-2.5 text-center">Tên sản phẩm văn phòng phẩm</th>
                       <th className="p-2.5 text-center w-14">ĐVT</th>
                       <th className="p-2.5 text-center w-16">SL</th>
-                      <th className="p-2.5 text-right w-24">Đơn giá</th>
-                      <th className="p-2.5 text-right w-28">Thành tiền (VNĐ)</th>
+                      <th className="p-2.5 text-center w-24">Đơn giá</th>
+                      <th className="p-2.5 text-center w-28">Thành tiền (VNĐ)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {selectedOrder.items?.map((item, idx) => (
                       <tr key={idx}>
                         <td className="p-2 text-center text-gray-500">{idx + 1}</td>
-                        <td className="p-2 font-mono font-semibold text-gray-700">{item.productCode}</td>
+                        <td className="p-2 text-center font-mono font-semibold text-gray-700">{item.productCode}</td>
                         <td className="p-2 font-medium text-gray-900">{item.productName}</td>
                         <td className="p-2 text-center text-gray-600">{item.unit}</td>
                         <td className="p-2 text-center font-bold">{item.quantity}</td>
-                        <td className="p-2 text-right">{formatVND(Number(item.unitPrice))}</td>
-                        <td className="p-2 text-right font-bold text-gray-900">
+                        <td className="p-2 text-center">{formatVND(Number(item.unitPrice))}</td>
+                        <td className="p-2 text-center font-bold text-gray-900">
                           {formatVND(Number(item.total))}
                         </td>
                       </tr>
@@ -2440,6 +2994,21 @@ export const OrdersPage: React.FC = () => {
           setSelectedPrintOrder(null);
         }}
         order={selectedPrintOrder}
+      />
+
+      {/* MODAL IMPORT HÀNG HÓA TỪ EXCEL/CSV */}
+      <ImportItemsModal
+        isOpen={isImportItemsModalOpen}
+        onClose={() => setIsImportItemsModalOpen(false)}
+        products={products}
+        onImport={handleBulkImportItems}
+        defaultVatRate={createData.vatRate || 8}
+      />
+
+      <Toast
+        show={!!toastMessage}
+        message={toastMessage || ''}
+        onClose={() => setToastMessage(null)}
       />
     </div>
   );

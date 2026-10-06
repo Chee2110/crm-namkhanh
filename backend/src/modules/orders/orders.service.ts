@@ -261,68 +261,140 @@ export class OrdersService {
     });
     if (!order) throw new Error('Không tìm thấy đơn hàng');
 
+    const hasItemsUpdate = data.items && Array.isArray(data.items) && data.items.length > 0;
+    const targetDeliveryStatus = data.deliveryStatus || order.deliveryStatus;
+
     const updateData: any = {
-      deliveryAddress: data.deliveryAddress,
-      contactPerson: data.contactPerson,
-      phone: data.phone,
-      invoiceStatus: data.invoiceStatus,
-      notes: data.notes,
-      deliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : undefined
+      deliveryAddress: data.deliveryAddress !== undefined ? data.deliveryAddress : order.deliveryAddress,
+      contactPerson: data.contactPerson !== undefined ? data.contactPerson : order.contactPerson,
+      phone: data.phone !== undefined ? data.phone : order.phone,
+      invoiceStatus: data.invoiceStatus !== undefined ? data.invoiceStatus : order.invoiceStatus,
+      notes: data.notes !== undefined ? data.notes : order.notes,
+      deliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : order.deliveryDate
     };
 
-    if (data.deliveryStatus) {
-      updateData.deliveryStatus = data.deliveryStatus;
-    }
+    if (data.customerId) updateData.customerId = data.customerId;
+    if (data.quotationId !== undefined) updateData.quotationId = data.quotationId || null;
+    if (data.orderDate) updateData.orderDate = new Date(data.orderDate);
+    if (data.deliveryStatus) updateData.deliveryStatus = data.deliveryStatus;
 
-    if (data.paidAmount !== undefined) {
-      const paid = Number(data.paidAmount);
-      updateData.paidAmount = paid;
-      const total = Number(order.totalAmount);
-      updateData.remainingAmount = Math.max(0, total - paid);
+    let computedItems: any[] = [];
+    if (hasItemsUpdate) {
+      let subtotal = 0;
+      const vatRate = data.vatRate !== undefined ? Number(data.vatRate) : order.vatRate;
 
-      if (paid >= total && total > 0) {
+      computedItems = data.items.map((item: any) => {
+        const qty = Number(item.quantity) || 1;
+        const price = Number(item.unitPrice) || 0;
+        const itemVat = item.vatRate !== undefined ? Number(item.vatRate) : vatRate;
+        const amount = qty * price;
+        const total = amount + (amount * itemVat) / 100;
+        subtotal += amount;
+
+        return {
+          productId: item.productId || null,
+          productCode: item.productCode,
+          productName: item.productName,
+          unit: item.unit,
+          quantity: qty,
+          unitPrice: price,
+          amount,
+          vatRate: itemVat,
+          total
+        };
+      });
+
+      const vatAmount = (subtotal * vatRate) / 100;
+      const totalAmount = subtotal + vatAmount;
+      const paidAmount = data.paidAmount !== undefined ? Number(data.paidAmount) : Number(order.paidAmount);
+      const remainingAmount = Math.max(0, totalAmount - paidAmount);
+
+      updateData.subtotal = subtotal;
+      updateData.vatRate = vatRate;
+      updateData.vatAmount = vatAmount;
+      updateData.totalAmount = totalAmount;
+      updateData.paidAmount = paidAmount;
+      updateData.remainingAmount = remainingAmount;
+
+      if (data.paymentStatus) {
+        updateData.paymentStatus = data.paymentStatus;
+      } else if (paidAmount >= totalAmount && totalAmount > 0) {
         updateData.paymentStatus = 'PAID';
-      } else if (paid > 0) {
+      } else if (paidAmount > 0) {
         updateData.paymentStatus = 'PARTIAL_PAID';
       } else {
         updateData.paymentStatus = 'UNPAID';
       }
-    }
+    } else {
+      if (data.paidAmount !== undefined) {
+        const paid = Number(data.paidAmount);
+        updateData.paidAmount = paid;
+        const total = Number(order.totalAmount);
+        updateData.remainingAmount = Math.max(0, total - paid);
 
-    if (data.paymentStatus) {
-      updateData.paymentStatus = data.paymentStatus;
+        if (paid >= total && total > 0) {
+          updateData.paymentStatus = 'PAID';
+        } else if (paid > 0) {
+          updateData.paymentStatus = 'PARTIAL_PAID';
+        } else {
+          updateData.paymentStatus = 'UNPAID';
+        }
+      }
+
+      if (data.paymentStatus) {
+        updateData.paymentStatus = data.paymentStatus;
+      }
     }
 
     return prisma.$transaction(async (tx: any) => {
-      // RÀNG BUỘC KHO TỰ ĐỘNG (Sprint 3 & 4):
-      // 1. Khi đơn hàng đổi trạng thái sang 'DELIVERED' -> Trừ tồn kho các sản phẩm trong đơn
-      if (data.deliveryStatus && data.deliveryStatus !== order.deliveryStatus) {
-        if (data.deliveryStatus === 'DELIVERED' && order.deliveryStatus !== 'DELIVERED') {
+      // Quản lý tồn kho
+      if (hasItemsUpdate) {
+        // Nếu đơn hàng trước đó đã giao hàng, hoàn trả tồn kho cũ
+        if (order.deliveryStatus === 'DELIVERED') {
           for (const item of order.items) {
             if (item.productId) {
               await tx.product.update({
                 where: { id: item.productId },
-                data: {
-                  stockQuantity: {
-                    decrement: item.quantity
-                  }
-                }
+                data: { stockQuantity: { increment: item.quantity } }
               });
             }
           }
         }
-        // 2. Nếu đơn hàng trước đó đã giao (DELIVERED) nhưng bị chuyển ngược lại trạng thái khác -> Hoàn trả tồn kho
-        else if (order.deliveryStatus === 'DELIVERED' && data.deliveryStatus !== 'DELIVERED') {
-          for (const item of order.items) {
+        // Nếu trạng thái mới là DELIVERED, trừ tồn kho danh sách mới
+        if (targetDeliveryStatus === 'DELIVERED') {
+          for (const item of computedItems) {
             if (item.productId) {
               await tx.product.update({
                 where: { id: item.productId },
-                data: {
-                  stockQuantity: {
-                    increment: item.quantity
-                  }
-                }
+                data: { stockQuantity: { decrement: item.quantity } }
               });
+            }
+          }
+        }
+
+        // Xóa items cũ và tạo items mới
+        await tx.orderItem.deleteMany({ where: { orderId: id } });
+        updateData.items = { create: computedItems };
+      } else {
+        // RÀNG BUỘC KHO TỰ ĐỘNG khi không đổi items (chỉ đổi trạng thái)
+        if (data.deliveryStatus && data.deliveryStatus !== order.deliveryStatus) {
+          if (data.deliveryStatus === 'DELIVERED' && order.deliveryStatus !== 'DELIVERED') {
+            for (const item of order.items) {
+              if (item.productId) {
+                await tx.product.update({
+                  where: { id: item.productId },
+                  data: { stockQuantity: { decrement: item.quantity } }
+                });
+              }
+            }
+          } else if (order.deliveryStatus === 'DELIVERED' && data.deliveryStatus !== 'DELIVERED') {
+            for (const item of order.items) {
+              if (item.productId) {
+                await tx.product.update({
+                  where: { id: item.productId },
+                  data: { stockQuantity: { increment: item.quantity } }
+                });
+              }
             }
           }
         }
@@ -372,14 +444,33 @@ export class OrdersService {
   }
 
   async deleteOrder(id: string) {
-    const order = await prisma.order.findUnique({ where: { id } });
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { items: true }
+    });
     if (!order) throw new Error('Không tìm thấy đơn hàng');
 
-    if (order.deliveryStatus === 'DELIVERED' || Number(order.paidAmount) > 0) {
-      throw new Error('Không thể xóa đơn hàng đã giao hoặc đã phát sinh thanh toán thực thu');
-    }
+    return prisma.$transaction(async (tx: any) => {
+      // 1. Nếu đơn hàng đã giao (DELIVERED), tự động hoàn trả lại số lượng tồn kho
+      if (order.deliveryStatus === 'DELIVERED') {
+        for (const item of order.items) {
+          if (item.productId) {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stockQuantity: { increment: item.quantity } }
+            });
+          }
+        }
+      }
 
-    return prisma.order.delete({ where: { id } });
+      // 2. Gỡ liên kết và dọn dẹp các bảng phụ thuộc
+      await tx.orderItem.deleteMany({ where: { orderId: id } });
+      await tx.orderHandoverHistory.deleteMany({ where: { orderId: id } });
+      await tx.orderReturn.deleteMany({ where: { orderId: id } });
+      await tx.receiptVoucherAllocation.deleteMany({ where: { orderId: id } });
+
+      return tx.order.delete({ where: { id } });
+    });
   }
 
   // Nghiệp vụ Mục IX: Hủy đơn & Hoàn tiền cọc
@@ -602,18 +693,23 @@ export class OrdersService {
       const baseAmount = Number(order.subtotal) + Number(order.vatAmount);
       const newTotalAmount = Math.max(0, baseAmount + newAdj);
       let paid = Number(order.paidAmount);
-      let newRemaining = Math.max(0, newTotalAmount - paid);
+      let newPaid = paid;
+      let newRefund = Number(order.refundAmount) || 0;
 
       let createdPaymentVoucher = null;
 
       if (data.refundMethod === 'CREDIT_BALANCE') {
-        // Cộng vào số dư trả trước của khách hàng
+        // Hoàn tiền vào số dư trả trước của khách hàng -> Giảm Thực thu ròng trên đơn
+        newPaid = Math.max(0, paid - totalReturnAmount);
+        newRefund += totalReturnAmount;
         await tx.customer.update({
           where: { id: order.customerId },
           data: { creditBalance: { increment: totalReturnAmount } }
         });
       } else if (data.refundMethod === 'CASH_REFUND') {
-        // Tự động lập phiếu chi hoàn tiền
+        // Tự động lập phiếu chi hoàn tiền -> Giảm Thực thu ròng trên đơn
+        newPaid = Math.max(0, paid - totalReturnAmount);
+        newRefund += totalReturnAmount;
         const pvCount = await tx.paymentVoucher.count();
         const pvCode = `PC-${new Date().getFullYear()}-${String(pvCount + 1).padStart(4, '0')}`;
         createdPaymentVoucher = await tx.paymentVoucher.create({
@@ -635,10 +731,12 @@ export class OrdersService {
         });
       }
 
-      let paymentStatus = order.paymentStatus;
-      if (paid >= newTotalAmount && newTotalAmount > 0) {
+      const newRemaining = Math.max(0, newTotalAmount - newPaid);
+
+      let paymentStatus = 'UNPAID';
+      if (newPaid >= newTotalAmount && newTotalAmount > 0) {
         paymentStatus = 'PAID';
-      } else if (paid > 0) {
+      } else if (newPaid > 0) {
         paymentStatus = 'PARTIAL_PAID';
       }
 
@@ -648,9 +746,11 @@ export class OrdersService {
           adjustedAmount: newAdj,
           adjustmentReason: `Đổi trả hàng theo phiếu ${returnCode}: -${totalReturnAmount.toLocaleString('vi-VN')} đ`,
           totalAmount: newTotalAmount,
+          paidAmount: newPaid,
           remainingAmount: newRemaining,
+          refundAmount: newRefund,
           paymentStatus,
-          notes: `${order.notes || ''}\n[TRẢ HÀNG ${returnCode}]: Đã hoàn kho và trừ ${totalReturnAmount.toLocaleString('vi-VN')} đ.`.trim()
+          notes: `${order.notes || ''}\n[TRẢ HÀNG ${returnCode}]: Đã hoàn kho và trừ ${totalReturnAmount.toLocaleString('vi-VN')} đ (${data.refundMethod === 'DEDUCT_DEBT' ? 'Trừ công nợ' : data.refundMethod === 'CREDIT_BALANCE' ? 'Cộng tiền ký quỹ' : 'Chi hoàn tiền'}).`.trim()
         },
         include: {
           customer: true,

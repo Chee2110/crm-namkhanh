@@ -5,7 +5,7 @@ import { successResponse, errorResponse } from '../../common/utils/response';
 export class CustomersController {
   async getCustomers(req: Request, res: Response) {
     try {
-      const { search, customerType, source, managerId, status } = req.query;
+      const { search, customerType, source, managerId, status, highDebtOnly } = req.query;
       const user = (req as any).user;
       const dataScope = (req as any).dataScope || 'ALL';
 
@@ -15,6 +15,7 @@ export class CustomersController {
         source: source as string,
         managerId: managerId as string,
         status: status as string,
+        highDebtOnly: highDebtOnly === 'true',
         dataScope,
         currentUserId: user?.id,
         departmentId: user?.departmentId
@@ -39,7 +40,7 @@ export class CustomersController {
   async createCustomer(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      const { name, phone, taxCode, address, deliveryAddress, customerType, source, contactPerson, email, notes, managerId, code, status } = req.body;
+      const { name, phone, taxCode, address, deliveryAddress, customerType, source, contactPerson, email, notes, managerId, code, status, creditLimit, maxDebtDays } = req.body;
 
       if (!name || !phone) {
         return errorResponse(res, 'Tên khách hàng và Số điện thoại là bắt buộc', 400);
@@ -59,7 +60,9 @@ export class CustomersController {
           notes,
           managerId,
           code,
-          status
+          status,
+          creditLimit,
+          maxDebtDays
         },
         user?.id
       );
@@ -114,6 +117,16 @@ export class CustomersController {
       return successResponse(res, result, 'Lấy lịch sử giao dịch khách hàng thành công');
     } catch (error: any) {
       return errorResponse(res, error.message || 'Lỗi lấy timeline khách hàng', 400);
+    }
+  }
+
+  async getCustomerDebtStatement(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await customersService.getCustomerDebtStatement(id);
+      return successResponse(res, result, 'Lấy biên bản đối chiếu công nợ thành công');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Lỗi lấy đối chiếu công nợ', 400);
     }
   }
 }

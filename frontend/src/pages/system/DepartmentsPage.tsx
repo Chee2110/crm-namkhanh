@@ -11,7 +11,8 @@ import {
   ChevronDown,
   UserCheck,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Department, User } from '../../types';
@@ -30,21 +31,31 @@ export const DepartmentsPage: React.FC = () => {
 
   const defaultDeptWidths: Record<string, number> = {
     stt: 60,
-    code: 120,
-    name: 220,
-    parent: 180,
-    manager: 160,
-    address: 180,
-    mission: 200,
-    status: 130,
-    actions: 120
+    code: 140,
+    name: 240,
+    parent: 200,
+    manager: 180,
+    address: 200,
+    mission: 220,
+    status: 140,
+    actions: 140
   };
 
   const { columnWidths, startResize, getTableWidth } = useTableResize({
     tableKey: 'departments',
     defaultWidths: defaultDeptWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 100 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      code: 110,
+      name: 160,
+      parent: 150,
+      manager: 140,
+      address: 150,
+      mission: 160,
+      status: 120,
+      actions: 120
+    }
   });
 
   // Modal State
@@ -488,7 +499,7 @@ export const DepartmentsPage: React.FC = () => {
                 departmentsFlat.map((d, index) => (
                   <tr key={d.id} className="table-tr">
                     <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{index + 1}</td>
-                    <td className="table-td whitespace-nowrap overflow-hidden">
+                    <td className="table-td text-center whitespace-nowrap overflow-hidden">
                       <span className="font-semibold text-xs text-[#E53935] font-mono">{d.code}</span>
                     </td>
                     <td className="table-td overflow-hidden">
@@ -570,8 +581,9 @@ export const DepartmentsPage: React.FC = () => {
               <button
                 onClick={() => setIsModalOpen(false)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}
+                title="Đóng"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 

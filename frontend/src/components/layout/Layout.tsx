@@ -44,7 +44,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentTab, onSelectTa
   }, []);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
+    <div style={{ minHeight: '100%', flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#F9FAFB' }}>
       <Sidebar
         currentTab={currentTab}
         onSelectTab={onSelectTab}
@@ -56,13 +56,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentTab, onSelectTa
 
       <div
         className={`main-content-layout ${isSidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}
-        style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}
+        style={{ minHeight: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}
       >
         <Header
           currentTab={currentTab}
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={toggleSidebar}
           onOpenMobile={() => setIsOpenMobile(true)}
+          onNavigateTab={onSelectTab}
         />
         <main style={{ padding: '1.5rem', flex: 1 }}>{children}</main>
       </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginPage } from './pages/auth/LoginPage';
 import { Layout } from './components/layout/Layout';
+import { GlobalLoadingIndicator } from './components/common/GlobalLoadingIndicator';
 
 // Phân hệ Quản trị nền tảng
 import { DepartmentsPage } from './pages/system/DepartmentsPage';
@@ -39,16 +40,120 @@ import { SettingsPage } from './pages/settings/SettingsPage';
 // Lộ trình
 import { RoadmapPlaceholderPage } from './pages/roadmap/RoadmapPlaceholderPage';
 
+const VALID_TABS = [
+  'dashboard',
+  'customers',
+  'quotations',
+  'orders',
+  'sales-overview',
+  'sales-reports',
+  'sales-plans',
+  'inventory-overview',
+  'warehouses',
+  'categories',
+  'product-types',
+  'products',
+  'suppliers',
+  'inventory-reports',
+  'departments',
+  'users',
+  'roles',
+  'permissions',
+  'documents',
+  'finances',
+  'settings'
+];
+
+const getTabFromUrl = (): string => {
+  try {
+    // 1. Kiểm tra hash (ví dụ: #/products hoặc #products)
+    const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
+    if (hash && VALID_TABS.includes(hash)) {
+      return hash;
+    }
+    // 2. Kiểm tra pathname fallback (ví dụ: /products)
+    const path = window.location.pathname.replace(/^\//, '').split('?')[0];
+    if (path && VALID_TABS.includes(path)) {
+      return path;
+    }
+  } catch (e) {
+    console.error('Error parsing route from URL:', e);
+  }
+  return 'dashboard';
+};
+
+const TAB_TITLES: Record<string, string> = {
+  dashboard: 'Dashboard điều hành',
+  customers: 'Khách hàng & Bàn giao',
+  quotations: 'Quản lý Báo giá',
+  orders: 'Quản lý Đơn hàng',
+  'sales-overview': 'Doanh thu & Sản lượng',
+  'sales-reports': 'Báo cáo Doanh thu & Nợ',
+  'sales-plans': 'Kế hoạch Kinh doanh',
+  'inventory-overview': 'Tổng quan kho',
+  warehouses: 'Quản lý kho vật lý',
+  categories: 'Danh mục hàng hóa',
+  'product-types': 'Loại hàng hóa',
+  products: 'Quản lý sản phẩm SKU Master',
+  suppliers: 'Nhà cung cấp',
+  'inventory-reports': 'Báo cáo tồn kho',
+  departments: 'Cơ cấu tổ chức phòng ban',
+  users: 'Quản lý người dùng',
+  roles: 'Danh mục vai trò',
+  permissions: 'Ma trận phân quyền',
+  documents: 'Hồ sơ giấy tờ & CO-CQ',
+  finances: 'Quản lý Thu - Chi & Dòng tiền',
+  settings: 'Cài đặt hệ thống'
+};
+
 const AppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
-  const [currentTab, setCurrentTab] = useState('dashboard');
+  const [currentTab, setCurrentTab] = useState<string>(() => getTabFromUrl());
   const [selectedRoleForPerms, setSelectedRoleForPerms] = useState<string | undefined>(undefined);
+
+  // Đồng bộ 2 chiều với URL trình duyệt (Hash routing & History)
+  React.useEffect(() => {
+    const handleUrlChange = () => {
+      const tabFromUrl = getTabFromUrl();
+      setCurrentTab(tabFromUrl);
+    };
+
+    window.addEventListener('hashchange', handleUrlChange);
+    window.addEventListener('popstate', handleUrlChange);
+
+    // Khởi tạo hash ban đầu nếu URL chưa có hash
+    if (!window.location.hash) {
+      window.location.hash = `/${currentTab}`;
+    }
+
+    return () => {
+      window.removeEventListener('hashchange', handleUrlChange);
+      window.removeEventListener('popstate', handleUrlChange);
+    };
+  }, []);
+
+  // Cập nhật tiêu đề trang (document.title) theo từng phân hệ
+  React.useEffect(() => {
+    const pageName = TAB_TITLES[currentTab] || 'Quản trị điều hành';
+    document.title = `${pageName} | CRM Nam Khánh`;
+  }, [currentTab]);
+
+  const handleSelectTab = (tab: string) => {
+    if (VALID_TABS.includes(tab)) {
+      if (window.location.hash !== `#/${tab}`) {
+        window.location.hash = `/${tab}`;
+      }
+      setCurrentTab(tab);
+    }
+  };
 
   if (isLoading) {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
+          height: '100%',
+          flex: 1,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -90,7 +195,7 @@ const AppContent: React.FC = () => {
 
   const handleNavigateToPermissions = (roleId: string) => {
     setSelectedRoleForPerms(roleId);
-    setCurrentTab('permissions');
+    handleSelectTab('permissions');
   };
 
   const renderContent = () => {
@@ -141,16 +246,16 @@ const AppContent: React.FC = () => {
       case 'finances':
         return <FinancesPage />;
       case 'dashboard':
-        return <DashboardPage />;
+        return <DashboardPage onNavigateTab={handleSelectTab} />;
       case 'settings':
         return <SettingsPage />;
       default:
-        return <DashboardPage />;
+        return <DashboardPage onNavigateTab={handleSelectTab} />;
     }
   };
 
   return (
-    <Layout currentTab={currentTab} onSelectTab={setCurrentTab}>
+    <Layout currentTab={currentTab} onSelectTab={handleSelectTab}>
       {renderContent()}
     </Layout>
   );
@@ -159,6 +264,7 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AuthProvider>
+      <GlobalLoadingIndicator />
       <AppContent />
     </AuthProvider>
   );

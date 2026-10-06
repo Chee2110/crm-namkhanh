@@ -194,6 +194,7 @@ export class QuotationsService {
           where: { id },
           data: {
             customerId: data.customerId || quotation.customerId,
+            date: data.date ? new Date(data.date) : quotation.date,
             validUntil: data.validUntil ? new Date(data.validUntil) : quotation.validUntil,
             status: data.status || quotation.status,
             notes: data.notes !== undefined ? data.notes : quotation.notes,
@@ -226,11 +227,20 @@ export class QuotationsService {
       where: { id },
       include: {
         customer: true,
-        items: true
+        items: true,
+        orders: {
+          select: { id: true, code: true }
+        }
       }
     });
 
     if (!quotation) throw new Error('Không tìm thấy báo giá');
+    if (quotation.orders && quotation.orders.length > 0) {
+      throw new Error(`Báo giá này đã được chuyển thành Đơn hàng ${quotation.orders[0].code}, không thể chuyển đổi lại`);
+    }
+    if (quotation.status === 'ORDERED') {
+      throw new Error('Báo giá này đã ở trạng thái [Đã lên đơn], không thể chuyển đổi lại');
+    }
     if (quotation.status !== 'CONFIRMED') {
       throw new Error('Chỉ có thể chuyển đổi Báo giá ở trạng thái "Đã chốt" (CONFIRMED) thành Đơn hàng');
     }
@@ -279,6 +289,12 @@ export class QuotationsService {
         }
       });
 
+      // Cập nhật trạng thái Báo giá sang ORDERED ("Đã lên đơn") để khóa chuyển đổi tiếp
+      await tx.quotation.update({
+        where: { id },
+        data: { status: 'ORDERED' }
+      });
+
       return order;
     });
   }
@@ -290,11 +306,21 @@ export class QuotationsService {
     });
     if (!quotation) throw new Error('Không tìm thấy báo giá');
 
-    if (quotation._count.orders > 0) {
-      throw new Error('Không thể xóa báo giá đã được chuyển đổi thành Đơn hàng');
-    }
+    return prisma.$transaction(async (tx: any) => {
+      // Gỡ liên kết báo giá khỏi các đơn hàng liên quan nếu có
+      await tx.order.updateMany({
+        where: { quotationId: id },
+        data: { quotationId: null }
+      });
 
-    return prisma.quotation.delete({ where: { id } });
+      // Xóa các mặt hàng trong báo giá
+      await tx.quotationItem.deleteMany({
+        where: { quotationId: id }
+      });
+
+      // Xóa báo giá
+      return tx.quotation.delete({ where: { id } });
+    });
   }
 }
 

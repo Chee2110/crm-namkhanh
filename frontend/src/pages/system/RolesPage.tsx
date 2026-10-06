@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Plus, KeyRound, Edit2, Trash2, AlertCircle, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Plus, KeyRound, Edit2, Trash2, AlertCircle, ShieldAlert, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -17,19 +17,28 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
   const defaultRoleWidths: Record<string, number> = {
     stt: 60,
     code: 140,
-    name: 200,
-    description: 260,
-    type: 150,
-    userCount: 120,
-    createdAt: 120,
+    name: 220,
+    description: 280,
+    type: 160,
+    userCount: 140,
+    createdAt: 140,
     actions: 170
   };
 
   const { columnWidths, startResize, getTableWidth } = useTableResize({
     tableKey: 'roles',
     defaultWidths: defaultRoleWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 140 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      code: 110,
+      name: 160,
+      description: 200,
+      type: 130,
+      userCount: 120,
+      createdAt: 120,
+      actions: 140
+    }
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -209,7 +218,7 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
               roles.map((r, index) => (
                 <tr key={r.id} className="table-tr">
                   <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{index + 1}</td>
-                  <td className="table-td whitespace-nowrap overflow-hidden">
+                  <td className="table-td text-center whitespace-nowrap overflow-hidden">
                     <span className="font-semibold text-xs text-[#E53935] font-mono">
                       {r.code}
                     </span>
@@ -251,7 +260,6 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
                         title="Thiết lập ma trận phân quyền"
                       >
                         <KeyRound size={13} />
-                        <span>Phân quyền</span>
                       </button>
 
                       {hasPermission('A_ROLES', 'update') && (
@@ -294,8 +302,9 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
               <button
                 onClick={() => setIsModalOpen(false)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}
+                title="Đóng"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 

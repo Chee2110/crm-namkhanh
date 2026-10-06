@@ -5,11 +5,7 @@ import multer from 'multer';
 import { documentsService } from './documents.service';
 import { successResponse, errorResponse } from '../../common/utils/response';
 
-// Cấu hình lưu trữ tệp tin tải lên (tối đa 25MB)
-const uploadDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+import { uploadDir } from '../../common/utils/upload';
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -115,7 +111,7 @@ export class DocumentsController {
       const { id } = req.params;
       const doc = await documentsService.getDocumentById(id);
 
-      const filePath = path.join(process.cwd(), doc.fileUrl);
+      const filePath = path.join(uploadDir, path.basename(doc.fileUrl));
       if (!fs.existsSync(filePath)) {
         return errorResponse(res, 'Tệp tin không còn tồn tại trên máy chủ', 404);
       }

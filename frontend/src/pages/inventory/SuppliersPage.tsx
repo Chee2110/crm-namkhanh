@@ -60,15 +60,22 @@ export const SuppliersPage: React.FC = () => {
     code: 140,
     name: 320,
     contact: 280,
-    products: 160,
+    products: 180,
     actions: 140
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
     tableKey: 'suppliers',
     defaultWidths: defaultSupplierWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 120 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      code: 110,
+      name: 200,
+      contact: 180,
+      products: 150,
+      actions: 120
+    }
   });
 
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
@@ -391,7 +398,7 @@ export const SuppliersPage: React.FC = () => {
                       </td>
                     )}
                     {visibleColumns.code && (
-                      <td className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden">
+                      <td className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
                         {s.code}
                       </td>
                     )}
@@ -661,24 +668,24 @@ export const SuppliersPage: React.FC = () => {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-100 text-gray-700 uppercase font-bold text-[10px]">
-                      <th className="p-2.5">Mã SKU</th>
+                      <th className="p-2.5 text-center">Mã SKU</th>
                       <th className="p-2.5">Tên sản phẩm</th>
                       <th className="p-2.5 text-center">ĐVT</th>
-                      <th className="p-2.5 text-right">Giá vốn</th>
-                      <th className="p-2.5 text-right">Giá bán</th>
+                      <th className="p-2.5 text-center">Giá vốn</th>
+                      <th className="p-2.5 text-center">Giá bán</th>
                       <th className="p-2.5 text-center">Tồn kho</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {supplierProducts.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50">
-                        <td className="p-2.5 font-mono font-bold text-gray-800">{p.code}</td>
+                        <td className="p-2.5 font-mono font-bold text-gray-800 text-center">{p.code}</td>
                         <td className="p-2.5 font-semibold text-gray-900">{p.name}</td>
                         <td className="p-2.5 text-center text-gray-500">{p.unit}</td>
-                        <td className="p-2.5 text-right font-medium text-gray-600">
+                        <td className="p-2.5 text-center font-medium text-gray-600">
                           {formatVND(Number(p.costPrice))}
                         </td>
-                        <td className="p-2.5 text-right font-bold text-[#E53935]">
+                        <td className="p-2.5 text-center font-bold text-[#E53935]">
                           {formatVND(Number(p.sellingPrice))}
                         </td>
                         <td className="p-2.5 text-center font-bold text-blue-600">

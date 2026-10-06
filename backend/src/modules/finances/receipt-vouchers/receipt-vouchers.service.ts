@@ -111,6 +111,16 @@ export class ReceiptVouchersService {
       throw new Error('Số tiền thu phải lớn hơn 0');
     }
 
+    // Kiểm tra tổng số tiền phân bổ gạch nợ phải khớp số tiền phiếu thu
+    if (data.allocations && data.allocations.length > 0) {
+      const totalAllocated = data.allocations.reduce((sum, al) => sum + Number(al.amount), 0);
+      if (Math.abs(totalAllocated - Number(data.amount)) > 0.01) {
+        throw new Error(
+          `Tổng số tiền phân bổ cho các đơn (${totalAllocated.toLocaleString('vi-VN')} đ) phải bằng số tiền phiếu thu (${Number(data.amount).toLocaleString('vi-VN')} đ)`
+        );
+      }
+    }
+
     // Tự sinh mã phiếu thu PT-2026-XXXX
     const count = await prisma.receiptVoucher.count();
     const code = `PT-2026-${String(count + 1).padStart(4, '0')}`;
@@ -301,7 +311,7 @@ export class ReceiptVouchersService {
 
     const voucher = await prisma.receiptVoucher.findUnique({
       where: { id },
-      include: { order: true }
+      include: { order: true, allocations: true }
     });
     if (!voucher) throw new Error('Không tìm thấy phiếu thu');
 
@@ -315,8 +325,45 @@ export class ReceiptVouchersService {
     };
 
     return prisma.$transaction(async (tx) => {
-      // Nếu phiếu đang ở trạng thái PAID và có sự thay đổi số tiền hoặc đổi đơn hàng
-      if (voucher.status === 'PAID' && voucher.orderId) {
+      // 1. Trường hợp hủy trạng thái PAID sang trạng thái khác (hoàn trả công nợ)
+      if (voucher.status === 'PAID' && data.status && data.status !== 'PAID') {
+        if (voucher.allocations && voucher.allocations.length > 0) {
+          for (const alloc of voucher.allocations) {
+            const order = await tx.order.findUnique({ where: { id: alloc.orderId } });
+            if (order) {
+              const newPaid = Math.max(0, Number(order.paidAmount) - Number(alloc.amount));
+              const total = Number(order.totalAmount);
+              const newRem = Math.max(0, total - newPaid);
+              let newStatus = 'UNPAID';
+              if (newPaid >= total && total > 0) newStatus = 'PAID';
+              else if (newPaid > 0) newStatus = 'PARTIAL_PAID';
+
+              await tx.order.update({
+                where: { id: alloc.orderId },
+                data: { paidAmount: newPaid, remainingAmount: newRem, paymentStatus: newStatus }
+              });
+            }
+          }
+        } else if (voucher.orderId) {
+          const order = await tx.order.findUnique({ where: { id: voucher.orderId } });
+          if (order) {
+            const newPaid = Math.max(0, Number(order.paidAmount) - Number(voucher.amount));
+            const total = Number(order.totalAmount);
+            const newRem = Math.max(0, total - newPaid);
+            let newStatus = 'UNPAID';
+            if (newPaid >= total && total > 0) newStatus = 'PAID';
+            else if (newPaid > 0) newStatus = 'PARTIAL_PAID';
+
+            await tx.order.update({
+              where: { id: voucher.orderId },
+              data: { paidAmount: newPaid, remainingAmount: newRem, paymentStatus: newStatus }
+            });
+          }
+        }
+      }
+
+      // 2. Trường hợp thay đổi số tiền khi vẫn ở trạng thái PAID
+      if (voucher.status === 'PAID' && (!data.status || data.status === 'PAID') && voucher.orderId) {
         const oldAmount = Number(voucher.amount);
         const newAmount = data.amount !== undefined ? Number(data.amount) : oldAmount;
         const diff = newAmount - oldAmount;

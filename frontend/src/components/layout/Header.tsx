@@ -1,5 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Menu, ShieldCheck, Bell, AlertTriangle, ShoppingCart, Clock, UserCheck, Check, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import {
+  Menu,
+  ShieldCheck,
+  Bell,
+  AlertTriangle,
+  ShoppingCart,
+  Clock,
+  UserCheck,
+  Check,
+  CheckCheck,
+  Trash2,
+  ExternalLink,
+  PanelLeftClose,
+  PanelLeftOpen,
+  RotateCcw
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface HeaderProps {
@@ -7,13 +22,14 @@ interface HeaderProps {
   onOpenMobile: () => void;
   isSidebarOpen?: boolean;
   onToggleSidebar?: () => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
 const tabTitles: Record<string, { title: string; desc: string }> = {
   // Phân hệ Kinh doanh & Bán hàng
   customers: {
     title: 'Quản lý Khách hàng Doanh nghiệp & Đại lý VPP',
-    desc: 'Bố cục 3 phần chuẩn: Thông tin doanh nghiệp ➔ Dòng thời gian giao dịch ➔ Thống kê công nợ & Bàn giao'
+    desc: 'Bố cục 3 phần chuẩn: Thông tin doanh nghiệp → Dòng thời gian giao dịch → Thống kê công nợ & Bàn giao'
   },
   quotations: {
     title: 'Quản lý Báo giá Văn phòng phẩm',
@@ -110,53 +126,115 @@ interface NotificationItem {
   desc: string;
   time: string;
   read: boolean;
+  targetTab?: string;
 }
+
+const DEFAULT_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: '1',
+    type: 'WARNING',
+    title: 'Cảnh báo tồn kho an toàn',
+    desc: 'Giấy in Bãi Bằng A4 70gsm tại Tổng kho Gia Lâm còn 8 ream (Dưới mức tối thiểu 20 ream).',
+    time: '10 phút trước',
+    read: false,
+    targetTab: 'products'
+  },
+  {
+    id: '2',
+    type: 'ORDER',
+    title: 'Đơn hàng mới cần duyệt giao',
+    desc: 'Đơn hàng #DH-2609-008 của Khách hàng FPT Software đã chốt, chờ xuất kho.',
+    time: '45 phút trước',
+    read: false,
+    targetTab: 'orders'
+  },
+  {
+    id: '3',
+    type: 'DEBT',
+    title: 'Nhắc hạn công nợ khách hàng',
+    desc: 'Khoản nợ 24.500.000đ của Công ty Xây dựng Delta quá hạn 5 ngày.',
+    time: '2 giờ trước',
+    read: false,
+    targetTab: 'customers'
+  },
+  {
+    id: '4',
+    type: 'HANDOVER',
+    title: 'Bàn giao khách hàng mới',
+    desc: 'Bạn vừa nhận quyền quản trị 3 khách hàng VIP từ Giám đốc kinh doanh.',
+    time: '1 ngày trước',
+    read: true,
+    targetTab: 'customers'
+  }
+];
+
+const getStorageKeys = (userId?: string) => {
+  const uid = userId || 'default';
+  return {
+    readKey: `namkhanh_read_notifications_${uid}`,
+    deletedKey: `namkhanh_deleted_notifications_${uid}`
+  };
+};
+
+const getStoredIds = (key: string): string[] => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const setStoredIds = (key: string, ids: string[]) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(ids));
+  } catch (e) {
+    console.error('Lỗi khi lưu localStorage thông báo:', e);
+  }
+};
 
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onOpenMobile,
   isSidebarOpen = true,
-  onToggleSidebar
+  onToggleSidebar,
+  onNavigateTab
 }) => {
   const { user } = useAuth();
   const [isOpenNotifications, setIsOpenNotifications] = useState(false);
-  const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread'>('all');
+  const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'read'>('all');
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: '1',
-      type: 'WARNING',
-      title: 'Cảnh báo tồn kho an toàn',
-      desc: 'Giấy in Bãi Bằng A4 70gsm tại Tổng kho Gia Lâm còn 8 ream (Dưới mức tối thiểu 20 ream).',
-      time: '10 phút trước',
-      read: false
-    },
-    {
-      id: '2',
-      type: 'ORDER',
-      title: 'Đơn hàng mới cần duyệt giao',
-      desc: 'Đơn hàng #DH-2609-008 của Khách hàng FPT Software đã chốt, chờ xuất kho.',
-      time: '45 phút trước',
-      read: false
-    },
-    {
-      id: '3',
-      type: 'DEBT',
-      title: 'Nhắc hạn công nợ khách hàng',
-      desc: 'Khoản nợ 24.500.000đ của Công ty Xây dựng Delta quá hạn 5 ngày.',
-      time: '2 giờ trước',
-      read: false
-    },
-    {
-      id: '4',
-      type: 'HANDOVER',
-      title: 'Bàn giao khách hàng mới',
-      desc: 'Bạn vừa nhận quyền quản trị 3 khách hàng VIP từ Giám đốc kinh doanh.',
-      time: '1 ngày trước',
-      read: true
-    }
-  ]);
+  const { readKey, deletedKey } = useMemo(
+    () => getStorageKeys(user?.id || user?.email),
+    [user?.id, user?.email]
+  );
+
+  // Khởi tạo danh sách thông báo và đối chiếu với danh sách đã đọc trong localStorage
+  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
+    const readIds = getStoredIds(readKey);
+    const deletedIds = getStoredIds(deletedKey);
+    return DEFAULT_NOTIFICATIONS
+      .filter((n) => !deletedIds.includes(n.id))
+      .map((n) => ({
+        ...n,
+        read: n.read || readIds.includes(n.id)
+      }));
+  });
+
+  // Đồng bộ lại khi thay đổi người dùng đăng nhập
+  useEffect(() => {
+    const readIds = getStoredIds(readKey);
+    const deletedIds = getStoredIds(deletedKey);
+    setNotifications(
+      DEFAULT_NOTIFICATIONS
+        .filter((n) => !deletedIds.includes(n.id))
+        .map((n) => ({
+          ...n,
+          read: n.read || readIds.includes(n.id)
+        }))
+    );
+  }, [readKey, deletedKey]);
 
   // Đóng dropdown khi click ra ngoài
   useEffect(() => {
@@ -170,19 +248,90 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const readCount = notifications.filter((n) => n.read).length;
 
+  // Đánh dấu tất cả là đã đọc -> Lưu vĩnh viễn vào localStorage để không báo lại nữa
   const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      const allReadIds = Array.from(new Set([...getStoredIds(readKey), ...updated.map((n) => n.id)]));
+      setStoredIds(readKey, allReadIds);
+      return updated;
+    });
   };
 
-  const handleToggleRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n))
-    );
+  // Đánh dấu 1 thông báo cụ thể là đã đọc / chưa đọc và đồng bộ localStorage
+  const handleToggleRead = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n));
+      const targetItem = updated.find((n) => n.id === id);
+      const prevReadIds = getStoredIds(readKey);
+      let nextReadIds: string[];
+      if (targetItem?.read) {
+        nextReadIds = Array.from(new Set([...prevReadIds, id]));
+      } else {
+        nextReadIds = prevReadIds.filter((itemId) => itemId !== id);
+      }
+      setStoredIds(readKey, nextReadIds);
+      return updated;
+    });
+  };
+
+  // Khi click vào dòng thông báo: tự động đánh dấu đã đọc vĩnh viễn và điều hướng nếu có
+  const handleNotificationClick = (item: NotificationItem) => {
+    if (!item.read) {
+      setNotifications((prev) => {
+        const updated = prev.map((n) => (n.id === item.id ? { ...n, read: true } : n));
+        const allReadIds = Array.from(new Set([...getStoredIds(readKey), item.id]));
+        setStoredIds(readKey, allReadIds);
+        return updated;
+      });
+    }
+
+    if (item.targetTab && onNavigateTab) {
+      onNavigateTab(item.targetTab);
+      setIsOpenNotifications(false);
+    }
+  };
+
+  // Xóa toàn bộ thông báo đã đọc khỏi danh sách hiển thị
+  const handleClearRead = () => {
+    const readItems = notifications.filter((n) => n.read);
+    if (readItems.length === 0) return;
+    const readItemIds = readItems.map((n) => n.id);
+    const prevDeleted = getStoredIds(deletedKey);
+    const nextDeleted = Array.from(new Set([...prevDeleted, ...readItemIds]));
+    setStoredIds(deletedKey, nextDeleted);
+    setNotifications((prev) => prev.filter((n) => !n.read));
+  };
+
+  // Xóa / Bỏ qua 1 thông báo
+  const handleDeleteNotification = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const prevDeleted = getStoredIds(deletedKey);
+    const nextDeleted = Array.from(new Set([...prevDeleted, id]));
+    setStoredIds(deletedKey, nextDeleted);
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  // Khôi phục thông báo ban đầu
+  const handleResetNotifications = () => {
+    try {
+      localStorage.removeItem(readKey);
+      localStorage.removeItem(deletedKey);
+    } catch (e) {
+      console.error(e);
+    }
+    setNotifications(DEFAULT_NOTIFICATIONS);
   };
 
   const filteredNotifs =
-    notificationFilter === 'unread' ? notifications.filter((n) => !n.read) : notifications;
+    notificationFilter === 'unread'
+      ? notifications.filter((n) => !n.read)
+      : notificationFilter === 'read'
+      ? notifications.filter((n) => n.read)
+      : notifications;
 
   const currentInfo = tabTitles[currentTab] || {
     title: 'Công ty TNHH NK Nam Khánh - CRM',
@@ -279,59 +428,121 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center justify-between px-4 pb-2 border-b border-gray-100">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-gray-900 text-sm">Thông báo điều hành</span>
-                  {unreadCount > 0 && (
+                  {unreadCount > 0 ? (
                     <span className="px-2 py-0.5 text-[11px] font-semibold text-red-600 bg-red-50 rounded-full">
                       {unreadCount} mới
                     </span>
+                  ) : (
+                    <span className="px-2 py-0.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-full flex items-center gap-1">
+                      <Check size={11} /> Đã đọc hết
+                    </span>
                   )}
                 </div>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={handleMarkAllRead}
-                    className="text-xs text-red-600 hover:text-red-700 font-medium cursor-pointer"
-                  >
-                    Đọc tất cả
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleMarkAllRead}
+                      className="text-xs text-red-600 hover:text-red-700 font-medium cursor-pointer transition-colors"
+                      title="Đánh dấu tất cả thông báo là đã đọc (không báo lại)"
+                    >
+                      Đọc tất cả
+                    </button>
+                  )}
+                  {readCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearRead}
+                      className="text-xs text-gray-400 hover:text-gray-600 font-medium cursor-pointer transition-colors"
+                      title="Xóa danh sách thông báo đã đọc"
+                    >
+                      Xóa đã đọc
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Filter Tabs */}
-              <div className="flex gap-2 px-4 py-2 border-b border-gray-50 bg-gray-50/50 text-xs">
-                <button
-                  onClick={() => setNotificationFilter('all')}
-                  className={`px-3 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-                    notificationFilter === 'all'
-                      ? 'bg-white text-red-600 shadow-xs font-semibold'
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  Tất cả ({notifications.length})
-                </button>
-                <button
-                  onClick={() => setNotificationFilter('unread')}
-                  className={`px-3 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-                    notificationFilter === 'unread'
-                      ? 'bg-white text-red-600 shadow-xs font-semibold'
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  Chưa đọc ({unreadCount})
-                </button>
+              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-50 bg-gray-50/50 text-xs">
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setNotificationFilter('all')}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                      notificationFilter === 'all'
+                        ? 'bg-white text-red-600 shadow-xs font-semibold'
+                        : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    Tất cả ({notifications.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNotificationFilter('unread')}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                      notificationFilter === 'unread'
+                        ? 'bg-white text-red-600 shadow-xs font-semibold'
+                        : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    Chưa đọc ({unreadCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNotificationFilter('read')}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                      notificationFilter === 'read'
+                        ? 'bg-white text-red-600 shadow-xs font-semibold'
+                        : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    Đã đọc ({readCount})
+                  </button>
+                </div>
+
+                {notifications.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={handleResetNotifications}
+                    className="text-[11px] text-gray-400 hover:text-red-600 flex items-center gap-1 cursor-pointer"
+                    title="Khôi phục thông báo ban đầu"
+                  >
+                    <RotateCcw size={11} />
+                    <span>Mặc định</span>
+                  </button>
+                )}
               </div>
 
               {/* Notification List */}
               <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
                 {filteredNotifs.length === 0 ? (
-                  <div className="py-8 text-center text-gray-400 text-xs">
-                    Không có thông báo nào
+                  <div className="py-8 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
+                    <CheckCheck size={28} className="text-gray-300" />
+                    <span>
+                      {notificationFilter === 'unread'
+                        ? 'Tuyệt vời! Không còn thông báo chưa đọc nào.'
+                        : notificationFilter === 'read'
+                        ? 'Chưa có thông báo nào được đánh dấu đã đọc.'
+                        : 'Không có thông báo nào'}
+                    </span>
+                    {notifications.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={handleResetNotifications}
+                        className="mt-1 text-xs text-red-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <RotateCcw size={12} />
+                        <span>Khôi phục thông báo mẫu</span>
+                      </button>
+                    )}
                   </div>
                 ) : (
                   filteredNotifs.map((n) => (
                     <div
                       key={n.id}
-                      onClick={() => handleToggleRead(n.id)}
-                      className={`flex items-start gap-3 p-3.5 hover:bg-gray-50 transition-colors cursor-pointer ${
-                        !n.read ? 'bg-red-50/30' : ''
+                      onClick={() => handleNotificationClick(n)}
+                      className={`group flex items-start gap-3 p-3.5 hover:bg-gray-50 transition-colors cursor-pointer relative ${
+                        !n.read ? 'bg-red-50/25' : 'bg-white'
                       }`}
                     >
                       <div
@@ -355,18 +566,56 @@ export const Header: React.FC<HeaderProps> = ({
                           <UserCheck size={16} />
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
+
+                      <div className="flex-1 min-w-0 pr-1">
                         <div className="flex items-center justify-between gap-1">
-                          <span className={`text-xs font-semibold ${!n.read ? 'text-gray-900' : 'text-gray-600'}`}>
+                          <span className={`text-xs ${!n.read ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
                             {n.title}
                           </span>
                           <span className="text-[10px] text-gray-400 whitespace-nowrap">{n.time}</span>
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.desc}</p>
+                        <p className={`text-xs mt-0.5 line-clamp-2 ${!n.read ? 'text-gray-600' : 'text-gray-400'}`}>
+                          {n.desc}
+                        </p>
+                        {n.targetTab && (
+                          <div className="mt-1 text-[10px] text-red-600 group-hover:underline flex items-center gap-1 font-medium">
+                            <span>Xem chi tiết phân hệ</span>
+                            <ExternalLink size={10} />
+                          </div>
+                        )}
                       </div>
-                      {!n.read && (
-                        <div className="w-2 h-2 rounded-full bg-red-600 mt-1.5 flex-shrink-0" />
-                      )}
+
+                      {/* Quick Actions (Đọc / Chưa đọc & Xóa) */}
+                      <div className="flex flex-col items-center gap-1 flex-shrink-0 pt-0.5">
+                        {!n.read ? (
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleRead(n.id, e)}
+                            title="Bấm để đánh dấu đã đọc (lưu vĩnh viễn)"
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                          >
+                            <div className="w-2 h-2 rounded-full bg-red-600" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleRead(n.id, e)}
+                            title="Bấm để đánh dấu chưa đọc"
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            <Check size={12} className="text-gray-400" />
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteNotification(n.id, e)}
+                          title="Bỏ qua thông báo này"
+                          className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-gray-300 hover:text-red-600 hover:bg-red-50 transition-all"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}

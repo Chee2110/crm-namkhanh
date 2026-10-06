@@ -250,12 +250,12 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
         <table className="table-custom">
           <thead>
             <tr>
-              <th className="table-th" style={{ width: '40%' }}>Phân hệ / Chức năng con</th>
+              <th className="table-th" style={{ width: '40%', textAlign: 'center' }}>Phân hệ / Chức năng con</th>
               <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[XEM]</th>
               <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[THÊM]</th>
               <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[SỬA]</th>
               <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[XÓA]</th>
-              <th className="table-th" style={{ width: '20%' }}>Phạm vi dữ liệu (Data Scope)</th>
+              <th className="table-th" style={{ width: '20%', textAlign: 'center' }}>Phạm vi dữ liệu (Data Scope)</th>
             </tr>
           </thead>
           <tbody>

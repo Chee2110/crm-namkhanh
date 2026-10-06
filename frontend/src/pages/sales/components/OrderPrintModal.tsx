@@ -2,6 +2,7 @@ import React from 'react';
 import { Printer, X } from 'lucide-react';
 import { Order } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
+import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
 
 interface OrderPrintModalProps {
   isOpen: boolean;
@@ -217,11 +218,42 @@ export const OrderPrintModal: React.FC<OrderPrintModalProps> = ({
           </div>
 
           {/* Diễn giải số tiền viết bằng chữ (Chuẩn tiếng Việt) */}
-          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs font-sans mb-8">
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs font-sans mb-4">
             <span className="font-semibold text-gray-700">Số tiền viết bằng chữ: </span>
             <span className="font-bold italic text-[#E53935]">
               {numberToWords(order.totalAmount)}
             </span>
+          </div>
+
+          {/* Thông tin thanh toán & VietQR Chuyển khoản nhanh NAPAS 247 */}
+          <div className="flex items-center justify-between p-3.5 bg-gray-50/80 rounded-xl border border-gray-200 text-xs font-sans mb-6">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-gray-800 uppercase tracking-wide">Thông tin chuyển khoản:</span>
+                <span className="text-[10px] bg-red-100 text-[#E53935] font-semibold px-2 py-0.5 rounded-full">NAPAS 247 VietQR</span>
+              </div>
+              <p className="text-gray-600">
+                Ngân hàng: <span className="font-bold text-gray-900">{NAMKHANH_BANK_INFO.bankName} ({NAMKHANH_BANK_INFO.bankId})</span>
+              </p>
+              <p className="text-gray-600">
+                Số tài khoản: <span className="font-mono font-bold text-gray-900 text-sm tracking-wider">{NAMKHANH_BANK_INFO.accountNo}</span>
+              </p>
+              <p className="text-gray-600">
+                Chủ tài khoản: <span className="font-bold text-gray-900 uppercase">{NAMKHANH_BANK_INFO.accountName}</span>
+              </p>
+              <p className="text-gray-600">
+                Nội dung chuyển khoản: <span className="font-mono font-bold text-[#E53935]">{order.code}</span>
+              </p>
+            </div>
+            <div className="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-gray-200 shadow-xs">
+              <img
+                src={generateVietQRUrl(Number(order.totalAmount) || 0, order.code)}
+                alt="VietQR Payment"
+                className="w-24 h-24 object-contain"
+                crossOrigin="anonymous"
+              />
+              <span className="text-[9px] text-gray-400 font-medium mt-1">Quét mã để thanh toán</span>
+            </div>
           </div>
 
           {/* Chữ ký 4 bên chuẩn theo Section XI.6 */}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Users,
@@ -26,6 +26,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 
 interface SidebarProps {
   currentTab: string;
@@ -57,6 +58,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleSidebar
 }) => {
   const { user, logout } = useAuth();
+  const [pendingOrdersCount, setPendingOrdersCount] = useState<number | null>(null);
+  const [lowStockCount, setLowStockCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let isMounted = true;
+
+    // Tải số lượng đơn hàng đang chờ giao
+    api.get('/orders?deliveryStatus=PENDING')
+      .then((res: any) => {
+        if (isMounted && Array.isArray(res.data)) {
+          setPendingOrdersCount(res.data.length);
+        }
+      })
+      .catch(() => {});
+
+    // Tải số lượng sản phẩm sắp hết tồn kho (dưới mức tồn tối thiểu)
+    api.get('/products')
+      .then((res: any) => {
+        if (isMounted && Array.isArray(res.data)) {
+          const count = res.data.filter((p: any) => Number(p.stockQuantity) <= (Number(p.minStockLevel) || 20)).length;
+          setLowStockCount(count);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, currentTab]);
 
   const menuItems: MenuGroup[] = [
     {
@@ -70,7 +102,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'customers', label: 'Khách hàng & Bàn giao', icon: Contact },
         { id: 'quotations', label: 'Quản lý Báo giá', icon: FileSpreadsheet },
-        { id: 'orders', label: 'Quản lý Đơn hàng', icon: ShoppingCart },
+        {
+          id: 'orders',
+          label: 'Quản lý Đơn hàng',
+          icon: ShoppingCart,
+          badge: pendingOrdersCount && pendingOrdersCount > 0 ? `${pendingOrdersCount} đơn chờ` : undefined
+        },
         { id: 'sales-overview', label: 'Doanh thu & Sản lượng', icon: TrendingUp },
         { id: 'sales-reports', label: 'Báo cáo Doanh thu & Nợ', icon: BarChart3 },
         { id: 'sales-plans', label: 'Kế hoạch Kinh doanh', icon: Target }
@@ -83,7 +120,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'warehouses', label: 'Quản lý kho vật lý', icon: Warehouse },
         { id: 'categories', label: 'Danh mục hàng hóa', icon: Layers },
         { id: 'product-types', label: 'Loại hàng hóa', icon: Package },
-        { id: 'products', label: 'Quản lý sản phẩm SKU', icon: Barcode },
+        {
+          id: 'products',
+          label: 'Quản lý sản phẩm SKU',
+          icon: Barcode,
+          badge: lowStockCount && lowStockCount > 0 ? `${lowStockCount} sắp hết` : undefined
+        },
         { id: 'suppliers', label: 'Nhà cung cấp', icon: Truck },
         { id: 'inventory-reports', label: 'Báo cáo tồn kho', icon: FileSpreadsheet }
       ]
@@ -127,9 +169,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside
         style={{
           width: '260px',
-          height: '100vh',
           position: 'fixed',
           top: 0,
+          bottom: 0,
           left: 0,
           backgroundColor: '#FFFFFF',
           borderRight: '1px solid #F3F4F6',
@@ -227,11 +269,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   const Icon = item.icon;
                   const isActive = currentTab === item.id;
                   return (
-                    <button
+                    <a
                       key={item.id}
-                      onClick={() => {
-                        onSelectTab(item.id);
-                        if (isOpenMobile) onCloseMobile();
+                      href={`#/${item.id}`}
+                      onClick={(e) => {
+                        if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                          e.preventDefault();
+                          onSelectTab(item.id);
+                          if (isOpenMobile) onCloseMobile();
+                        }
                       }}
                       style={{
                         display: 'flex',
@@ -240,7 +286,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         padding: '0.625rem 0.75rem',
                         borderRadius: '0.5rem',
                         border: 'none',
-                        textAlign: 'left',
+                        textDecoration: 'none',
                         cursor: 'pointer',
                         fontSize: '13.5px',
                         fontWeight: isActive ? '600' : '400',
@@ -258,17 +304,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <span
                           style={{
                             fontSize: '10px',
-                            fontWeight: '500',
-                            padding: '0.1rem 0.4rem',
+                            fontWeight: '600',
+                            padding: '0.12rem 0.45rem',
                             borderRadius: '9999px',
-                            backgroundColor: '#F3F4F6',
-                            color: '#6B7280'
+                            backgroundColor: item.id === 'orders' ? '#FEF3C7' : item.id === 'products' ? '#FEE2E2' : '#F3F4F6',
+                            color: item.id === 'orders' ? '#B45309' : item.id === 'products' ? '#B91C1C' : '#6B7280',
+                            border: `1px solid ${item.id === 'orders' ? '#FDE68A' : item.id === 'products' ? '#FECACA' : '#E5E7EB'}`,
+                            whiteSpace: 'nowrap'
                           }}
                         >
                           {item.badge}
                         </span>
                       )}
-                    </button>
+                    </a>
                   );
                 })}
               </div>
@@ -336,10 +384,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <button
-                onClick={() => {
-                  onSelectTab('settings');
-                  if (isOpenMobile) onCloseMobile();
+              <a
+                href="#/settings"
+                onClick={(e) => {
+                  if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                    e.preventDefault();
+                    onSelectTab('settings');
+                    if (isOpenMobile) onCloseMobile();
+                  }
                 }}
                 title="Cài đặt hệ thống"
                 style={{
@@ -352,11 +404,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  textDecoration: 'none',
                   transition: 'all 0.15s ease'
                 }}
               >
                 <Settings size={17} />
-              </button>
+              </a>
               <button
                 onClick={logout}
                 title="Đăng xuất"

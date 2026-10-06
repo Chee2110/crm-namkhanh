@@ -9,7 +9,8 @@ import {
   TrendingUp,
   BarChart3,
   ShieldAlert,
-  ArrowUpRight
+  ArrowUpRight,
+  CheckCircle2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { InventoryOverview } from '../../types';
@@ -283,8 +284,9 @@ export const InventoryOverviewPage: React.FC = () => {
               </div>
 
               {data?.lowStockProducts.length === 0 ? (
-                <p className="text-xs text-emerald-600 py-6 text-center font-medium">
-                  ✓ Tất cả các mặt hàng đều đang ở trên định mức an toàn!
+                <p className="text-xs text-emerald-600 py-6 text-center font-medium flex items-center justify-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Tất cả các mặt hàng đều đang ở trên định mức an toàn!</span>
                 </p>
               ) : (
                 <div className="divide-y divide-gray-100">

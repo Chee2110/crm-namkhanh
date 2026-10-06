@@ -7,6 +7,7 @@ export const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +22,7 @@ export const LoginPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const res = await api.post('/auth/login', { email, password });
-      login(res.data.token, res.data.user);
+      login(res.data.token, res.data.user, rememberMe);
     } catch (err: any) {
       setError(err.message || 'Đăng nhập thất bại');
     } finally {
@@ -32,7 +33,9 @@ export const LoginPage: React.FC = () => {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100%',
+        height: '100%',
+        flex: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -157,6 +160,18 @@ export const LoginPage: React.FC = () => {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', marginTop: '0.1rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', color: '#4B5563', fontSize: '13px', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ accentColor: '#E53935', width: '15px', height: '15px', cursor: 'pointer', borderRadius: '4px' }}
+                />
+                <span>Ghi nhớ đăng nhập trên thiết bị này</span>
+              </label>
             </div>
 
             <button

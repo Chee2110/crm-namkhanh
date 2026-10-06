@@ -15,7 +15,10 @@ import {
   Columns,
   RotateCcw,
   Phone,
-  Mail
+  Mail,
+  X,
+  ShieldAlert,
+  Loader2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { User, Department, Role } from '../../types';
@@ -70,25 +73,38 @@ export const UsersPage: React.FC = () => {
   });
 
   const defaultUserWidths: Record<string, number> = {
-    stt: 55,
-    code: 110,
+    stt: 60,
+    code: 130,
     fullName: 240,
     contact: 240,
-    department: 180,
-    manager: 140,
-    role: 140,
-    basicSalary: 120,
-    allowance: 110,
-    status: 120,
-    startDate: 120,
+    department: 200,
+    manager: 160,
+    role: 150,
+    basicSalary: 140,
+    allowance: 130,
+    status: 130,
+    startDate: 140,
     actions: 140
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
     tableKey: 'users',
     defaultWidths: defaultUserWidths,
-    minWidth: 50,
-    minWidths: { stt: 45, actions: 120 }
+    minWidth: 60,
+    minWidths: {
+      stt: 50,
+      code: 110,
+      fullName: 180,
+      contact: 180,
+      department: 150,
+      manager: 130,
+      role: 120,
+      basicSalary: 120,
+      allowance: 110,
+      status: 110,
+      startDate: 120,
+      actions: 120
+    }
   });
 
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
@@ -126,6 +142,7 @@ export const UsersPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'personal' | 'contract' | 'salary'>('personal');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -229,6 +246,7 @@ export const UsersPage: React.FC = () => {
     }
 
     try {
+      setIsSubmitting(true);
       const payload: any = {
         ...formData,
         departmentId: formData.departmentId || null,
@@ -248,6 +266,8 @@ export const UsersPage: React.FC = () => {
       loadData();
     } catch (err: any) {
       setFormError(err.message || 'Lỗi khi lưu thông tin người dùng');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -592,7 +612,7 @@ export const UsersPage: React.FC = () => {
                     </td>
                   )}
                   {visibleColumns.code && (
-                    <td className="table-td whitespace-nowrap overflow-hidden">
+                    <td className="table-td text-center whitespace-nowrap overflow-hidden">
                       <span className="font-semibold text-xs text-[#E53935] font-mono">{u.code}</span>
                     </td>
                   )}
@@ -676,12 +696,12 @@ export const UsersPage: React.FC = () => {
 
                   {/* Bảo mật lương: Chỉ hiện với Admin/CEO */}
                   {canViewSalary && visibleColumns.basicSalary && (
-                    <td className="table-td font-semibold text-xs text-emerald-600 tabular-nums whitespace-nowrap overflow-hidden">
+                    <td className="table-td text-center font-semibold text-xs text-emerald-600 tabular-nums whitespace-nowrap overflow-hidden">
                       {formatCurrency(u.basicSalary)}
                     </td>
                   )}
                   {canViewSalary && visibleColumns.allowance && (
-                    <td className="table-td text-xs text-gray-600 tabular-nums whitespace-nowrap overflow-hidden">
+                    <td className="table-td text-center text-xs text-gray-600 tabular-nums whitespace-nowrap overflow-hidden">
                       {formatCurrency(u.allowance)}
                     </td>
                   )}
@@ -741,8 +761,9 @@ export const UsersPage: React.FC = () => {
               <button
                 onClick={() => setIsModalOpen(false)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}
+                title="Đóng"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
@@ -802,7 +823,10 @@ export const UsersPage: React.FC = () => {
                     fontSize: '13.5px'
                   }}
                 >
-                  3. Mức lương & Phụ cấp 🔒
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span>3. Mức lương & Phụ cấp</span>
+                    <Lock size={13} color="#9CA3AF" />
+                  </span>
                 </button>
               )}
             </div>
@@ -1043,7 +1067,10 @@ export const UsersPage: React.FC = () => {
                         color: '#854D0E'
                       }}
                     >
-                      ⚠️ <strong>Bảo mật thông tin nhân sự:</strong> Mức lương cơ bản và phụ cấp chỉ được hiển thị và chỉnh sửa bởi Quản trị viên (Admin) và Tổng Giám Đốc (CEO).
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <ShieldAlert size={14} color="#D97706" style={{ flexShrink: 0 }} />
+                        <span><strong>Bảo mật thông tin nhân sự:</strong> Mức lương cơ bản và phụ cấp chỉ được hiển thị và chỉnh sửa bởi Quản trị viên (Admin) và Tổng Giám Đốc (CEO).</span>
+                      </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -1085,8 +1112,19 @@ export const UsersPage: React.FC = () => {
                 >
                   Hủy bỏ
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  {editingUser ? 'Lưu thay đổi' : 'Tạo nhân sự'}
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn btn-primary flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>{editingUser ? 'Đang lưu...' : 'Đang tạo nhân sự...'}</span>
+                    </>
+                  ) : (
+                    <span>{editingUser ? 'Lưu thay đổi' : 'Tạo nhân sự'}</span>
+                  )}
                 </button>
               </div>
             </form>

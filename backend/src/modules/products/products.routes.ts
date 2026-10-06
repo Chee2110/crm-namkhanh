@@ -9,9 +9,11 @@ const router = Router();
 router.use(authGuard);
 
 router.get('/', requirePermission('C_PRODUCTS', 'read'), productsController.getProducts);
+router.get('/proxy-image', productsController.proxyImage);
 router.get('/:id', requirePermission('C_PRODUCTS', 'read'), productsController.getProductById);
 router.post('/', requirePermission('C_PRODUCTS', 'create'), productsController.createProduct);
 router.put('/:id', requirePermission('C_PRODUCTS', 'update'), productsController.updateProduct);
+router.post('/upload-image', requirePermission('C_PRODUCTS', 'create'), imageUpload.single('file'), productsController.uploadImage);
 router.post('/:id/upload-image', requirePermission('C_PRODUCTS', 'update'), imageUpload.single('file'), productsController.uploadImage);
 router.delete('/:id', requirePermission('C_PRODUCTS', 'delete'), productsController.deleteProduct);
 
