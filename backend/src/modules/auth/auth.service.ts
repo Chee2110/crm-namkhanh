@@ -1,9 +1,15 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { prisma } from '../../config/db';
+import { systemService, parseUserAgent, cleanIpAddress } from '../system/system.service';
 
 export class AuthService {
-  async login(email: string, password: string) {
+  async login(
+    email: string,
+    password: string,
+    clientInfo?: { userAgent?: string; ipAddress?: string }
+  ) {
     const user = await prisma.user.findUnique({
       where: { email: email.trim().toLowerCase() },
       include: {
@@ -34,6 +40,14 @@ export class AuthService {
     }
 
     const roles = user.userRoles.map((ur: any) => ur.role.code);
+
+    // Kiểm tra Chế độ Bảo trì: Nếu đang bảo trì thì chỉ ADMIN mới được phép đăng nhập
+    const maintenance = await systemService.getMaintenanceState();
+    if (maintenance.isMaintenance && !roles.includes('ADMIN')) {
+      throw new Error(
+        'Hệ thống hiện đang được đóng để bảo trì định kỳ. Chỉ Quản trị viên (ADMIN) mới có quyền truy cập. Vui lòng quay lại sau.'
+      );
+    }
 
     // Gộp permissions
     const permissionMap = new Map<string, {
@@ -71,9 +85,16 @@ export class AuthService {
       }
     }
 
+    // Đơn thiết bị: Tạo sessionId duy nhất cho phiên này và thu hồi phiên cũ của cùng tài khoản
+    const sessionId = crypto.randomUUID();
+    const deviceName = parseUserAgent(clientInfo?.userAgent);
+    const ipAddress = cleanIpAddress(clientInfo?.ipAddress);
+
+    await systemService.setActiveSession(user.id, sessionId, deviceName, ipAddress);
+
     const secret = process.env.JWT_SECRET || 'crm_namkhanh_super_secret_jwt_key_2026';
     const token = jwt.sign(
-      { userId: user.id, email: user.email, roles },
+      { userId: user.id, email: user.email, roles, sessionId },
       secret,
       { expiresIn: '7d' }
     );
@@ -85,7 +106,12 @@ export class AuthService {
         action: 'LOGIN',
         entityType: 'User',
         entityId: user.id,
-        newValue: { email: user.email, time: new Date().toISOString() }
+        newValue: {
+          email: user.email,
+          device: deviceName,
+          ip: ipAddress,
+          time: new Date().toISOString()
+        }
       }
     });
 
@@ -93,6 +119,10 @@ export class AuthService {
 
     return {
       token,
+      sessionId,
+      maintenanceNotice: {
+        lastEndedAt: maintenance.lastEndedAt
+      },
       user: {
         id: user.id,
         code: user.code,

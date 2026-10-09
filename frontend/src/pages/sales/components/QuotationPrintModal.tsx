@@ -158,7 +158,7 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
         </div>
 
         {/* ================= KHUNG IN A4 CHUẨN KẾ TOÁN ================= */}
-        <div className="p-8 md:p-12 overflow-y-auto flex-1 font-serif text-gray-900 bg-white" id="printable-quotation">
+        <div className="p-8 md:p-12 overflow-y-auto flex-1 font-sans text-gray-900 bg-white" id="printable-quotation">
           {/* Header công ty */}
           <div className="flex flex-col sm:flex-row items-start justify-between border-b-2 border-[#E53935] pb-4 gap-4">
             <div className="flex items-start gap-4">

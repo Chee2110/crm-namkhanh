@@ -31,6 +31,13 @@ import { ImportExcelModal } from '../../components/common/ImportExcelModal';
 import ExcelJS from 'exceljs';
 import { useTableResize } from '../../hooks/useTableResize';
 import { Toast } from '../../components/common/Toast';
+import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
+import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+
+const PRODUCT_STATUS_OPTIONS: StatusOption[] = [
+  { value: 'ACTIVE', label: 'Đang kinh doanh', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+  { value: 'INACTIVE', label: 'Ngừng kinh doanh', colorClass: 'bg-red-50 text-red-700 border-red-300' }
+];
 
 export const ProductsPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -75,6 +82,7 @@ export const ProductsPage: React.FC = () => {
     vatRate: true,
     minStockLevel: true,
     maxStockLevel: true,
+    status: true,
     actions: true
   };
 
@@ -100,6 +108,7 @@ export const ProductsPage: React.FC = () => {
     'vatRate',
     'minStockLevel',
     'maxStockLevel',
+    'status',
     'actions'
   ];
 
@@ -125,34 +134,11 @@ export const ProductsPage: React.FC = () => {
     vatRate: 'Thuế VAT',
     minStockLevel: 'Tồn kho tối thiểu',
     maxStockLevel: 'Tồn kho tối đa',
+    status: 'Trạng thái',
     actions: 'Thao tác'
   };
 
-  // Màu sắc nền tiêu đề các cột chuẩn theo file mẫu Excel "CẤU TRÚC SẢN PHẨM"
-  const columnHeaderBg: Record<string, string> = {
-    stt: '#D9E1F2',
-    warehouseCode: '#D9E1F2',
-    warehouseName: '#D9E1F2',
-    categoryCode: '#BDD7EE',
-    categoryName: '#BDD7EE',
-    productTypeCode: '#E2EFDA',
-    productTypeName: '#E2EFDA',
-    subTypeCode: '#FCE4D6',
-    subTypeName: '#FCE4D6',
-    image: '#A9D08E',
-    code: '#BDD7EE',
-    name: '#BDD7EE',
-    brand: '#F8CBAD',
-    color: '#D9D9D9',
-    specification: '#D9E1F2',
-    unit: '#D9E1F2',
-    costPrice: '#D9E1F2',
-    sellingPrice: '#D9E1F2',
-    vatRate: '#D9E1F2',
-    minStockLevel: '#D9E1F2',
-    maxStockLevel: '#D9E1F2',
-    actions: '#E5E7EB'
-  };
+  // Cấu hình hiển thị và thứ tự cột mặc định
 
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     try {
@@ -202,6 +188,7 @@ export const ProductsPage: React.FC = () => {
     vatRate: 90,
     minStockLevel: 115,
     maxStockLevel: 115,
+    status: 140,
     actions: 95
   };
 
@@ -235,49 +222,9 @@ export const ProductsPage: React.FC = () => {
     }
   });
 
-  const [draggedCol, setDraggedCol] = useState<string | null>(null);
-  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
-
-  const handleDragStart = (e: React.DragEvent, colKey: string) => {
-    setDraggedCol(colKey);
-    e.dataTransfer.setData('text/plain', colKey);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent, colKey: string) => {
-    e.preventDefault();
-    if (draggedCol && draggedCol !== colKey) {
-      setDragOverCol(colKey);
-    }
-  };
-
-  const handleDragLeave = () => {
-    setDragOverCol(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, targetCol: string) => {
-    e.preventDefault();
-    if (!draggedCol || draggedCol === targetCol || targetCol === 'actions' || targetCol === 'stt' || draggedCol === 'actions' || draggedCol === 'stt') {
-      setDraggedCol(null);
-      setDragOverCol(null);
-      return;
-    }
-
-    const newOrder = [...columnOrder];
-    const dragIdx = newOrder.indexOf(draggedCol);
-    const dropIdx = newOrder.indexOf(targetCol);
-
-    if (dragIdx > -1 && dropIdx > -1) {
-      newOrder.splice(dragIdx, 1);
-      newOrder.splice(dropIdx, 0, draggedCol);
-      const withoutActions = newOrder.filter((k) => k !== 'actions');
-      withoutActions.push('actions');
-      setColumnOrder(withoutActions);
-      localStorage.setItem('namkhanh_products_col_order_v2', JSON.stringify(withoutActions));
-    }
-
-    setDraggedCol(null);
-    setDragOverCol(null);
+  const handleReorderColumns = (newOrder: string[]) => {
+    setColumnOrder(newOrder);
+    localStorage.setItem('namkhanh_products_col_order_v2', JSON.stringify(newOrder));
   };
 
   const toggleColumnVisibility = (key: string) => {
@@ -778,15 +725,41 @@ export const ProductsPage: React.FC = () => {
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn file hình ảnh hợp lệ (JPG, PNG, WEBP, GIF, SVG)');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Dung lượng hình ảnh không được vượt quá 10MB');
+      return;
+    }
+
     try {
       setUploadingImage(true);
       const fd = new FormData();
       fd.append('file', file);
       const res = await api.post('/products/upload-image', fd);
-      if (res.data?.url) {
-        setFormData((prev) => ({ ...prev, imageUrl: res.data.url }));
+      const uploadedUrl =
+        res.data?.imageUrl ||
+        res.data?.url ||
+        res.data?.data?.imageUrl ||
+        res.data?.data?.url ||
+        (res as any)?.imageUrl ||
+        (res as any)?.url;
+
+      if (uploadedUrl) {
+        setFormData((prev) => ({ ...prev, imageUrl: uploadedUrl }));
+        setToastMessage('Tải ảnh sản phẩm lên thành công!');
+      } else {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormData((prev) => ({ ...prev, imageUrl: reader.result as string }));
+        };
+        reader.readAsDataURL(file);
       }
     } catch (err: any) {
+      console.warn('Lỗi tải ảnh lên backend, dùng bản xem trước data URL:', err);
       // Fallback preview dạng DataURL
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -859,6 +832,20 @@ export const ProductsPage: React.FC = () => {
     });
     setFormError(null);
     setIsModalOpen(true);
+  };
+
+  const handleQuickStatusChange = async (productId: string, newStatus: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? { ...p, status: newStatus as any } : p))
+      );
+      await api.put(`/products/${productId}`, { status: newStatus });
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || err.message || 'Lỗi khi cập nhật trạng thái sản phẩm');
+      loadData();
+    }
   };
 
   const openEditModal = (p: Product) => {
@@ -972,214 +959,261 @@ export const ProductsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* HEADER & FILTER */}
-      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Package className="w-5 h-5 text-[#E53935]" />
-            Quản Lý Hàng Hóa Chi Tiết (SKU Master - C.5)
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            Danh mục sản phẩm VPP, giá vốn, giá bán, thuế VAT và tự động tạo mới Nhà Cung Cấp
-          </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+      {/* THANH CÔNG CỤ TIÊU ĐỀ & NÚT THAO TÁC */}
+      <div
+        className="card"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+          padding: '0.65rem 1.25rem'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '10px',
+              backgroundColor: '#FFEBEE',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#E53935',
+              flexShrink: 0
+            }}
+          >
+            <Package size={22} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.265rem', fontWeight: '700', color: '#111827', margin: 0 }}>
+              Quản Lý Hàng Hóa Chi Tiết (SKU Master)
+            </h2>
+            <p style={{ fontSize: '13.2px', color: '#6B7280', margin: '0.2rem 0 0 0' }}>
+              Danh mục sản phẩm VPP, giá vốn, giá bán, thuế VAT, định mức tồn kho và cấu trúc phân loại
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto relative">
-          {/* Nút Tùy chỉnh cột */}
-          <div className="relative">
-            <button
-              onClick={() => setIsColumnDropdownOpen(!isColumnDropdownOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-              title="Tùy biến hiển thị các cột trên bảng"
-            >
-              <Columns className="w-3.5 h-3.5 text-gray-500" />
-              <span>Tùy chỉnh cột</span>
-            </button>
-
-            {isColumnDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 p-3 z-30 space-y-1.5 text-xs">
-                <div className="font-bold text-gray-800 pb-1.5 border-b border-gray-100 flex justify-between items-center">
-                  <span>Cột hiển thị</span>
-                  <button
-                    onClick={resetColumns}
-                    className="text-red-600 hover:text-red-700 flex items-center gap-1 font-medium cursor-pointer"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Mặc định</span>
-                  </button>
-                </div>
-                <div className="max-h-60 overflow-y-auto space-y-1">
-                  {columnOrder.map((key) => (
-                    <label key={key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={visibleColumns[key] ?? true}
-                        onChange={() => toggleColumnVisibility(key)}
-                        disabled={key === 'code' || key === 'name'}
-                        className="rounded text-[#E53935]"
-                      />
-                      <span>{columnLabels[key]}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Nút Cột */}
+          <ColumnCustomizerDropdown
+            columnOrder={columnOrder}
+            columnLabels={columnLabels}
+            visibleColumns={visibleColumns}
+            onToggleColumn={toggleColumnVisibility}
+            onReorderColumns={handleReorderColumns}
+            onReset={resetColumns}
+            disabledKeys={['code', 'name']}
+          />
 
           {/* Nút Nhập Excel hàng loạt */}
           <button
+            type="button"
             onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: '13.2px', gap: '0.35rem', backgroundColor: '#ECFDF5', color: '#047857', borderColor: '#A7F3D0' }}
             title="Nhập danh sách sản phẩm hàng loạt từ Excel/CSV"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <FileSpreadsheet size={14} color="#059669" />
             <span>Nhập Excel</span>
           </button>
 
           {/* Nút Xuất Excel cấu trúc sản phẩm */}
           <button
+            type="button"
             onClick={handleExportExcel}
             disabled={isExporting}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: '13.2px', gap: '0.35rem', backgroundColor: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}
             title="Xuất bảng Cấu trúc sản phẩm ra file Excel chuẩn định dạng (.xlsx)"
           >
             {isExporting ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />
+                <Loader2 size={14} className="animate-spin text-blue-600" />
                 <span>Đang xuất Excel...</span>
               </>
             ) : (
               <>
-                <Download className="w-3.5 h-3.5 text-blue-600" />
+                <Download size={14} color="#2563EB" />
                 <span>Xuất Excel</span>
               </>
             )}
           </button>
 
-          <button
-            onClick={() => setLowStockFilter(!lowStockFilter)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
-              lowStockFilter ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-gray-100 text-gray-600 border-gray-200'
-            }`}
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            {lowStockFilter ? 'Đang lọc: Sắp hết' : 'Lọc sắp hết hàng'}
-          </button>
-
           {hasPermission('C_PRODUCTS', 'create') && (
             <button
+              type="button"
               onClick={openAddModal}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-xs font-semibold shadow-sm transition-colors whitespace-nowrap cursor-pointer"
+              className="btn btn-primary btn-sm"
+              style={{ padding: '0.45rem 0.85rem', fontSize: '13.2px', gap: '0.35rem' }}
             >
-              <Plus className="w-4 h-4" />
-              Thêm Sản Phẩm Mới
+              <Plus size={15} />
+              <span>Thêm Sản Phẩm Mới</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* FILTER BAR */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row gap-3 items-center">
-        <form onSubmit={handleSearch} className="relative flex-1 w-full sm:w-auto">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Tìm theo tên SP, mã SKU, barcode..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
-          />
+      {/* BỘ LỌC TÌM KIẾM DỮ LIỆU */}
+      <div
+        className="card"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+          padding: '0.55rem 1rem'
+        }}
+      >
+        <form onSubmit={handleSearch} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '280px', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: '240px', maxWidth: '380px' }}>
+            <Search size={15} style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.75rem', color: '#9CA3AF' }} />
+            <input
+              type="text"
+              className="input"
+              style={{ paddingLeft: '2.25rem', fontSize: '13.75px' }}
+              placeholder="Tìm theo tên SP, mã SKU, barcode..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <select
+            className="input"
+            style={{ width: '170px', fontSize: '13.75px' }}
+            value={warehouseFilter}
+            onChange={(e) => setWarehouseFilter(e.target.value)}
+          >
+            <option value="">-- Tất cả kho --</option>
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="input"
+            style={{ width: '170px', fontSize: '13.75px' }}
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+          >
+            <option value="">-- Tất cả danh mục --</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={() => setLowStockFilter(!lowStockFilter)}
+            className={`btn btn-sm ${lowStockFilter ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              borderRadius: '8px',
+              padding: '0.45rem 0.75rem',
+              fontSize: '13.2px',
+              backgroundColor: lowStockFilter ? '#FEF2F2' : '#FFFFFF',
+              borderColor: lowStockFilter ? '#EF4444' : '#E5E7EB',
+              color: lowStockFilter ? '#DC2626' : '#4B5563',
+              fontWeight: lowStockFilter ? 700 : 500,
+              boxShadow: lowStockFilter ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap'
+            }}
+            title="Lọc các mặt hàng có tồn kho nhỏ hơn hoặc bằng định mức tồn tối thiểu"
+          >
+            <AlertTriangle size={14} color={lowStockFilter ? '#DC2626' : '#F59E0B'} />
+            <span>{lowStockFilter ? 'Đang lọc: Sắp hết ✓' : 'Lọc sắp hết hàng'}</span>
+          </button>
+
+          <button
+            type="submit"
+            className="btn btn-secondary btn-sm"
+            style={{ padding: '0.45rem 0.85rem', fontSize: '13.2px', backgroundColor: '#F3F4F6' }}
+          >
+            Tìm kiếm
+          </button>
         </form>
 
-        <select
-          value={warehouseFilter}
-          onChange={(e) => setWarehouseFilter(e.target.value)}
-          className="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#E53935] w-full sm:w-auto"
-        >
-          <option value="">Tất cả kho</option>
-          {warehouses.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#E53935] w-full sm:w-auto"
-        >
-          <option value="">Tất cả danh mục</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-
-        <button
-          type="button"
-          onClick={loadData}
-          className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-xs font-semibold"
-        >
-          Lọc
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button
+            type="button"
+            onClick={loadData}
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: '13.2px', gap: '0.35rem' }}
+            title="Tải lại danh sách"
+          >
+            <RotateCcw size={13} />
+            <span>Tải lại</span>
+          </button>
+        </div>
       </div>
 
-      {/* BẢNG DATAGRID SẢN PHẨM */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* BẢNG DATAGRID SẢN PHẨM SKU */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div
+          style={{
+            padding: '0.75rem 1.25rem',
+            borderBottom: '1px solid #F3F4F6',
+            backgroundColor: '#FAFAFA',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Package size={15} color="#E53935" />
+            <span style={{ fontWeight: '700', fontSize: '14.3px', color: '#111827' }}>
+              Danh mục sản phẩm SKU ({products.length})
+            </span>
+            <span style={{ fontSize: '12.1px', color: '#6B7280', marginLeft: '0.35rem' }}>
+              • Kéo thả tiêu đề cột để sắp xếp thứ tự hiển thị
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '12.65px', color: '#6B7280' }}>
+            <span>Hiển thị <strong>{products.length}</strong> sản phẩm</span>
+          </div>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
           <table
-            className="w-full text-left text-sm border-collapse"
+            className="w-full text-left text-sm"
             style={{
               width: `${getTableWidth(columnOrder.filter((k) => visibleColumns[k]))}px`,
               minWidth: '100%',
-              tableLayout: 'fixed'
+              tableLayout: 'fixed',
+              borderCollapse: 'separate',
+              borderSpacing: 0
             }}
           >
             <thead>
-              {/* DÒNG 1: TIÊU ĐỀ MERGED - CẤU TRÚC SẢN PHẨM */}
-              <tr className="border-b border-gray-400 bg-white">
-                <th
-                  colSpan={columnOrder.filter((k) => visibleColumns[k]).length}
-                  className="py-3 px-4 text-center font-bold text-base md:text-lg text-gray-900 uppercase tracking-widest border-b-2 border-gray-400"
-                  style={{ fontFamily: 'Arial, sans-serif', letterSpacing: '2px' }}
-                >
-                  CẤU TRÚC SẢN PHẨM
-                </th>
-              </tr>
-
-              {/* DÒNG 2: CÁC CỘT DỮ LIỆU ĐƯỢC TÔ MÀU PHÂN NHÓM CHUẨN FORM EXCEL */}
-              <tr className="border-b border-gray-400 text-gray-900 text-[11px] font-bold">
+              <tr className="bg-slate-50/90 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider whitespace-nowrap">
                 {columnOrder
                   .filter((k) => visibleColumns[k])
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      draggable={colKey !== 'actions' && colKey !== 'stt'}
-                      onDragStart={(e) => handleDragStart(e, colKey)}
-                      onDragOver={(e) => handleDragOver(e, colKey)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, colKey)}
-                      className={`py-2 px-2 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${
+                      className={`py-3 px-3 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${
                         colKey === 'name' ? 'th-left text-left' : 'text-center'
                       } ${
                         colKey === 'actions' ? 'sticky-action-th' : ''
-                      } ${
-                        dragOverCol === colKey ? 'brightness-95 ring-2 ring-[#E53935]' : ''
-                      } ${draggedCol === colKey ? 'opacity-50' : ''}`}
+                      }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultProductWidths[colKey] || 110}px`,
-                        backgroundColor: columnHeaderBg[colKey] || '#D9E1F2',
-                        color: '#000000',
-                        borderRight: '1px solid #B0B5BD',
-                        borderBottom: '1.5px solid #6B7280',
                         position: colKey === 'actions' ? 'sticky' : 'relative',
-                        cursor: colKey !== 'actions' && colKey !== 'stt' ? 'grab' : 'default',
                         textAlign: colKey === 'name' ? 'left' : 'center'
                       }}
-                      title={colKey !== 'actions' && colKey !== 'stt' ? 'Kéo thả để thay đổi vị trí cột' : undefined}
                     >
                       <div
                         className={`inline-flex items-center gap-1 w-full ${
@@ -1189,10 +1223,7 @@ export const ProductsPage: React.FC = () => {
                           justifyContent: colKey === 'name' ? 'flex-start' : 'center'
                         }}
                       >
-                        {colKey !== 'actions' && colKey !== 'stt' && (
-                          <GripVertical className="w-3 h-3 text-gray-500 opacity-40 hover:opacity-100 flex-shrink-0" />
-                        )}
-                        <span className="whitespace-nowrap select-none font-bold text-[11px]">
+                        <span className="whitespace-nowrap select-none font-semibold text-gray-700">
                           {columnLabels[colKey]}
                         </span>
                       </div>
@@ -1201,25 +1232,31 @@ export const ProductsPage: React.FC = () => {
                           className="col-resizer"
                           onMouseDown={(e) => startResize(colKey, e)}
                           onClick={(e) => e.stopPropagation()}
-                          title="Kéo sang trái/phải để điều chỉnh độ rộng cột"
+                          title="Kéo để chỉnh độ rộng"
                         />
                       )}
                     </th>
                   ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+            <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length} className="py-12 text-center text-gray-500">
+                  <td
+                    colSpan={columnOrder.filter((k) => visibleColumns[k]).length}
+                    className="py-12 text-center text-gray-500"
+                  >
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#E53935] mb-2"></div>
                     <p>Đang tải danh sách hàng hóa...</p>
                   </td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length} className="py-12 text-center text-gray-500">
-                    Không có sản phẩm nào phù hợp
+                  <td
+                    colSpan={columnOrder.filter((k) => visibleColumns[k]).length}
+                    className="py-12 text-center text-gray-500"
+                  >
+                    Không tìm thấy sản phẩm nào phù hợp
                   </td>
                 </tr>
               ) : (
@@ -1228,7 +1265,7 @@ export const ProductsPage: React.FC = () => {
                     <tr
                       key={p.id}
                       onClick={() => openEditModal(p)}
-                      className="hover:bg-amber-50/40 transition-colors cursor-pointer border-b border-gray-200 text-xs"
+                      className="hover:bg-red-50/30 transition-colors cursor-pointer border-b border-gray-100 text-xs"
                     >
                       {columnOrder
                         .filter((k) => visibleColumns[k])
@@ -1236,163 +1273,185 @@ export const ProductsPage: React.FC = () => {
                           switch (colKey) {
                             case 'stt':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center text-gray-800 font-medium whitespace-nowrap border-r border-gray-200">
+                                <td key={colKey} className="py-2.5 px-2 text-center text-gray-500 whitespace-nowrap">
                                   {idx + 1}
                                 </td>
                               );
                             case 'warehouseCode':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center whitespace-nowrap border-r border-gray-200 font-mono font-medium text-gray-900">
+                                <td key={colKey} className="py-2.5 px-2 text-center whitespace-nowrap font-mono text-gray-600">
                                   {p.warehouse?.code || (p as any).warehouseCode || 'NK01'}
                                 </td>
                               );
                             case 'warehouseName':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center text-gray-800 border-r border-gray-200 truncate" title={p.warehouse?.name || (p as any).warehouseName || 'Kho số 1'}>
+                                <td key={colKey} className="py-2.5 px-2 text-center text-gray-700 truncate" title={p.warehouse?.name || (p as any).warehouseName || 'Kho số 1'}>
                                   {p.warehouse?.name || (p as any).warehouseName || 'Kho số 1'}
                                 </td>
                               );
                             case 'categoryCode':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center whitespace-nowrap border-r border-gray-200 font-mono font-medium text-gray-900">
+                                <td key={colKey} className="py-2.5 px-2 text-center whitespace-nowrap font-mono text-gray-600">
                                   {p.categoryRel?.code || (p as any).categoryCode || 'GIAY'}
                                 </td>
                               );
                             case 'categoryName':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center text-gray-800 border-r border-gray-200 truncate" title={p.categoryRel?.name || (p as any).categoryName || p.category || 'Giấy'}>
+                                <td key={colKey} className="py-2.5 px-2 text-center text-gray-700 truncate" title={p.categoryRel?.name || (p as any).categoryName || p.category || 'Giấy'}>
                                   {p.categoryRel?.name || (p as any).categoryName || p.category || 'Giấy'}
                                 </td>
                               );
                             case 'productTypeCode':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center whitespace-nowrap border-r border-gray-200 font-mono font-medium text-gray-900">
+                                <td key={colKey} className="py-2.5 px-2 text-center whitespace-nowrap font-mono text-gray-600">
                                   {p.productType?.code || (p as any).productTypeCode || 'A4'}
                                 </td>
                               );
                             case 'productTypeName':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center text-gray-800 border-r border-gray-200 truncate" title={p.productType?.name || (p as any).productTypeName || 'Giấy A4'}>
+                                <td key={colKey} className="py-2.5 px-2 text-center text-gray-700 truncate" title={p.productType?.name || (p as any).productTypeName || 'Giấy A4'}>
                                   {p.productType?.name || (p as any).productTypeName || 'Giấy A4'}
                                 </td>
                               );
                             case 'subTypeCode':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center whitespace-nowrap border-r border-gray-200 font-mono text-gray-700">
+                                <td key={colKey} className="py-2.5 px-2 text-center whitespace-nowrap font-mono text-gray-500">
                                   {p.subTypeCode || '—'}
                                 </td>
                               );
                             case 'subTypeName':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center text-gray-800 border-r border-gray-200 truncate" title={p.subTypeName || '—'}>
+                                <td key={colKey} className="py-2.5 px-2 text-center text-gray-700 truncate" title={p.subTypeName || '—'}>
                                   {p.subTypeName || '—'}
                                 </td>
                               );
                             case 'image':
                               return (
-                                <td key={colKey} className="py-1.5 px-2 text-center border-r border-gray-200">
+                                <td key={colKey} className="py-1.5 px-2 text-center">
                                   {p.imageUrl ? (
                                     <img
                                       src={p.imageUrl}
                                       alt={p.name}
-                                      className="w-10 h-10 rounded object-contain border border-gray-200 bg-white mx-auto shadow-xs"
+                                      className="w-9 h-9 rounded-lg object-contain border border-gray-200 bg-white mx-auto shadow-2xs"
                                       onError={(e) => {
                                         (e.target as HTMLElement).style.display = 'none';
                                       }}
                                     />
                                   ) : (
-                                    <div className="w-10 h-10 rounded border border-dashed border-gray-300 flex items-center justify-center text-gray-300 mx-auto">
-                                      <ImageIcon className="w-4 h-4" />
+                                    <div className="w-9 h-9 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-300 mx-auto">
+                                      <ImageIcon size={15} />
                                     </div>
                                   )}
                                 </td>
                               );
                             case 'code':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center whitespace-nowrap border-r border-gray-200 font-mono font-bold text-gray-900" title={`Mã SP: ${p.code}`}>
-                                  {p.code}
+                                <td key={colKey} className="py-2.5 px-2 text-center whitespace-nowrap" title={`Mã SKU: ${p.code}`}>
+                                  <span className="font-mono font-bold text-[#E53935]">{p.code}</span>
                                 </td>
                               );
                             case 'name':
                               return (
-                                <td key={colKey} className="py-2 px-2.5 text-left border-r border-gray-200 overflow-hidden font-medium text-gray-900 truncate" title={p.name}>
+                                <td key={colKey} className="py-2.5 px-3 text-left overflow-hidden font-medium text-gray-900 truncate" title={p.name}>
                                   {p.name}
                                 </td>
                               );
                             case 'brand':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center text-gray-800 border-r border-gray-200 truncate" title={p.brand || '—'}>
+                                <td key={colKey} className="py-2.5 px-2 text-center text-gray-700 truncate" title={p.brand || '—'}>
                                   {p.brand || '—'}
                                 </td>
                               );
                             case 'color':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center text-gray-700 border-r border-gray-200 truncate" title={p.color || '—'}>
+                                <td key={colKey} className="py-2.5 px-2 text-center text-gray-600 truncate" title={p.color || '—'}>
                                   {p.color || '—'}
                                 </td>
                               );
                             case 'specification':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center text-gray-700 border-r border-gray-200 truncate" title={p.specification || '—'}>
+                                <td key={colKey} className="py-2.5 px-2 text-center text-gray-600 truncate" title={p.specification || '—'}>
                                   {p.specification || '—'}
                                 </td>
                               );
                             case 'unit':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center text-gray-800 font-medium whitespace-nowrap border-r border-gray-200">
+                                <td key={colKey} className="py-2.5 px-2 text-center text-gray-700 font-medium whitespace-nowrap">
                                   {p.unit}
                                 </td>
                               );
                             case 'costPrice':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-right text-gray-800 border-r border-gray-200 tabular-nums whitespace-nowrap">
-                                  {Number(p.costPrice).toLocaleString('vi-VN')}
+                                <td key={colKey} className="py-2.5 px-2 text-right text-gray-600 tabular-nums whitespace-nowrap">
+                                  {Number(p.costPrice).toLocaleString('vi-VN')} đ
                                 </td>
                               );
                             case 'sellingPrice':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-right font-bold text-gray-900 border-r border-gray-200 tabular-nums whitespace-nowrap">
-                                  {Number(p.sellingPrice).toLocaleString('vi-VN')}
+                                <td key={colKey} className="py-2.5 px-2 text-right font-bold text-gray-900 tabular-nums whitespace-nowrap">
+                                  {Number(p.sellingPrice).toLocaleString('vi-VN')} đ
                                 </td>
                               );
                             case 'vatRate':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-center text-gray-800 border-r border-gray-200 tabular-nums whitespace-nowrap">
-                                  {p.vatRate ?? 8}
+                                <td key={colKey} className="py-2.5 px-2 text-center text-gray-700 tabular-nums whitespace-nowrap">
+                                  {p.vatRate ?? 8}%
                                 </td>
                               );
                             case 'minStockLevel':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-right text-gray-800 border-r border-gray-200 tabular-nums whitespace-nowrap">
+                                <td key={colKey} className="py-2.5 px-2 text-right text-gray-700 tabular-nums whitespace-nowrap">
                                   {Number(p.minStockLevel || 0).toLocaleString('vi-VN')}
                                 </td>
                               );
                             case 'maxStockLevel':
                               return (
-                                <td key={colKey} className="py-2 px-2 text-right text-gray-800 border-r border-gray-200 tabular-nums whitespace-nowrap">
+                                <td key={colKey} className="py-2.5 px-2 text-right text-gray-700 tabular-nums whitespace-nowrap">
                                   {Number(p.maxStockLevel || 1000).toLocaleString('vi-VN')}
+                                </td>
+                              );
+                            case 'status':
+                              return (
+                                <td
+                                  key={colKey}
+                                  className="py-2.5 px-2 text-center whitespace-nowrap overflow-hidden"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="flex items-center justify-center">
+                                    <StatusBadgeDropdown
+                                      value={p.status || 'ACTIVE'}
+                                      options={PRODUCT_STATUS_OPTIONS}
+                                      onChange={(newStatus) => handleQuickStatusChange(p.id, newStatus)}
+                                    />
+                                  </div>
                                 </td>
                               );
                             case 'actions':
                               return (
-                                <td key={colKey} onClick={(e) => e.stopPropagation()} className="py-2 px-2 text-center sticky-action-td whitespace-nowrap bg-white border-l border-gray-200">
+                                <td
+                                  key={colKey}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="py-2.5 px-2 text-center sticky-action-td whitespace-nowrap bg-white border-l border-gray-100"
+                                >
                                   <div className="flex items-center justify-center gap-1">
                                     {hasPermission('C_PRODUCTS', 'update') && (
                                       <button
+                                        type="button"
                                         onClick={() => openEditModal(p)}
-                                        className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
                                         title="Chỉnh sửa sản phẩm"
                                       >
-                                        <Edit2 className="w-3.5 h-3.5" />
+                                        <Edit2 size={14} />
                                       </button>
                                     )}
                                     {hasPermission('C_PRODUCTS', 'delete') && (
                                       <button
+                                        type="button"
                                         onClick={() => handleDelete(p)}
-                                        className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
                                         title="Xóa sản phẩm"
                                       >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Trash2 size={14} />
                                       </button>
                                     )}
                                   </div>

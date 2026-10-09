@@ -20,6 +20,7 @@ import { api } from '../../services/api';
 import { Supplier, Product } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
+import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
 
 export const SuppliersPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -37,6 +38,8 @@ export const SuppliersPage: React.FC = () => {
     actions: true
   };
 
+  const defaultColOrder = ['stt', 'code', 'name', 'contact', 'products', 'actions'];
+
   const columnLabels: Record<string, string> = {
     stt: 'STT',
     code: 'Mã NCC',
@@ -52,6 +55,15 @@ export const SuppliersPage: React.FC = () => {
       return saved ? JSON.parse(saved) : defaultVisibleCols;
     } catch {
       return defaultVisibleCols;
+    }
+  });
+
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('namkhanh_suppliers_col_order');
+      return saved ? JSON.parse(saved) : defaultColOrder;
+    } catch {
+      return defaultColOrder;
     }
   });
 
@@ -78,7 +90,14 @@ export const SuppliersPage: React.FC = () => {
     }
   });
 
-  const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
+  const handleReorderColumns = (newOrder: string[]) => {
+    setColumnOrder(newOrder);
+    try {
+      localStorage.setItem('namkhanh_suppliers_col_order', JSON.stringify(newOrder));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const toggleColumnVisibility = (colKey: string) => {
     const updated = { ...visibleColumns, [colKey]: !visibleColumns[colKey] };
@@ -92,9 +111,11 @@ export const SuppliersPage: React.FC = () => {
 
   const resetColumns = () => {
     setVisibleColumns(defaultVisibleCols);
+    setColumnOrder(defaultColOrder);
     resetWidths();
     try {
       localStorage.setItem('namkhanh_suppliers_visible_cols', JSON.stringify(defaultVisibleCols));
+      localStorage.removeItem('namkhanh_suppliers_col_order');
     } catch (e) {
       console.error(e);
     }
@@ -255,45 +276,15 @@ export const SuppliersPage: React.FC = () => {
           </form>
 
           {/* Menu ẩn/hiện cột */}
-          <div className="relative">
-            <button
-              onClick={() => setIsColumnDropdownOpen(!isColumnDropdownOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-              title="Tùy biến hiển thị các cột trên bảng"
-            >
-              <Columns className="w-3.5 h-3.5 text-gray-500" />
-              <span>Tùy chỉnh cột</span>
-            </button>
-
-            {isColumnDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 p-3 z-30 space-y-1.5 text-xs">
-                <div className="font-bold text-gray-800 pb-1.5 border-b border-gray-100 flex justify-between items-center">
-                  <span>Cột hiển thị</span>
-                  <button
-                    onClick={resetColumns}
-                    className="text-red-600 hover:text-red-700 flex items-center gap-1 font-medium cursor-pointer"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Mặc định</span>
-                  </button>
-                </div>
-                <div className="max-h-60 overflow-y-auto space-y-1">
-                  {Object.keys(columnLabels).map((key) => (
-                    <label key={key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={visibleColumns[key] ?? true}
-                        onChange={() => toggleColumnVisibility(key)}
-                        disabled={key === 'name'}
-                        className="rounded text-[#E53935]"
-                      />
-                      <span>{columnLabels[key]}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <ColumnCustomizerDropdown
+            columnOrder={columnOrder}
+            columnLabels={columnLabels}
+            visibleColumns={visibleColumns}
+            onToggleColumn={toggleColumnVisibility}
+            onReorderColumns={handleReorderColumns}
+            onReset={resetColumns}
+            disabledKeys={['name']}
+          />
 
           {hasPermission('C_SUPPLIERS', 'create') && (
             <button
@@ -313,176 +304,156 @@ export const SuppliersPage: React.FC = () => {
           <table
             className="w-full text-left text-sm border-collapse"
             style={{
-              width: `${getTableWidth(Object.keys(columnLabels).filter((k) => visibleColumns[k]))}px`,
+              width: `${getTableWidth(columnOrder.filter((k) => visibleColumns[k]))}px`,
               minWidth: '100%',
               tableLayout: 'fixed'
             }}
           >
             <thead>
               <tr className="bg-slate-50/90 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider whitespace-nowrap">
-                {visibleColumns.stt && (
-                  <th
-                    className="py-3 px-3.5 text-center select-none overflow-hidden"
-                    style={{ width: `${columnWidths.stt || defaultSupplierWidths.stt}px`, position: 'relative' }}
-                  >
-                    <span>STT</span>
-                    <div className="col-resizer" onMouseDown={(e) => startResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                  </th>
-                )}
-                {visibleColumns.code && (
-                  <th
-                    className="py-3 px-3.5 select-none overflow-hidden"
-                    style={{ width: `${columnWidths.code || defaultSupplierWidths.code}px`, position: 'relative' }}
-                  >
-                    <span>Mã NCC</span>
-                    <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                  </th>
-                )}
-                {visibleColumns.name && (
-                  <th
-                    className="py-3 px-3.5 select-none overflow-hidden"
-                    style={{ width: `${columnWidths.name || defaultSupplierWidths.name}px`, position: 'relative' }}
-                  >
-                    <span>Tên Nhà Cung Cấp & MST</span>
-                    <div className="col-resizer" onMouseDown={(e) => startResize('name', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                  </th>
-                )}
-                {visibleColumns.contact && (
-                  <th
-                    className="py-3 px-3.5 select-none overflow-hidden"
-                    style={{ width: `${columnWidths.contact || defaultSupplierWidths.contact}px`, position: 'relative' }}
-                  >
-                    <span>Liên hệ & Địa chỉ</span>
-                    <div className="col-resizer" onMouseDown={(e) => startResize('contact', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                  </th>
-                )}
-                {visibleColumns.products && (
-                  <th
-                    className="py-3 px-3.5 text-center select-none overflow-hidden"
-                    style={{ width: `${columnWidths.products || defaultSupplierWidths.products}px`, position: 'relative' }}
-                  >
-                    <span>Sản phẩm cung cấp</span>
-                    <div className="col-resizer" onMouseDown={(e) => startResize('products', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                  </th>
-                )}
-                {visibleColumns.actions && (
-                  <th
-                    className="py-3 px-3.5 text-center sticky-action-th"
-                    style={{ width: `${columnWidths.actions || defaultSupplierWidths.actions}px` }}
-                  >
-                    <span>Thao tác</span>
-                  </th>
-                )}
+                {columnOrder
+                  .filter((k) => visibleColumns[k])
+                  .map((colKey) => (
+                    <th
+                      key={colKey}
+                      className={`py-3 px-3.5 select-none overflow-hidden ${
+                        colKey === 'actions' ? 'sticky-action-th text-center' : colKey === 'stt' || colKey === 'products' ? 'text-center' : ''
+                      }`}
+                      style={{
+                        width: `${columnWidths[colKey] || defaultSupplierWidths[colKey]}px`,
+                        position: colKey === 'actions' ? 'sticky' : 'relative'
+                      }}
+                    >
+                      <span>{columnLabels[colKey]}</span>
+                      {colKey !== 'actions' && (
+                        <div className="col-resizer" onMouseDown={(e) => startResize(colKey, e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
+                      )}
+                    </th>
+                  ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={Object.values(visibleColumns).filter(Boolean).length || 6} className="py-12 text-center text-gray-500">
+                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 6} className="py-12 text-center text-gray-500">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#E53935] mb-2"></div>
                     <p>Đang tải danh sách nhà cung cấp...</p>
                   </td>
                 </tr>
               ) : suppliers.length === 0 ? (
                 <tr>
-                  <td colSpan={Object.values(visibleColumns).filter(Boolean).length || 6} className="py-12 text-center text-gray-500">
+                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 6} className="py-12 text-center text-gray-500">
                     Chưa có nhà cung cấp nào
                   </td>
                 </tr>
               ) : (
                 suppliers.map((s, idx) => (
                   <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
-                    {visibleColumns.stt && (
-                      <td className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
-                        {idx + 1}
-                      </td>
-                    )}
-                    {visibleColumns.code && (
-                      <td className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
-                        {s.code}
-                      </td>
-                    )}
-                    {visibleColumns.name && (
-                      <td className="py-2.5 px-3.5 overflow-hidden">
-                        <div className="min-w-0" title={`${s.name} - MST: ${s.taxCode || 'N/A'}${s.contactPerson ? ` • Người liên hệ: ${s.contactPerson}` : ''}`}>
-                          <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
-                            {s.name}
-                          </div>
-                          {(s.taxCode || s.contactPerson) && (
-                            <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5 truncate">
-                              {s.contactPerson && (
-                                <span className="truncate text-gray-600">LH: {s.contactPerson}</span>
-                              )}
-                              {s.contactPerson && s.taxCode && <span className="text-gray-300">•</span>}
-                              {s.taxCode && (
-                                <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-1 py-0.2 rounded shrink-0">MST: {s.taxCode}</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                    {visibleColumns.contact && (
-                      <td className="py-2.5 px-3.5 text-xs text-gray-600 overflow-hidden">
-                        <div className="min-w-0" title={`SĐT: ${s.phone || 'N/A'} - Email: ${s.email || 'N/A'} - Đ/C: ${s.address || 'N/A'}`}>
-                          {s.phone && (
-                            <div className="flex items-center gap-1 font-mono font-medium text-gray-800 truncate">
-                              <Phone className="w-3 h-3 text-gray-400 shrink-0" />
-                              <span>{s.phone}</span>
-                              {s.email && <span className="text-gray-400 font-sans truncate">({s.email})</span>}
-                            </div>
-                          )}
-                          {s.address && (
-                            <div className="flex items-center gap-1 text-gray-500 truncate mt-0.5">
-                              <MapPin className="w-3 h-3 text-gray-400 shrink-0" />
-                              <span className="truncate">{s.address}</span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                    {visibleColumns.products && (
-                      <td className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
-                        <button
-                          onClick={() => openProductsModal(s)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                        >
-                          <Package className="w-3.5 h-3.5" />
-                          {s._count?.products || 0} Mặt hàng
-                        </button>
-                      </td>
-                    )}
-                    {visibleColumns.actions && (
-                      <td className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => openProductsModal(s)}
-                            className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="Xem danh sách sản phẩm của NCC"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          {hasPermission('C_SUPPLIERS', 'update') && (
-                            <button
-                              onClick={() => openEditModal(s)}
-                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Sửa thông tin NCC"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                          )}
-                          {hasPermission('C_SUPPLIERS', 'delete') && (
-                            <button
-                              onClick={() => handleDelete(s)}
-                              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Xóa NCC"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                    {columnOrder
+                      .filter((k) => visibleColumns[k])
+                      .map((colKey) => {
+                        switch (colKey) {
+                          case 'stt':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                                {idx + 1}
+                              </td>
+                            );
+                          case 'code':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
+                                {s.code}
+                              </td>
+                            );
+                          case 'name':
+                            return (
+                              <td key={colKey} className="py-2.5 px-3.5 overflow-hidden">
+                                <div className="min-w-0" title={`${s.name} - MST: ${s.taxCode || 'N/A'}${s.contactPerson ? ` • Người liên hệ: ${s.contactPerson}` : ''}`}>
+                                  <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
+                                    {s.name}
+                                  </div>
+                                  {(s.taxCode || s.contactPerson) && (
+                                    <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5 truncate">
+                                      {s.contactPerson && (
+                                        <span className="truncate text-gray-600">LH: {s.contactPerson}</span>
+                                      )}
+                                      {s.contactPerson && s.taxCode && <span className="text-gray-300">•</span>}
+                                      {s.taxCode && (
+                                        <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-1 py-0.2 rounded shrink-0">MST: {s.taxCode}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          case 'contact':
+                            return (
+                              <td key={colKey} className="py-2.5 px-3.5 text-xs text-gray-600 overflow-hidden">
+                                <div className="min-w-0" title={`SĐT: ${s.phone || 'N/A'} - Email: ${s.email || 'N/A'} - Đ/C: ${s.address || 'N/A'}`}>
+                                  {s.phone && (
+                                    <div className="flex items-center gap-1 font-mono font-medium text-gray-800 truncate">
+                                      <Phone className="w-3 h-3 text-gray-400 shrink-0" />
+                                      <span>{s.phone}</span>
+                                      {s.email && <span className="text-gray-400 font-sans truncate">({s.email})</span>}
+                                    </div>
+                                  )}
+                                  {s.address && (
+                                    <div className="flex items-center gap-1 text-gray-500 truncate mt-0.5">
+                                      <MapPin className="w-3 h-3 text-gray-400 shrink-0" />
+                                      <span className="truncate">{s.address}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          case 'products':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
+                                <button
+                                  onClick={() => openProductsModal(s)}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                                >
+                                  <Package className="w-3.5 h-3.5" />
+                                  {s._count?.products || 0} Mặt hàng
+                                </button>
+                              </td>
+                            );
+                          case 'actions':
+                            return (
+                              <td key={colKey} className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => openProductsModal(s)}
+                                    className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                    title="Xem danh sách sản phẩm của NCC"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  {hasPermission('C_SUPPLIERS', 'update') && (
+                                    <button
+                                      onClick={() => openEditModal(s)}
+                                      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                      title="Sửa thông tin NCC"
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasPermission('C_SUPPLIERS', 'delete') && (
+                                    <button
+                                      onClick={() => handleDelete(s)}
+                                      className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                      title="Xóa NCC"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          default:
+                            return null;
+                        }
+                      })}
                   </tr>
                 ))
               )}

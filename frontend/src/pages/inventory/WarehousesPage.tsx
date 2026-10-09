@@ -133,38 +133,40 @@ export const WarehousesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       {/* HEADER & FILTER */}
-      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <WarehouseIcon className="w-5 h-5 text-[#E53935]" />
-            Quản Lý Mạng Lưới Kho Vật Lý
+          <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-namkhanh-50 text-namkhanh-600 flex items-center justify-center font-bold shadow-inner">
+              <WarehouseIcon className="w-5 h-5" />
+            </div>
+            <span>Quản Lý Mạng Lưới Kho Vật Lý</span>
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-slate-500 mt-1 font-medium">
             Hệ thống Tổng kho lưu trữ & Các điểm trung chuyển giao nhanh nội thành Nam Khánh
           </p>
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <form onSubmit={handleSearch} className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Tìm theo tên kho, mã kho..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+              className="input input-pill pl-10 text-xs font-medium"
             />
           </form>
 
           {hasPermission('C_WAREHOUSES', 'create') && (
             <button
               onClick={openAddModal}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-xs font-semibold shadow-sm transition-colors whitespace-nowrap"
+              className="btn btn-primary text-xs shadow-glow flex items-center gap-2 whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
-              Thêm Kho Mới
+              <span>Thêm Kho Mới</span>
             </button>
           )}
         </div>
@@ -173,74 +175,74 @@ export const WarehousesPage: React.FC = () => {
       {/* DANH SÁCH KHO DẠNG THẺ GRID & BẢNG */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {loading ? (
-          <div className="col-span-full py-16 text-center text-gray-500 bg-white rounded-xl border border-gray-200">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#E53935] mb-2"></div>
-            <p>Đang tải danh sách kho vật lý...</p>
+          <div className="col-span-full py-16 text-center text-slate-500 card rounded-3xl border border-slate-100/80 shadow-card">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-namkhanh-600 mb-2"></div>
+            <p className="text-sm font-medium">Đang tải danh sách kho vật lý...</p>
           </div>
         ) : warehouses.length === 0 ? (
-          <div className="col-span-full py-16 text-center text-gray-500 bg-white rounded-xl border border-gray-200">
-            <WarehouseIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-gray-700">Chưa có kho nào được thiết lập</p>
+          <div className="col-span-full py-16 text-center text-slate-500 card rounded-3xl border border-slate-100/80 shadow-card">
+            <WarehouseIcon className="w-12 h-12 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm font-bold text-slate-700">Chưa có kho nào được thiết lập</p>
           </div>
         ) : (
-          warehouses.map((wh, idx) => (
+          warehouses.map((wh) => (
             <div
               key={wh.id}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between"
+              className="card p-6 rounded-3xl border border-slate-100/80 shadow-card hover:shadow-card-hover transition-all relative overflow-hidden flex flex-col justify-between"
             >
               <div>
                 <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-[#E53935] font-bold">
-                      <WarehouseIcon className="w-5 h-5" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-namkhanh-50 text-namkhanh-600 flex items-center justify-center font-bold shadow-inner">
+                      <WarehouseIcon className="w-6 h-6" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-900 text-sm">{wh.name}</h3>
-                      <span className="font-mono text-xs text-[#E53935] font-semibold">{wh.code}</span>
+                      <h3 className="font-extrabold text-slate-900 text-base">{wh.name}</h3>
+                      <span className="font-mono text-xs text-namkhanh-600 font-bold">{wh.code}</span>
                     </div>
                   </div>
 
                   <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${
                       wh.status === 'ACTIVE'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-gray-100 text-gray-600'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                        : 'bg-slate-100 text-slate-600'
                     }`}
                   >
                     {wh.status === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm ngừng'}
                   </span>
                 </div>
 
-                <div className="mt-4 space-y-1.5 text-xs text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <div className="mt-4 space-y-2 text-xs text-slate-600 font-medium">
+                  <div className="flex items-center gap-2.5">
+                    <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
                     <span>{wh.address || 'Chưa cập nhật địa chỉ kho'}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <div className="flex items-center gap-2.5">
+                    <Phone className="w-4 h-4 text-slate-400 shrink-0" />
                     <span>{wh.phone || '(024) 3768 9999'}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Building className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    <span>Phụ trách: <strong>{wh.department?.name || 'Phòng Quản Lý Kho & Vận Chuyển'}</strong></span>
+                  <div className="flex items-center gap-2.5">
+                    <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>Phụ trách: <strong className="text-slate-800">{wh.department?.name || 'Phòng Quản Lý Kho & Vận Chuyển'}</strong></span>
                   </div>
                 </div>
 
                 {/* Thống kê hàng lưu trong kho */}
-                <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-3 gap-2 text-center bg-gray-50/70 p-2.5 rounded-lg">
+                <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2 text-center bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100/60">
                   <div>
-                    <p className="text-[11px] text-gray-500">Mặt hàng (SKU)</p>
-                    <p className="text-sm font-bold text-gray-900 mt-0.5">{wh.totalSku || 0}</p>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Mặt hàng (SKU)</p>
+                    <p className="text-base font-extrabold text-slate-900 mt-1">{wh.totalSku || 0}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] text-gray-500">Số lượng tồn</p>
-                    <p className="text-sm font-bold text-blue-600 mt-0.5">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Số lượng tồn</p>
+                    <p className="text-base font-extrabold text-blue-600 mt-1">
                       {(wh.totalStock || 0).toLocaleString('vi-VN')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] text-gray-500">Giá trị tồn kho</p>
-                    <p className="text-sm font-bold text-[#E53935] mt-0.5">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Giá trị tồn kho</p>
+                    <p className="text-base font-extrabold text-namkhanh-600 mt-1">
                       {formatVND(wh.totalValue || 0)}
                     </p>
                   </div>
@@ -248,28 +250,28 @@ export const WarehousesPage: React.FC = () => {
               </div>
 
               {/* Thao tác */}
-              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="text-gray-400 text-[11px]">
+              <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-slate-400 text-[11px] font-medium">
                   {wh.categoryCount || 0} Danh mục hàng trực thuộc
                 </span>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   {hasPermission('C_WAREHOUSES', 'update') && (
                     <button
                       onClick={() => openEditModal(wh)}
-                      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="card-action-btn"
                       title="Chỉnh sửa kho"
                     >
-                      <Edit2 className="w-4 h-4" />
+                      <Edit2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                   {hasPermission('C_WAREHOUSES', 'delete') && (
                     <button
                       onClick={() => handleDelete(wh)}
-                      className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="card-action-btn text-rose-500 hover:text-rose-700 hover:bg-rose-50"
                       title="Xóa kho (khi không còn hàng)"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>

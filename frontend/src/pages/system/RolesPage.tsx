@@ -130,7 +130,7 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       {/* Top Header Card */}
       <div
         className="card"
@@ -139,15 +139,15 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '1rem',
-          padding: '1rem 1.25rem'
+          gap: '0.5rem',
+          padding: '0.65rem 1.25rem'
         }}
       >
         <div>
-          <div style={{ fontWeight: '600', fontSize: '15px', color: '#111827' }}>
+          <div style={{ fontWeight: '600', fontSize: '16.5px', color: '#111827' }}>
             Danh mục Chức danh & Vai trò Người dùng
           </div>
-          <div style={{ fontSize: '12.5px', color: '#6B7280' }}>
+          <div style={{ fontSize: '13.75px', color: '#6B7280' }}>
             Quản lý các vai trò phân quyền chức năng và phạm vi xử lý dữ liệu trong hệ thống
           </div>
         </div>
@@ -296,7 +296,7 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
         <div className="modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1001] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '520px' }}>
             <div className="modal-header">
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#111827' }}>
+              <h3 style={{ fontSize: '17.6px', fontWeight: '700', color: '#111827' }}>
                 {editingRole ? `Chỉnh sửa vai trò: ${editingRole.name}` : 'Thêm mới vai trò chức danh'}
               </h3>
               <button
@@ -320,7 +320,7 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
                       color: '#B91C1C',
                       padding: '0.625rem 0.75rem',
                       borderRadius: '0.375rem',
-                      fontSize: '13px'
+                      fontSize: '14.3px'
                     }}
                   >
                     <AlertCircle size={15} style={{ flexShrink: 0 }} />
@@ -329,7 +329,7 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
                 )}
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                     Mã vai trò (IN HOA không dấu) *
                   </label>
                   <input
@@ -341,14 +341,14 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
                     onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                   />
                   {editingRole && (
-                    <span style={{ fontSize: '11px', color: '#6B7280', marginTop: '0.25rem', display: 'block' }}>
+                    <span style={{ fontSize: '12.1px', color: '#6B7280', marginTop: '0.25rem', display: 'block' }}>
                       Mã vai trò không thể thay đổi sau khi tạo
                     </span>
                   )}
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                     Tên vai trò hiển thị *
                   </label>
                   <input
@@ -361,7 +361,7 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                     Mô tả chức năng & quyền hạn
                   </label>
                   <textarea

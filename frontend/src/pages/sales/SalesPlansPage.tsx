@@ -147,15 +147,17 @@ export const SalesPlansPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       {/* HEADER & ACTIONS */}
-      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Target className="w-5 h-5 text-[#E53935]" />
-            Kế Hoạch & Chỉ Tiêu Doanh Số VPP
+          <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-namkhanh-50 text-namkhanh-600 flex items-center justify-center font-bold shadow-inner">
+              <Target className="w-5 h-5" />
+            </div>
+            <span>Kế Hoạch & Chỉ Tiêu Doanh Số VPP</span>
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-slate-500 mt-1 font-medium">
             Thiết lập chỉ tiêu bán hàng theo kỳ và theo dõi tỷ lệ hoàn thành thực tế
           </p>
         </div>
@@ -164,7 +166,7 @@ export const SalesPlansPage: React.FC = () => {
           <select
             value={yearFilter}
             onChange={(e) => setYearFilter(Number(e.target.value))}
-            className="text-xs font-semibold border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#E53935]"
+            className="input input-pill text-xs font-bold border border-slate-200 px-4 py-2 bg-white focus:outline-none focus:border-namkhanh-500"
           >
             <option value={2026}>Năm 2026</option>
             <option value={2025}>Năm 2025</option>
@@ -176,10 +178,10 @@ export const SalesPlansPage: React.FC = () => {
                 setFormError(null);
                 setIsCreateModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
+              className="btn btn-primary text-xs shadow-glow flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              Lập Kế hoạch Mới
+              <span>Lập Kế hoạch Mới</span>
             </button>
           )}
         </div>
@@ -188,15 +190,15 @@ export const SalesPlansPage: React.FC = () => {
       {/* DANH SÁCH CÁC KẾ HOẠCH KINH DOANH */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
-          <div className="col-span-full py-16 text-center text-gray-500 bg-white rounded-xl border border-gray-200">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#E53935] mb-2"></div>
-            <p className="text-sm">Đang tải danh sách kế hoạch bán hàng...</p>
+          <div className="col-span-full py-16 text-center text-slate-500 card rounded-3xl border border-slate-100/80 shadow-card">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-namkhanh-600 mb-2"></div>
+            <p className="text-sm font-medium">Đang tải danh sách kế hoạch bán hàng...</p>
           </div>
         ) : plans.length === 0 ? (
-          <div className="col-span-full py-16 text-center text-gray-500 bg-white rounded-xl border border-gray-200">
-            <Target className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-base font-medium text-gray-700">Chưa có kế hoạch kinh doanh nào trong năm {yearFilter}</p>
-            <p className="text-xs text-gray-400 mt-1">Bấm "Lập Kế hoạch Mới" để giao chỉ tiêu doanh số VPP</p>
+          <div className="col-span-full py-16 text-center text-slate-500 card rounded-3xl border border-slate-100/80 shadow-card">
+            <Target className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-base font-bold text-slate-700">Chưa có kế hoạch kinh doanh nào trong năm {yearFilter}</p>
+            <p className="text-xs text-slate-400 mt-1 font-medium">Bấm "Lập Kế hoạch Mới" để giao chỉ tiêu doanh số VPP</p>
           </div>
         ) : (
           plans.map((plan) => {
@@ -207,11 +209,11 @@ export const SalesPlansPage: React.FC = () => {
             return (
               <div
                 key={plan.id}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden"
+                className="card p-6 rounded-3xl border border-slate-100/80 shadow-card hover:shadow-card-hover flex flex-col justify-between transition-all relative overflow-hidden"
               >
                 <div>
                   <div className="flex justify-between items-start">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-red-100 text-[#E53935]">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-extrabold bg-rose-100 text-namkhanh-700">
                       {plan.periodType === 'MONTH'
                         ? 'Tháng'
                         : plan.periodType === 'QUARTER'
@@ -219,40 +221,42 @@ export const SalesPlansPage: React.FC = () => {
                         : 'Năm'}{' '}
                       {plan.periodValue} - {plan.year}
                     </span>
-                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
                       Đang áp dụng
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-gray-900 text-base mt-2.5 line-clamp-1">{plan.title}</h3>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                  <h3 className="font-extrabold text-slate-900 text-base mt-3.5 line-clamp-1">{plan.title}</h3>
+                  <p className="text-xs text-slate-500 mt-1 line-clamp-2 font-medium">
                     {plan.notes || 'Chỉ tiêu phân phối 5 nhóm văn phòng phẩm chủ lực.'}
                   </p>
 
-                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                  <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-500">Chỉ tiêu doanh thu:</span>
-                      <span className="font-bold text-gray-900">{formatVND(totalTarget)}</span>
+                      <span className="text-slate-500 font-medium">Chỉ tiêu doanh thu:</span>
+                      <span className="font-bold text-slate-900">{formatVND(totalTarget)}</span>
                     </div>
 
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-500">Doanh thu thực tế:</span>
+                      <span className="text-slate-500 font-medium">Doanh thu thực tế:</span>
                       <span className="font-bold text-emerald-600">{formatVND(totalActual)}</span>
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[11px] font-semibold">
-                        <span className="text-gray-600">Tiến độ đạt được:</span>
-                        <span className={completionRate >= 100 ? 'text-emerald-600' : 'text-[#E53935]'}>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-slate-600">Tiến độ đạt được:</span>
+                        <span className={completionRate >= 100 ? 'text-emerald-600' : 'text-namkhanh-600'}>
                           {completionRate}%
                         </span>
                       </div>
-                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                         <div
                           style={{ width: `${Math.min(completionRate, 100)}%` }}
-                          className={`h-full rounded-full ${
-                            completionRate >= 100 ? 'bg-emerald-500' : 'bg-[#E53935]'
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            completionRate >= 100
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                              : 'bg-gradient-to-r from-namkhanh-600 to-rose-400'
                           }`}
                         ></div>
                       </div>
@@ -260,15 +264,15 @@ export const SalesPlansPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mt-5 pt-3 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-[11px] text-gray-400">
+                <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400 font-medium">
                     Tạo bởi: {plan.createdBy?.fullName || 'Ban Giám Đốc'}
                   </span>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleSyncActuals(plan.id)}
-                      className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer"
+                      className="card-action-btn"
                       title="Đồng bộ số liệu thực tế từ các đơn hàng"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
@@ -276,7 +280,7 @@ export const SalesPlansPage: React.FC = () => {
 
                     <button
                       onClick={() => handleViewCompare(plan.id)}
-                      className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer"
+                      className="card-action-btn"
                       title="Đối chiếu kế hoạch & thực tế"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -285,7 +289,7 @@ export const SalesPlansPage: React.FC = () => {
                     {hasPermission('B_SALES_PLANS', 'delete') && (
                       <button
                         onClick={() => handleDeletePlan(plan.id, plan.title)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="card-action-btn text-rose-500 hover:text-rose-700 hover:bg-rose-50"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

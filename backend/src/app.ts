@@ -9,6 +9,7 @@ import departmentsRoutes from './modules/departments/departments.routes';
 import usersRoutes from './modules/users/users.routes';
 import rolesRoutes from './modules/roles/roles.routes';
 import documentsRoutes from './modules/documents/documents.routes';
+import systemRoutes from './modules/system/system.routes';
 
 // Các tuyến API Phân hệ B & Master Data
 import productsRoutes from './modules/products/products.routes';
@@ -70,6 +71,7 @@ app.use('/api/v1/departments', departmentsRoutes);
 app.use('/api/v1/users', usersRoutes);
 app.use('/api/v1/roles', rolesRoutes);
 app.use('/api/v1/documents', documentsRoutes);
+app.use('/api/v1/system', systemRoutes);
 
 // Các tuyến API Phân hệ B (Kinh doanh & Bán hàng) & Hàng hóa
 app.use('/api/v1/products', productsRoutes);

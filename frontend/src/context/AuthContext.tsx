@@ -2,14 +2,26 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { CurrentUser } from '../types';
 import { api } from '../services/api';
 
+interface ConcurrentLoginData {
+  newDevice?: string;
+  newIp?: string;
+  loginAt?: string;
+}
+
 interface AuthContextType {
   user: CurrentUser | null;
   token: string | null;
   isLoading: boolean;
-  login: (token: string, user: CurrentUser, rememberMe?: boolean) => void;
+  login: (token: string, user: CurrentUser, rememberMe?: boolean, maintenanceNotice?: { lastEndedAt?: string | null }) => void;
   logout: () => void;
   hasPermission: (moduleCode: string, action: 'read' | 'create' | 'update' | 'delete') => boolean;
   canViewSalary: boolean;
+  concurrentLoginInfo: ConcurrentLoginData | null;
+  clearConcurrentLoginInfo: () => void;
+  isMaintenanceActive: boolean;
+  setIsMaintenanceActive: (active: boolean) => void;
+  welcomeBackNotice: boolean;
+  dismissWelcomeBackNotice: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -65,7 +77,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<CurrentUser | null>(initialAuth.user);
   const [token, setToken] = useState<string | null>(initialAuth.token);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [concurrentLoginInfo, setConcurrentLoginInfo] = useState<ConcurrentLoginData | null>(null);
+  const [isMaintenanceActive, setIsMaintenanceActive] = useState<boolean>(false);
+  const [welcomeBackNotice, setWelcomeBackNotice] = useState<boolean>(false);
   const channelRef = useRef<BroadcastChannel | null>(null);
+
+  // Lắng nghe các sự kiện bảo mật từ api.ts
+  useEffect(() => {
+    const handleConcurrent = (e: any) => {
+      setConcurrentLoginInfo(e.detail || { newDevice: 'Thiết bị khác' });
+      logout();
+    };
+
+    const handleMaintenance = () => {
+      setIsMaintenanceActive(true);
+      logout();
+    };
+
+    window.addEventListener('auth:concurrent-login', handleConcurrent);
+    window.addEventListener('auth:system-maintenance', handleMaintenance);
+
+    return () => {
+      window.removeEventListener('auth:concurrent-login', handleConcurrent);
+      window.removeEventListener('auth:system-maintenance', handleMaintenance);
+    };
+  }, []);
+
+  // Heartbeat kiểm tra tính hợp lệ của phiên và chế độ bảo trì thời gian thực (mỗi 4 giây)
+  useEffect(() => {
+    if (!token || !user) return;
+
+    const checkInterval = setInterval(async () => {
+      try {
+        const res = await api.get('/system/session-check');
+        if (res.data?.maintenance) {
+          setIsMaintenanceActive(Boolean(res.data.maintenance.isMaintenance));
+        }
+      } catch (err: any) {
+        // Nếu phiên bị thu hồi do đăng nhập thiết bị khác, api.ts sẽ tự bắn auth:concurrent-login
+      }
+    }, 4000);
+
+    return () => clearInterval(checkInterval);
+  }, [token, user]);
 
   // Đồng bộ đa tab trong cùng một phiên làm việc của trình duyệt
   useEffect(() => {
@@ -91,7 +145,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.removeItem('namkhanh_user');
             localStorage.removeItem('namkhanh_remember_me');
           } else if (type === 'REQUEST_SESSION') {
-            // Tab khác mới mở yêu cầu chia sẻ phiên làm việc đang chạy
             const curToken = sessionStorage.getItem('namkhanh_token');
             const curUser = sessionStorage.getItem('namkhanh_user');
             if (curToken && curUser) {
@@ -111,7 +164,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         };
 
-        // Nếu tab mới mở chưa có token, phát tín hiệu hỏi các tab khác đang mở trong cùng phiên
         if (!initialAuth.token) {
           channel.postMessage({ type: 'REQUEST_SESSION' });
         }
@@ -154,7 +206,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsLoading(false);
         });
     } else {
-      // Đợi phản hồi nhanh từ tab khác (nếu có), nếu không có thì tắt loading hiển thị Login
       const timer = setTimeout(() => {
         setIsLoading(false);
       }, 100);
@@ -169,11 +220,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = (newToken: string, newUser: CurrentUser, rememberMe = false) => {
+  const login = (
+    newToken: string,
+    newUser: CurrentUser,
+    rememberMe = false,
+    maintenanceNotice?: { lastEndedAt?: string | null }
+  ) => {
     setToken(newToken);
     setUser(newUser);
+    setConcurrentLoginInfo(null);
+    setIsMaintenanceActive(false);
 
-    // Luôn lưu vào sessionStorage cho phiên làm việc hiện tại
+    // Kiểm tra xem lần đăng nhập này có phải là sau khi bảo trì xong không
+    if (maintenanceNotice?.lastEndedAt) {
+      const ackEndedAt = localStorage.getItem('namkhanh_ack_maintenance_ended');
+      if (!ackEndedAt || new Date(maintenanceNotice.lastEndedAt) > new Date(ackEndedAt)) {
+        setWelcomeBackNotice(true);
+      }
+    }
+
     sessionStorage.setItem('namkhanh_token', newToken);
     sessionStorage.setItem('namkhanh_user', JSON.stringify(newUser));
 
@@ -182,7 +247,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('namkhanh_token', newToken);
       localStorage.setItem('namkhanh_user', JSON.stringify(newUser));
     } else {
-      // Nếu không chọn ghi nhớ, xóa sạch trong localStorage để đóng trình duyệt sẽ tự đăng xuất
       localStorage.removeItem('namkhanh_remember_me');
       localStorage.removeItem('namkhanh_token');
       localStorage.removeItem('namkhanh_user');
@@ -200,7 +264,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
 
-    // Xóa sạch toàn bộ storage
     sessionStorage.removeItem('namkhanh_token');
     sessionStorage.removeItem('namkhanh_user');
     localStorage.removeItem('namkhanh_token');
@@ -210,6 +273,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (channelRef.current) {
       channelRef.current.postMessage({ type: 'LOGOUT' });
     }
+  };
+
+  const clearConcurrentLoginInfo = () => {
+    setConcurrentLoginInfo(null);
+  };
+
+  const dismissWelcomeBackNotice = () => {
+    localStorage.setItem('namkhanh_ack_maintenance_ended', new Date().toISOString());
+    setWelcomeBackNotice(false);
   };
 
   const hasPermission = (
@@ -249,7 +321,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         logout,
         hasPermission,
-        canViewSalary
+        canViewSalary,
+        concurrentLoginInfo,
+        clearConcurrentLoginInfo,
+        isMaintenanceActive,
+        setIsMaintenanceActive,
+        welcomeBackNotice,
+        dismissWelcomeBackNotice
       }}
     >
       {children}

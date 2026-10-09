@@ -146,7 +146,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
   const selectedRole = roles.find((r) => r.id === selectedRoleId);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       {/* Thanh lựa chọn vai trò & hành động */}
       <div
         className="card"
@@ -155,13 +155,13 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '1rem',
-          padding: '1rem 1.25rem'
+          gap: '0.5rem',
+          padding: '0.65rem 1.25rem'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '13.5px', fontWeight: '600', color: '#374151' }}>
+            <span style={{ fontSize: '14.85px', fontWeight: '600', color: '#374151' }}>
               Vai trò cần cấu hình:
             </span>
             <select
@@ -179,7 +179,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
           </div>
 
           {selectedRole && (
-            <span style={{ fontSize: '12.5px', color: '#6B7280' }}>
+            <span style={{ fontSize: '13.75px', color: '#6B7280' }}>
               Mô tả: {selectedRole.description || 'Không có mô tả'}
             </span>
           )}
@@ -219,7 +219,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
             color: '#166534',
             padding: '0.75rem 1rem',
             borderRadius: '0.5rem',
-            fontSize: '13px'
+            fontSize: '14.3px'
           }}
         >
           <CheckCircle2 size={16} />
@@ -237,7 +237,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
             color: '#B91C1C',
             padding: '0.75rem 1rem',
             borderRadius: '0.5rem',
-            fontSize: '13px'
+            fontSize: '14.3px'
           }}
         >
           <AlertCircle size={16} />
@@ -274,7 +274,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
                       colSpan={6}
                       style={{
                         padding: '0.5rem 1rem',
-                        fontSize: '11.5px',
+                        fontSize: '12.65px',
                         fontWeight: '700',
                         color: '#374151',
                         textTransform: 'uppercase',
@@ -292,7 +292,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
                         <div style={{ fontWeight: '600', color: '#111827' }}>
                           {item.moduleName || item.moduleCode}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#6B7280', fontFamily: 'monospace' }}>
+                        <div style={{ fontSize: '12.1px', color: '#6B7280' }}>
                           {item.moduleCode}
                         </div>
                       </td>
@@ -341,7 +341,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
                       <td className="table-td">
                         <select
                           className="input"
-                          style={{ fontSize: '12px', padding: '0.25rem 0.5rem', width: '100%' }}
+                          style={{ fontSize: '13.2px', padding: '0.25rem 0.5rem', width: '100%' }}
                           value={item.dataScope}
                           onChange={(e) =>
                             handleScopeChange(

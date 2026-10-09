@@ -161,7 +161,7 @@ export const DocumentsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       {/* Tab Navigation & Search */}
       <div
         className="card"
@@ -170,8 +170,8 @@ export const DocumentsPage: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '1rem',
-          padding: '1rem 1.25rem'
+          gap: '0.5rem',
+          padding: '0.55rem 1rem'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -194,7 +194,7 @@ export const DocumentsPage: React.FC = () => {
                 borderRadius: '0.375rem',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '13px',
+                fontSize: '14.3px',
                 fontWeight: activeTab === 'CONTRACT' ? '600' : '400',
                 backgroundColor: activeTab === 'CONTRACT' ? '#FFFFFF' : 'transparent',
                 color: activeTab === 'CONTRACT' ? '#E53935' : '#6B7280',
@@ -214,7 +214,7 @@ export const DocumentsPage: React.FC = () => {
                 borderRadius: '0.375rem',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '13px',
+                fontSize: '14.3px',
                 fontWeight: activeTab === 'CERTIFICATE' ? '600' : '400',
                 backgroundColor: activeTab === 'CERTIFICATE' ? '#FFFFFF' : 'transparent',
                 color: activeTab === 'CERTIFICATE' ? '#E53935' : '#6B7280',
@@ -323,7 +323,7 @@ export const DocumentsPage: React.FC = () => {
                     <div className="flex flex-col min-w-0" title={doc.title}>
                       <span className="font-semibold text-xs text-gray-900 truncate">{doc.title}</span>
                       <div className="mt-0.5">
-                        <span className="badge badge-blue" style={{ fontSize: '10px' }}>
+                        <span className="badge badge-blue" style={{ fontSize: '12.1px' }}>
                           {doc.type === 'CONTRACT' ? 'Hợp đồng mẫu' : 'CO-CQ / Năng lực'}
                         </span>
                       </div>
@@ -393,7 +393,7 @@ export const DocumentsPage: React.FC = () => {
         <div className="modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1001] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '560px' }}>
             <div className="modal-header">
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#111827' }}>
+              <h3 style={{ fontSize: '17.6px', fontWeight: '700', color: '#111827' }}>
                 Tải lên hồ sơ giấy tờ & Chứng chỉ mẫu
               </h3>
               <button
@@ -417,7 +417,7 @@ export const DocumentsPage: React.FC = () => {
                       color: '#B91C1C',
                       padding: '0.625rem 0.75rem',
                       borderRadius: '0.375rem',
-                      fontSize: '13px'
+                      fontSize: '14.3px'
                     }}
                   >
                     <AlertCircle size={15} style={{ flexShrink: 0 }} />
@@ -426,7 +426,7 @@ export const DocumentsPage: React.FC = () => {
                 )}
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                     Phân loại hồ sơ *
                   </label>
                   <select
@@ -443,7 +443,7 @@ export const DocumentsPage: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.75rem' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                    <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                       Mã tài liệu *
                     </label>
                     <input
@@ -454,7 +454,7 @@ export const DocumentsPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                    <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                       Tên tài liệu / Tiêu đề *
                     </label>
                     <input
@@ -469,7 +469,7 @@ export const DocumentsPage: React.FC = () => {
 
                 {/* Khu vực Drag & Drop File */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                     Tệp đính kèm (Tối đa 25MB: PDF, Word, Excel, Ảnh) *
                   </label>
                   <div
@@ -493,19 +493,19 @@ export const DocumentsPage: React.FC = () => {
                     <UploadCloud size={32} color="#E53935" style={{ margin: '0 auto 0.5rem auto' }} />
                     {selectedFile ? (
                       <div>
-                        <div style={{ fontWeight: '600', color: '#111827', fontSize: '13.5px' }}>
+                        <div style={{ fontWeight: '600', color: '#111827', fontSize: '14.85px' }}>
                           {selectedFile.name}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                        <div style={{ fontSize: '13.2px', color: '#6B7280' }}>
                           Dung lượng: {formatFileSize(selectedFile.size)}
                         </div>
                       </div>
                     ) : (
                       <div>
-                        <div style={{ fontWeight: '500', color: '#374151', fontSize: '13.5px' }}>
+                        <div style={{ fontWeight: '500', color: '#374151', fontSize: '14.85px' }}>
                           Nhấp để tải lên hoặc kéo thả tệp vào đây
                         </div>
-                        <div style={{ fontSize: '11.5px', color: '#9CA3AF', marginTop: '0.25rem' }}>
+                        <div style={{ fontSize: '12.65px', color: '#9CA3AF', marginTop: '0.25rem' }}>
                           Hỗ trợ: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG (Dưới 25MB)
                         </div>
                       </div>

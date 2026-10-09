@@ -18,6 +18,13 @@ import { api } from '../../services/api';
 import { Department, User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
+import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
+
+const DEPT_STATUS_OPTIONS: StatusOption[] = [
+  { value: 'ACTIVE', label: 'Đang hoạt động', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+  { value: 'SUSPENDED', label: 'Tạm ngừng', colorClass: 'bg-amber-50 text-amber-700 border-amber-300' },
+  { value: 'INACTIVE', label: 'Ngừng hoạt động', colorClass: 'bg-red-50 text-red-700 border-red-300' }
+];
 
 export const DepartmentsPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -165,6 +172,29 @@ export const DepartmentsPage: React.FC = () => {
     }
   };
 
+  const handleQuickStatusChange = async (dept: Department, newStatus: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    if (dept.status === newStatus) return;
+    try {
+      setDepartmentsFlat((prev) =>
+        prev.map((d) => (d.id === dept.id ? { ...d, status: newStatus as any } : d))
+      );
+      await api.put(`/departments/${dept.id}`, {
+        code: dept.code,
+        name: dept.name,
+        address: dept.address || null,
+        mission: dept.mission || null,
+        parentId: dept.parentId || null,
+        managerId: dept.managerId || null,
+        status: newStatus
+      });
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi cập nhật trạng thái đơn vị');
+      loadData();
+    }
+  };
+
   // Node Component hiển thị Cây phân cấp
   const TreeNode: React.FC<{ dept: Department; level?: number }> = ({ dept, level = 0 }) => {
     const [expanded, setExpanded] = useState(true);
@@ -222,12 +252,12 @@ export const DepartmentsPage: React.FC = () => {
 
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>
+                <span style={{ fontWeight: '600', fontSize: '15.4px', color: '#111827' }}>
                   {dept.name}
                 </span>
                 <span
                   style={{
-                    fontSize: '11px',
+                    fontSize: '12.1px',
                     fontWeight: '600',
                     color: '#6B7280',
                     backgroundColor: '#F3F4F6',
@@ -254,7 +284,7 @@ export const DepartmentsPage: React.FC = () => {
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', fontSize: '12px', color: '#6B7280' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', fontSize: '13.2px', color: '#6B7280' }}>
                 {dept.manager && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                     <UserCheck size={13} color="#16A34A" />
@@ -321,7 +351,7 @@ export const DepartmentsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       {/* Thanh công cụ tìm kiếm và lọc */}
       <div
         className="card"
@@ -330,8 +360,8 @@ export const DepartmentsPage: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '1rem',
-          padding: '1rem 1.25rem'
+          gap: '0.5rem',
+          padding: '0.55rem 1rem'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '280px' }}>
@@ -380,7 +410,7 @@ export const DepartmentsPage: React.FC = () => {
                 borderRadius: '0.375rem',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '12.5px',
+                fontSize: '13.75px',
                 fontWeight: viewMode === 'tree' ? '600' : '400',
                 backgroundColor: viewMode === 'tree' ? '#FFFFFF' : 'transparent',
                 color: viewMode === 'tree' ? '#E53935' : '#6B7280',
@@ -400,7 +430,7 @@ export const DepartmentsPage: React.FC = () => {
                 borderRadius: '0.375rem',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '12.5px',
+                fontSize: '13.75px',
                 fontWeight: viewMode === 'table' ? '600' : '400',
                 backgroundColor: viewMode === 'table' ? '#FFFFFF' : 'transparent',
                 color: viewMode === 'table' ? '#E53935' : '#6B7280',
@@ -479,7 +509,7 @@ export const DepartmentsPage: React.FC = () => {
                   <span>Nhiệm vụ</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('mission', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
-                <th className="table-th select-none" style={{ width: `${columnWidths.status || defaultDeptWidths.status}px`, position: 'relative' }}>
+                <th className="table-th text-center select-none" style={{ width: `${columnWidths.status || defaultDeptWidths.status}px`, position: 'relative' }}>
                   <span>Trạng thái</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('status', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
@@ -525,19 +555,17 @@ export const DepartmentsPage: React.FC = () => {
                         {d.mission || '—'}
                       </div>
                     </td>
-                    <td className="table-td whitespace-nowrap overflow-hidden">
-                      <span
-                        className={`badge ${
-                          d.status === 'ACTIVE'
-                            ? 'badge-green'
-                            : d.status === 'SUSPENDED'
-                            ? 'badge-yellow'
-                            : 'badge-red'
-                        }`}
-                        style={{ whiteSpace: 'nowrap' }}
-                      >
-                        {d.status === 'ACTIVE' ? 'Đang hoạt động' : d.status === 'SUSPENDED' ? 'Tạm ngừng' : 'Ngừng hoạt động'}
-                      </span>
+                    <td
+                      className="table-td text-center whitespace-nowrap overflow-hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-center">
+                        <StatusBadgeDropdown
+                          value={d.status}
+                          options={DEPT_STATUS_OPTIONS}
+                          onChange={(newStatus) => handleQuickStatusChange(d, newStatus)}
+                        />
+                      </div>
                     </td>
                     <td className="table-td sticky-action-td whitespace-nowrap overflow-hidden" style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
@@ -575,7 +603,7 @@ export const DepartmentsPage: React.FC = () => {
         <div className="modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1001] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '520px' }}>
             <div className="modal-header">
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#111827' }}>
+              <h3 style={{ fontSize: '17.6px', fontWeight: '700', color: '#111827' }}>
                 {editingDept ? `Chỉnh sửa đơn vị: ${editingDept.name}` : 'Thêm mới đơn vị phòng ban'}
               </h3>
               <button
@@ -599,7 +627,7 @@ export const DepartmentsPage: React.FC = () => {
                       color: '#B91C1C',
                       padding: '0.625rem 0.75rem',
                       borderRadius: '0.375rem',
-                      fontSize: '13px'
+                      fontSize: '14.3px'
                     }}
                   >
                     <AlertCircle size={15} style={{ flexShrink: 0 }} />
@@ -609,7 +637,7 @@ export const DepartmentsPage: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.75rem' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                    <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                       Mã đơn vị *
                     </label>
                     <input
@@ -621,7 +649,7 @@ export const DepartmentsPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                    <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                       Tên đơn vị *
                     </label>
                     <input
@@ -635,7 +663,7 @@ export const DepartmentsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                     Đơn vị cấp trên (Trực thuộc)
                   </label>
                   <select
@@ -655,7 +683,7 @@ export const DepartmentsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                     Trưởng bộ phận
                   </label>
                   <select
@@ -673,7 +701,7 @@ export const DepartmentsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                     Địa chỉ / Vị trí làm việc
                   </label>
                   <input
@@ -686,7 +714,7 @@ export const DepartmentsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                     Chức năng nhiệm vụ
                   </label>
                   <textarea
@@ -699,7 +727,7 @@ export const DepartmentsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                     Trạng thái hoạt động
                   </label>
                   <select

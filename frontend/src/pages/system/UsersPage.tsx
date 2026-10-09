@@ -24,6 +24,13 @@ import { api } from '../../services/api';
 import { User, Department, Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
+import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
+import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+
+const USER_STATUS_OPTIONS: StatusOption[] = [
+  { value: 'ACTIVE', label: 'Đang làm việc', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+  { value: 'INACTIVE', label: 'Ngừng làm việc', colorClass: 'bg-red-50 text-red-700 border-red-300' }
+];
 
 export const UsersPage: React.FC = () => {
   const { hasPermission, canViewSalary } = useAuth();
@@ -287,13 +294,28 @@ export const UsersPage: React.FC = () => {
     }
   };
 
+  const handleQuickStatusChange = async (user: User, newStatus: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    if (user.status === newStatus) return;
+    try {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus as any } : u))
+      );
+      await api.patch(`/users/${user.id}/status`, { status: newStatus });
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi cập nhật trạng thái');
+      loadData();
+    }
+  };
+
   const formatCurrency = (amount?: number | null) => {
     if (amount === undefined || amount === null) return '—';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       {/* Thanh công cụ tìm kiếm và lọc */}
       <div
         className="card"
@@ -302,8 +324,8 @@ export const UsersPage: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '1rem',
-          padding: '1rem 1.25rem'
+          gap: '0.5rem',
+          padding: '0.55rem 1rem'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', flex: 1 }}>
@@ -361,92 +383,15 @@ export const UsersPage: React.FC = () => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {/* Menu ẩn/hiện cột */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setIsColumnDropdownOpen(!isColumnDropdownOpen)}
-              className="btn btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '13px', cursor: 'pointer' }}
-              title="Tùy biến hiển thị các cột trên bảng"
-            >
-              <Columns size={15} />
-              <span>Tùy chỉnh cột</span>
-            </button>
-
-            {isColumnDropdownOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  right: 0,
-                  marginTop: '0.5rem',
-                  width: '240px',
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '0.75rem',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                  border: '1px solid #E5E7EB',
-                  padding: '0.75rem',
-                  zIndex: 40
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: '700',
-                    color: '#1F2937',
-                    paddingBottom: '0.5rem',
-                    borderBottom: '1px solid #F3F4F6',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: '12px'
-                  }}
-                >
-                  <span>Cột hiển thị</span>
-                  <button
-                    onClick={resetColumns}
-                    style={{
-                      color: '#E53935',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      fontWeight: '500',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '11px'
-                    }}
-                  >
-                    <RotateCcw size={12} />
-                    <span>Mặc định</span>
-                  </button>
-                </div>
-                <div style={{ maxHeight: '240px', overflowY: 'auto', marginTop: '0.5rem' }}>
-                  {Object.keys(columnLabels)
-                    .filter((key) => canViewSalary || (key !== 'basicSalary' && key !== 'allowance'))
-                    .map((key) => (
-                      <label
-                        key={key}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          padding: '0.25rem 0.5rem',
-                          borderRadius: '0.25rem',
-                          fontSize: '12px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns[key] ?? true}
-                          onChange={() => toggleColumnVisibility(key)}
-                          disabled={key === 'fullName'}
-                        />
-                        <span>{columnLabels[key]}</span>
-                      </label>
-                    ))}
-                </div>
-              </div>
+          <ColumnCustomizerDropdown
+            columnLabels={Object.fromEntries(
+              Object.entries(columnLabels).filter(([key]) => canViewSalary || (key !== 'basicSalary' && key !== 'allowance'))
             )}
-          </div>
+            visibleColumns={visibleColumns}
+            onToggleColumn={toggleColumnVisibility}
+            onReset={resetColumns}
+            disabledKeys={['fullName']}
+          />
 
           {hasPermission('A_USERS', 'create') && (
             <button onClick={openAddModal} className="btn btn-primary" style={{ cursor: 'pointer' }}>
@@ -469,7 +414,7 @@ export const UsersPage: React.FC = () => {
             color: '#1D4ED8',
             padding: '0.625rem 1rem',
             borderRadius: '0.5rem',
-            fontSize: '13px'
+            fontSize: '14.3px'
           }}
         >
           <Eye size={16} />
@@ -554,7 +499,7 @@ export const UsersPage: React.FC = () => {
                 </th>
               )}
               {visibleColumns.status && (
-                <th className="table-th select-none" style={{ width: `${columnWidths.status || defaultUserWidths.status}px`, position: 'relative' }}>
+                <th className="table-th text-center select-none" style={{ width: `${columnWidths.status || defaultUserWidths.status}px`, position: 'relative' }}>
                   <span>Trạng thái</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('status', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
@@ -629,7 +574,7 @@ export const UsersPage: React.FC = () => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '12px',
+                            fontSize: '13.2px',
                             fontWeight: '600',
                             flexShrink: 0
                           }}
@@ -707,10 +652,17 @@ export const UsersPage: React.FC = () => {
                   )}
 
                   {visibleColumns.status && (
-                    <td className="table-td whitespace-nowrap overflow-hidden">
-                      <span className={`badge ${u.status === 'ACTIVE' ? 'badge-green' : 'badge-red'}`}>
-                        {u.status === 'ACTIVE' ? 'Đang làm việc' : 'Ngừng làm việc'}
-                      </span>
+                    <td
+                      className="table-td text-center whitespace-nowrap overflow-hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-center">
+                        <StatusBadgeDropdown
+                          value={u.status}
+                          options={USER_STATUS_OPTIONS}
+                          onChange={(newStatus) => handleQuickStatusChange(u, newStatus)}
+                        />
+                      </div>
                     </td>
                   )}
                   {visibleColumns.startDate && (
@@ -755,7 +707,7 @@ export const UsersPage: React.FC = () => {
         <div className="modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1001] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '720px' }}>
             <div className="modal-header">
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#111827' }}>
+              <h3 style={{ fontSize: '17.6px', fontWeight: '700', color: '#111827' }}>
                 {editingUser ? `Chỉnh sửa nhân sự: ${editingUser.fullName}` : 'Thêm mới nhân viên'}
               </h3>
               <button
@@ -787,7 +739,7 @@ export const UsersPage: React.FC = () => {
                   fontWeight: activeTab === 'personal' ? '600' : '400',
                   color: activeTab === 'personal' ? '#E53935' : '#6B7280',
                   borderBottom: activeTab === 'personal' ? '2px solid #E53935' : '2px solid transparent',
-                  fontSize: '13.5px'
+                  fontSize: '14.85px'
                 }}
               >
                 1. Thông tin cá nhân
@@ -803,7 +755,7 @@ export const UsersPage: React.FC = () => {
                   fontWeight: activeTab === 'contract' ? '600' : '400',
                   color: activeTab === 'contract' ? '#E53935' : '#6B7280',
                   borderBottom: activeTab === 'contract' ? '2px solid #E53935' : '2px solid transparent',
-                  fontSize: '13.5px'
+                  fontSize: '14.85px'
                 }}
               >
                 2. Hợp đồng & Tổ chức
@@ -820,7 +772,7 @@ export const UsersPage: React.FC = () => {
                     fontWeight: activeTab === 'salary' ? '600' : '400',
                     color: activeTab === 'salary' ? '#E53935' : '#6B7280',
                     borderBottom: activeTab === 'salary' ? '2px solid #E53935' : '2px solid transparent',
-                    fontSize: '13.5px'
+                    fontSize: '14.85px'
                   }}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -843,7 +795,7 @@ export const UsersPage: React.FC = () => {
                       color: '#B91C1C',
                       padding: '0.625rem 0.75rem',
                       borderRadius: '0.375rem',
-                      fontSize: '13px',
+                      fontSize: '14.3px',
                       marginBottom: '1rem'
                     }}
                   >
@@ -857,7 +809,7 @@ export const UsersPage: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.75rem' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Mã nhân viên *
                         </label>
                         <input
@@ -869,7 +821,7 @@ export const UsersPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Họ và tên *
                         </label>
                         <input
@@ -884,7 +836,7 @@ export const UsersPage: React.FC = () => {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Gmail hệ thống *
                         </label>
                         <input
@@ -896,7 +848,7 @@ export const UsersPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Số điện thoại
                         </label>
                         <input
@@ -911,7 +863,7 @@ export const UsersPage: React.FC = () => {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Ngày sinh
                         </label>
                         <input
@@ -922,7 +874,7 @@ export const UsersPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           {editingUser ? 'Mật khẩu mới (Để trống nếu không đổi)' : 'Mật khẩu khởi tạo'}
                         </label>
                         <input
@@ -942,7 +894,7 @@ export const UsersPage: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Đơn vị phòng ban
                         </label>
                         <select
@@ -960,7 +912,7 @@ export const UsersPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Quản lý trực tiếp
                         </label>
                         <select
@@ -981,7 +933,7 @@ export const UsersPage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                      <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                         Vai trò chức danh (Có thể chọn vai trò chính)
                       </label>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
@@ -1000,7 +952,7 @@ export const UsersPage: React.FC = () => {
                                 backgroundColor: isChecked ? '#FFEBEE' : '#FFFFFF',
                                 color: isChecked ? '#C62828' : '#374151',
                                 cursor: 'pointer',
-                                fontSize: '13px'
+                                fontSize: '14.3px'
                               }}
                             >
                               <input
@@ -1026,7 +978,7 @@ export const UsersPage: React.FC = () => {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Ngày vào công ty
                         </label>
                         <input
@@ -1038,7 +990,7 @@ export const UsersPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Trạng thái làm việc
                         </label>
                         <select
@@ -1063,7 +1015,7 @@ export const UsersPage: React.FC = () => {
                         backgroundColor: '#FEF9C3',
                         border: '1px solid #FDE047',
                         borderRadius: '0.5rem',
-                        fontSize: '12.5px',
+                        fontSize: '13.75px',
                         color: '#854D0E'
                       }}
                     >
@@ -1075,7 +1027,7 @@ export const UsersPage: React.FC = () => {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Lương cơ bản (VNĐ)
                         </label>
                         <input
@@ -1088,7 +1040,7 @@ export const UsersPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '14.3px', fontWeight: '500', marginBottom: '0.25rem' }}>
                           Phụ cấp trách nhiệm / ăn trưa (VNĐ)
                         </label>
                         <input

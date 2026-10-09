@@ -1,21 +1,25 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Menu,
-  ShieldCheck,
   Bell,
-  AlertTriangle,
-  ShoppingCart,
   Clock,
-  UserCheck,
   Check,
   CheckCheck,
   Trash2,
   ExternalLink,
   PanelLeftClose,
   PanelLeftOpen,
-  RotateCcw
+  RotateCcw,
+  Search,
+  User,
+  LogOut,
+  Settings,
+  ChevronDown,
+  Wrench,
+  Rocket
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { AdminMaintenanceDialog } from '../common/AdminMaintenanceDialog';
 
 interface HeaderProps {
   currentTab: string;
@@ -24,100 +28,6 @@ interface HeaderProps {
   onToggleSidebar?: () => void;
   onNavigateTab?: (tab: string) => void;
 }
-
-const tabTitles: Record<string, { title: string; desc: string }> = {
-  // Phân hệ Kinh doanh & Bán hàng
-  customers: {
-    title: 'Quản lý Khách hàng Doanh nghiệp & Đại lý VPP',
-    desc: 'Bố cục 3 phần chuẩn: Thông tin doanh nghiệp → Dòng thời gian giao dịch → Thống kê công nợ & Bàn giao'
-  },
-  quotations: {
-    title: 'Quản lý Báo giá Văn phòng phẩm',
-    desc: 'Lập báo giá nhiều mặt hàng, xem & in mẫu A4 thương hiệu Nam Khánh, chuyển đổi thành Đơn hàng'
-  },
-  orders: {
-    title: 'Quản lý Đơn hàng & Thu hồi Công nợ',
-    desc: 'Theo dõi giao nhận, xuất hóa đơn VAT, tự động tính: Còn phải thu = Giá trị đơn - Thực thu'
-  },
-  'sales-overview': {
-    title: 'Tổng quan Doanh thu & Sản lượng VPP',
-    desc: '4 Thẻ KPI chủ lực, cơ cấu 5 nhóm ngành hàng VPP, xu hướng 12 tháng và Top khách hàng VIP'
-  },
-  'sales-reports': {
-    title: 'Báo cáo Bán hàng & Công nợ Phải thu',
-    desc: 'Phân tích doanh số theo nhóm hàng/mặt hàng/nhân viên, theo dõi số dư công nợ chi tiết từng khách'
-  },
-  'sales-plans': {
-    title: 'Kế hoạch Kinh doanh & Giao Chỉ tiêu Doanh số',
-    desc: 'Thiết lập hạn mức bán hàng theo Tháng/Quý/Năm và đối chiếu tỷ lệ hoàn thành thực tế'
-  },
-
-  // Phân hệ Kho & Hàng hóa VPP
-  'inventory-overview': {
-    title: 'Tổng quan Kho & Hàng hóa Văn Phòng Phẩm',
-    desc: '4 Thẻ KPI chủ lực, cơ cấu giá trị tồn kho theo danh mục, quy mô kho và cảnh báo dưới định mức'
-  },
-  warehouses: {
-    title: 'Quản lý Kho Vật Lý VPP',
-    desc: 'Tổng kho Gia Lâm, Kho giao nhanh Hai Bà Trưng, định vị địa chỉ và bảo vệ tính toàn vẹn khi có tồn kho'
-  },
-  categories: {
-    title: 'Danh mục Hàng hóa Văn Phòng Phẩm (Cấp 1)',
-    desc: 'Phân loại nhóm ngành VPP chủ lực: Giấy in, Bút viết, File còng, Dụng cụ VP, Máy VP'
-  },
-  'product-types': {
-    title: 'Loại Hàng hóa Văn Phòng Phẩm (Cấp 2)',
-    desc: 'Phân loại chuyên sâu theo quy cách, liên kết danh mục cha và đơn vị tính chuẩn Ream/Hộp/Quyển'
-  },
-  products: {
-    title: 'Quản lý Sản phẩm SKU & Master Data Hàng hóa',
-    desc: 'Master SKU, mã vạch, giá vốn bình quân, định mức an toàn, quy cách kỹ thuật và tự động đồng bộ Nhà cung cấp'
-  },
-  suppliers: {
-    title: 'Danh bạ Nhà Cung Cấp Văn Phòng Phẩm',
-    desc: 'Double A, Thiên Long, King Jim, Bãi Bằng... quản lý thông tin đối tác và danh mục hàng hóa cung ứng'
-  },
-  'inventory-reports': {
-    title: 'Báo cáo Tồn kho Đa chiều',
-    desc: 'Thống kê tồn kho theo Danh mục, Loại hàng và chi tiết SKU, tính giá trị tồn kho và xuất Excel/In ấn'
-  },
-
-  // Phân hệ Quản trị nền tảng
-  departments: {
-    title: 'Cơ cấu tổ chức & Phòng ban',
-    desc: 'Quản lý cây thư mục phân cấp đơn vị, chống vòng lặp, kiểm soát chức năng nhiệm vụ'
-  },
-  users: {
-    title: 'Quản lý Người dùng & Nhân sự',
-    desc: 'Hồ sơ nhân sự, phân cấp quản lý, bảo mật phân tầng cột Lương & Phụ cấp'
-  },
-  roles: {
-    title: 'Danh mục Vai trò Hệ thống',
-    desc: 'Thiết lập danh mục chức danh, phân loại vai trò cốt lõi và vai trò tùy chỉnh'
-  },
-  permissions: {
-    title: 'Ma trận Phân quyền & Phạm vi Dữ liệu',
-    desc: 'Cấu hình quyền 25 phân hệ x 4 thao tác CRUD kèm giới hạn Row-Level Data Scope'
-  },
-  documents: {
-    title: 'Hồ sơ Giấy tờ Mẫu & CO-CQ Văn Phòng Phẩm',
-    desc: 'Lưu trữ Hợp đồng cung ứng VPP, Chứng chỉ chất lượng CO-CQ Giấy & Bút, tải lên tối đa 25MB'
-  },
-
-  // Lộ trình tiếp theo
-  finances: {
-    title: 'Thu - Chi & Tài chính Doanh nghiệp',
-    desc: 'Quản lý Phiếu thu, Phiếu chi, Phân bổ công nợ FIFO, Sổ quỹ tiền mặt & tiền gửi'
-  },
-  dashboard: {
-    title: 'Dashboard Điều hành Doanh nghiệp',
-    desc: 'Biểu đồ doanh thu VPP, sản lượng giấy in, cảnh báo công nợ và KPI tài chính tổng quan'
-  },
-  settings: {
-    title: 'Cài đặt Hệ thống & Tùy biến Cá nhân',
-    desc: 'Hồ sơ người dùng, đổi mật khẩu, cấu hình hiển thị và thông tin bản quyền Nam Khánh'
-  }
-};
 
 interface NotificationItem {
   id: string;
@@ -196,14 +106,22 @@ const setStoredIds = (key: string, ids: string[]) => {
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onOpenMobile,
-  isSidebarOpen = true,
+  isSidebarOpen = false,
   onToggleSidebar,
   onNavigateTab
 }) => {
-  const { user } = useAuth();
+  const { user, logout, isMaintenanceActive, setIsMaintenanceActive } = useAuth();
+  const [isAdminMaintenanceOpen, setIsAdminMaintenanceOpen] = useState(false);
+  const isAdmin = user?.roles?.includes('ADMIN');
   const [isOpenNotifications, setIsOpenNotifications] = useState(false);
+  const [isOpenUserMenu, setIsOpenUserMenu] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
   const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'read'>('all');
+
   const notifRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { readKey, deletedKey } = useMemo(
     () => getStorageKeys(user?.id || user?.email),
@@ -242,15 +160,24 @@ export const Header: React.FC<HeaderProps> = ({
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setIsOpenNotifications(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsOpenUserMenu(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Tự động focus vào ô tìm kiếm khi mở
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchOpen]);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
   const readCount = notifications.filter((n) => n.read).length;
 
-  // Đánh dấu tất cả là đã đọc -> Lưu vĩnh viễn vào localStorage để không báo lại nữa
   const handleMarkAllRead = () => {
     setNotifications((prev) => {
       const updated = prev.map((n) => ({ ...n, read: true }));
@@ -260,7 +187,6 @@ export const Header: React.FC<HeaderProps> = ({
     });
   };
 
-  // Đánh dấu 1 thông báo cụ thể là đã đọc / chưa đọc và đồng bộ localStorage
   const handleToggleRead = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setNotifications((prev) => {
@@ -278,7 +204,6 @@ export const Header: React.FC<HeaderProps> = ({
     });
   };
 
-  // Khi click vào dòng thông báo: tự động đánh dấu đã đọc vĩnh viễn và điều hướng nếu có
   const handleNotificationClick = (item: NotificationItem) => {
     if (!item.read) {
       setNotifications((prev) => {
@@ -295,7 +220,6 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  // Xóa toàn bộ thông báo đã đọc khỏi danh sách hiển thị
   const handleClearRead = () => {
     const readItems = notifications.filter((n) => n.read);
     if (readItems.length === 0) return;
@@ -306,7 +230,6 @@ export const Header: React.FC<HeaderProps> = ({
     setNotifications((prev) => prev.filter((n) => !n.read));
   };
 
-  // Xóa / Bỏ qua 1 thông báo
   const handleDeleteNotification = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const prevDeleted = getStoredIds(deletedKey);
@@ -315,7 +238,6 @@ export const Header: React.FC<HeaderProps> = ({
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
-  // Khôi phục thông báo ban đầu
   const handleResetNotifications = () => {
     try {
       localStorage.removeItem(readKey);
@@ -333,90 +255,234 @@ export const Header: React.FC<HeaderProps> = ({
       ? notifications.filter((n) => n.read)
       : notifications;
 
-  const currentInfo = tabTitles[currentTab] || {
-    title: 'Công ty TNHH NK Nam Khánh - CRM',
-    desc: 'Hệ thống Quản trị Doanh nghiệp & Cung ứng Văn phòng phẩm'
-  };
+  // Danh sách các Tab điều hướng nhanh ở trung tâm Navbar (Tương tự ảnh mẫu Quixotic)
+  const navTabs = [
+    { id: 'dashboard', label: 'Dashboard', match: ['dashboard'] },
+    { id: 'orders', label: 'Đơn hàng', match: ['orders'] },
+    { id: 'customers', label: 'Khách hàng', match: ['customers', 'quotations'] },
+    {
+      id: 'inventory-overview',
+      label: 'Kho & SKU',
+      match: ['inventory-overview', 'products', 'warehouses', 'categories', 'suppliers', 'product-types']
+    },
+    {
+      id: 'sales-reports',
+      label: 'Báo cáo',
+      match: ['sales-reports', 'sales-overview', 'sales-plans', 'inventory-reports']
+    },
+    { id: 'finances', label: 'Thu - Chi', match: ['finances'] }
+  ];
 
   return (
-    <header
-      style={{
-        height: '64px',
-        backgroundColor: '#FFFFFF',
-        borderBottom: '1px solid #F3F4F6',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 1.5rem',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+    <header className="navbar-sticky-wrapper transition-all duration-200">
+      <div className="navbar-floating-pill">
+        {/* ==========================================
+            BÊN TRÁI: LOGO THƯƠNG HIỆU & NÚT TOGGLE
+           ========================================== */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
         {/* Nút Hamburger trên Mobile */}
         <button
-          id="bonci-ham"
           onClick={onOpenMobile}
           style={{
             display: 'none',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '38px',
-            height: '38px',
-            borderRadius: '8px',
-            backgroundColor: '#E53935',
+            width: '36px',
+            height: '36px',
+            borderRadius: '9999px',
+            background: 'linear-gradient(135deg, #EA332A 0%, #D32F2F 100%)',
             color: '#FFFFFF',
             border: 'none',
             cursor: 'pointer',
-            boxShadow: '0 2px 5px rgba(229, 57, 53, 0.3)'
+            boxShadow: '0 2px 8px rgba(234, 51, 42, 0.28)'
           }}
           className="hamburger-mobile"
           title="Mở menu điều hướng"
         >
-          <Menu size={20} />
+          <Menu size={18} />
         </button>
 
-        {/* Nút Đóng / Mở Sidebar trên Desktop */}
+        {/* Nút Thu gọn / Mở rộng Sidebar trên Desktop */}
         {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
-            className="desktop-toggle-btn text-gray-600 hover:text-[#E53935] hover:bg-red-50 rounded-lg transition-all cursor-pointer border border-gray-200"
-            title={isSidebarOpen ? 'Thu gọn / Đóng thanh điều hướng (Ctrl + B)' : 'Mở rộng thanh điều hướng (Ctrl + B)'}
+            className="desktop-toggle-btn text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-all cursor-pointer border border-slate-200/80 shadow-xs"
+            title={isSidebarOpen ? 'Thu gọn thành Dock hình đơn (Ctrl + B)' : 'Mở rộng thanh điều hướng (Ctrl + B)'}
             style={{
               alignItems: 'center',
               justifyContent: 'center',
-              width: '36px',
-              height: '36px',
+              width: '34px',
+              height: '34px',
               backgroundColor: isSidebarOpen ? '#FFFFFF' : '#FEF2F2',
-              borderColor: isSidebarOpen ? '#E5E7EB' : '#FCA5A5'
+              borderColor: isSidebarOpen ? '#E2E8F0' : '#FECACA'
             }}
           >
-            {isSidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} color="#E53935" />}
+            {isSidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} color="#EA332A" />}
           </button>
         )}
 
-        <div>
-          <h1 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#111827', margin: 0 }}>
-            {currentInfo.title}
-          </h1>
-          <p style={{ fontSize: '12px', color: '#6B7280', margin: 0 }}>
-            {currentInfo.desc}
-          </p>
-        </div>
+        {/* Logo & Thương hiệu dạng Icon tròn */}
+        <a
+          href="#/dashboard"
+          onClick={(e) => {
+            if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+              e.preventDefault();
+              onNavigateTab?.('dashboard');
+            }
+          }}
+          className="flex items-center gap-2 cursor-pointer no-underline group"
+          title="Về Dashboard điều hành"
+        >
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '9999px',
+              backgroundColor: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '4px',
+              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)',
+              border: '1px solid #F1F5F9',
+              flexShrink: 0
+            }}
+          >
+            <img
+              src="/logo.png"
+              alt="Logo NK"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          </div>
+          <span className="font-extrabold text-[14.5px] text-slate-900 tracking-tight whitespace-nowrap group-hover:text-rose-600 transition-colors">
+            NK Nam Khánh
+          </span>
+        </a>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        {/* Chuông thông báo thông minh (Mục 1.3) */}
+      {/* ==========================================
+          TRUNG TÂM: CỤM TAB ĐIỀU HƯỚNG DẠNG HÌNH ĐƠN
+          (Tương tự như cụm Dashboard, Reports, Documents trong ảnh mẫu)
+         ========================================== */}
+      <nav
+        aria-label="Điều hướng nhanh"
+        className="hidden md:flex items-center gap-1 bg-slate-100/60 p-1 rounded-full border border-slate-200/50"
+      >
+        {navTabs.map((tab) => {
+          const isActive = tab.match.includes(currentTab);
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onNavigateTab?.(tab.id)}
+              className="text-xs transition-all duration-200 cursor-pointer"
+              style={{
+                padding: '0.35rem 0.85rem',
+                borderRadius: '9999px',
+                border: isActive ? '1px solid rgba(226, 232, 240, 0.9)' : '1px solid transparent',
+                // Nút Active: Trắng tinh nổi khối bo tròn như nút Dashboard trong ảnh mẫu
+                backgroundColor: isActive ? '#FFFFFF' : 'transparent',
+                color: isActive ? '#0F172A' : '#64748B',
+                fontWeight: isActive ? '700' : '500',
+                boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.07)' : 'none'
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* ==========================================
+          BÊN PHẢI: TÌM KIẾM, THÔNG BÁO & USER AVATAR
+          (Theo đúng bộ 3 icon: Search, Bell, Avatar như ảnh mẫu)
+         ========================================== */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {/* NÚT TÌM KIẾM (ICON KÍNH LÚP NHƯ ẢNH MẪU) */}
+        <div className="relative">
+          {isSearchOpen ? (
+            <div className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-md text-xs w-48 sm:w-60 text-slate-700 animate-in fade-in zoom-in-95 duration-150">
+              <Search size={14} className="text-slate-400 shrink-0" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Tìm nhanh dữ liệu..."
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs text-slate-800 placeholder:text-slate-400 w-full"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (onNavigateTab) {
+                      onNavigateTab('orders');
+                    }
+                    setIsSearchOpen(false);
+                  } else if (e.key === 'Escape') {
+                    setIsSearchOpen(false);
+                  }
+                }}
+                onBlur={() => {
+                  if (!searchValue) {
+                    setIsSearchOpen(false);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(false)}
+                className="text-slate-400 hover:text-slate-700 text-[11px] px-1 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition-all cursor-pointer border border-transparent hover:border-slate-200/60"
+              title="Tìm kiếm nhanh (Ctrl + K)"
+            >
+              <Search size={17} />
+            </button>
+          )}
+        </div>
+
+        {/* NÚT BẢO TRÌ DÀNH CHO ADMIN */}
+        {isAdmin && (
+          <div className="shrink-0">
+            {isMaintenanceActive ? (
+              <button
+                type="button"
+                onClick={() => setIsAdminMaintenanceOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/25 transition-all animate-pulse cursor-pointer"
+                title="Hệ thống đang bảo trì. Bấm để mở lại web cho nhân viên"
+              >
+                <Wrench size={13} className="text-white shrink-0" />
+                <span className="hidden sm:inline">ĐANG BẢO TRÌ (Mở web)</span>
+                <span className="sm:hidden">Mở web</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAdminMaintenanceOpen(true)}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-600 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 hover:border-amber-200 transition-all cursor-pointer"
+                title="Đóng web để bảo trì hệ thống"
+              >
+                <Wrench size={13} className="text-amber-600 shrink-0" />
+                <span>Bảo trì web</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* NÚT CHUÔNG THÔNG BÁO (ICON BELL NHƯ ẢNH MẪU) */}
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setIsOpenNotifications(!isOpenNotifications)}
-            className="relative p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-slate-600 hover:text-[#EA332A] hover:bg-red-50/70 transition-all cursor-pointer relative border border-transparent hover:border-red-100"
             title="Trung tâm thông báo điều hành"
           >
-            <Bell size={20} />
+            <Bell size={17} />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[11px] font-bold text-white bg-red-600 rounded-full border-2 border-white shadow-sm">
+              <span className="absolute top-1 right-1 flex items-center justify-center min-w-[15px] h-[15px] px-0.5 text-[9.5px] font-bold text-white bg-[#EA332A] rounded-full border-2 border-white shadow-xs">
                 {unreadCount}
               </span>
             )}
@@ -424,177 +490,156 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Dropdown Notification Panel */}
           {isOpenNotifications && (
-            <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 py-3 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 mt-3 w-96 bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/80 py-3.5 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="flex items-center justify-between px-4 pb-2 border-b border-gray-100">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-900 text-sm">Thông báo điều hành</span>
-                  {unreadCount > 0 ? (
-                    <span className="px-2 py-0.5 text-[11px] font-semibold text-red-600 bg-red-50 rounded-full">
-                      {unreadCount} mới
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded-full flex items-center gap-1">
-                      <Check size={11} /> Đã đọc hết
-                    </span>
-                  )}
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#EA332A] animate-pulse" />
+                  <span className="font-bold text-slate-800 text-sm">Thông báo vận hành</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {unreadCount > 0 && (
                     <button
-                      type="button"
                       onClick={handleMarkAllRead}
-                      className="text-xs text-red-600 hover:text-red-700 font-medium cursor-pointer transition-colors"
-                      title="Đánh dấu tất cả thông báo là đã đọc (không báo lại)"
+                      className="text-xs text-[#EA332A] hover:text-[#D32F2F] font-semibold flex items-center gap-1 cursor-pointer"
+                      title="Đánh dấu tất cả thông báo là đã đọc"
                     >
-                      Đọc tất cả
+                      <CheckCheck size={14} />
+                      Đã đọc tất cả
                     </button>
                   )}
-                  {readCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleClearRead}
-                      className="text-xs text-gray-400 hover:text-gray-600 font-medium cursor-pointer transition-colors"
-                      title="Xóa danh sách thông báo đã đọc"
-                    >
-                      Xóa đã đọc
-                    </button>
-                  )}
+                  <button
+                    onClick={handleResetNotifications}
+                    className="text-xs text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors"
+                    title="Khôi phục danh sách thông báo mẫu"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
                 </div>
               </div>
 
-              {/* Filter Tabs */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-50 bg-gray-50/50 text-xs">
-                <div className="flex gap-1.5">
+              {/* Bộ lọc Thông báo: Tất cả / Chưa đọc / Đã đọc */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-50 bg-gray-50/50">
+                <div className="flex items-center gap-1">
                   <button
-                    type="button"
                     onClick={() => setNotificationFilter('all')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${
                       notificationFilter === 'all'
-                        ? 'bg-white text-red-600 shadow-xs font-semibold'
-                        : 'text-gray-500 hover:text-gray-900'
+                        ? 'bg-[#EA332A] text-white shadow-xs'
+                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
                     }`}
                   >
                     Tất cả ({notifications.length})
                   </button>
                   <button
-                    type="button"
                     onClick={() => setNotificationFilter('unread')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${
                       notificationFilter === 'unread'
-                        ? 'bg-white text-red-600 shadow-xs font-semibold'
-                        : 'text-gray-500 hover:text-gray-900'
+                        ? 'bg-[#EA332A] text-white shadow-xs'
+                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
                     }`}
                   >
                     Chưa đọc ({unreadCount})
                   </button>
                   <button
-                    type="button"
                     onClick={() => setNotificationFilter('read')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${
                       notificationFilter === 'read'
-                        ? 'bg-white text-red-600 shadow-xs font-semibold'
-                        : 'text-gray-500 hover:text-gray-900'
+                        ? 'bg-[#EA332A] text-white shadow-xs'
+                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
                     }`}
                   >
                     Đã đọc ({readCount})
                   </button>
                 </div>
 
-                {notifications.length === 0 && (
+                {readCount > 0 && notificationFilter !== 'unread' && (
                   <button
-                    type="button"
-                    onClick={handleResetNotifications}
-                    className="text-[11px] text-gray-400 hover:text-red-600 flex items-center gap-1 cursor-pointer"
-                    title="Khôi phục thông báo ban đầu"
+                    onClick={handleClearRead}
+                    className="text-[11px] text-gray-400 hover:text-red-500 flex items-center gap-1 transition-colors"
+                    title="Xóa các thông báo đã đọc khỏi danh sách"
                   >
-                    <RotateCcw size={11} />
-                    <span>Mặc định</span>
+                    <Trash2 size={11} />
+                    Xóa đã đọc
                   </button>
                 )}
               </div>
 
-              {/* Notification List */}
               <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
                 {filteredNotifs.length === 0 ? (
-                  <div className="py-8 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
-                    <CheckCheck size={28} className="text-gray-300" />
-                    <span>
-                      {notificationFilter === 'unread'
-                        ? 'Tuyệt vời! Không còn thông báo chưa đọc nào.'
-                        : notificationFilter === 'read'
-                        ? 'Chưa có thông báo nào được đánh dấu đã đọc.'
-                        : 'Không có thông báo nào'}
-                    </span>
-                    {notifications.length === 0 && (
-                      <button
-                        type="button"
-                        onClick={handleResetNotifications}
-                        className="mt-1 text-xs text-red-600 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <RotateCcw size={12} />
-                        <span>Khôi phục thông báo mẫu</span>
-                      </button>
-                    )}
+                  <div className="py-8 text-center text-gray-400 text-xs">
+                    {notificationFilter === 'unread'
+                      ? 'Tuyệt vời! Không còn thông báo chưa đọc nào.'
+                      : notificationFilter === 'read'
+                      ? 'Chưa có thông báo nào đã đọc.'
+                      : 'Không có thông báo mới nào.'}
                   </div>
                 ) : (
                   filteredNotifs.map((n) => (
                     <div
                       key={n.id}
                       onClick={() => handleNotificationClick(n)}
-                      className={`group flex items-start gap-3 p-3.5 hover:bg-gray-50 transition-colors cursor-pointer relative ${
-                        !n.read ? 'bg-red-50/25' : 'bg-white'
+                      className={`p-3.5 hover:bg-slate-50/80 transition-colors flex items-start gap-3 cursor-pointer group relative ${
+                        !n.read ? 'bg-rose-50/20' : 'opacity-85'
                       }`}
                     >
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                          n.type === 'WARNING'
-                            ? 'bg-amber-100 text-amber-600'
-                            : n.type === 'ORDER'
-                            ? 'bg-blue-100 text-blue-600'
-                            : n.type === 'DEBT'
-                            ? 'bg-red-100 text-red-600'
-                            : 'bg-emerald-100 text-emerald-600'
-                        }`}
-                      >
-                        {n.type === 'WARNING' ? (
-                          <AlertTriangle size={16} />
-                        ) : n.type === 'ORDER' ? (
-                          <ShoppingCart size={16} />
-                        ) : n.type === 'DEBT' ? (
-                          <Clock size={16} />
-                        ) : (
-                          <UserCheck size={16} />
+                      <div className="mt-0.5 shrink-0">
+                        {n.type === 'WARNING' && (
+                          <div className="w-7 h-7 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold text-xs">
+                            !
+                          </div>
                         )}
-                      </div>
-
-                      <div className="flex-1 min-w-0 pr-1">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className={`text-xs ${!n.read ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                            {n.title}
-                          </span>
-                          <span className="text-[10px] text-gray-400 whitespace-nowrap">{n.time}</span>
-                        </div>
-                        <p className={`text-xs mt-0.5 line-clamp-2 ${!n.read ? 'text-gray-600' : 'text-gray-400'}`}>
-                          {n.desc}
-                        </p>
-                        {n.targetTab && (
-                          <div className="mt-1 text-[10px] text-red-600 group-hover:underline flex items-center gap-1 font-medium">
-                            <span>Xem chi tiết phân hệ</span>
-                            <ExternalLink size={10} />
+                        {n.type === 'ORDER' && (
+                          <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold text-xs">
+                            Đ
+                          </div>
+                        )}
+                        {n.type === 'DEBT' && (
+                          <div className="w-7 h-7 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center font-bold text-xs">
+                            $
+                          </div>
+                        )}
+                        {n.type === 'HANDOVER' && (
+                          <div className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-xs">
+                            ✓
                           </div>
                         )}
                       </div>
 
-                      {/* Quick Actions (Đọc / Chưa đọc & Xóa) */}
-                      <div className="flex flex-col items-center gap-1 flex-shrink-0 pt-0.5">
+                      <div className="flex-1 min-w-0 pr-8">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <p className={`text-xs font-semibold truncate ${!n.read ? 'text-gray-900' : 'text-gray-600'}`}>
+                            {n.title}
+                          </p>
+                          {!n.read && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#EA332A] shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-[11.5px] text-gray-500 line-clamp-2 leading-relaxed">
+                          {n.desc}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                            <Clock size={10} />
+                            {n.time}
+                          </span>
+                          {n.targetTab && (
+                            <span className="text-[10px] text-[#EA332A] font-medium flex items-center gap-0.5 group-hover:underline">
+                              Xem ngay <ExternalLink size={9} />
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Các nút thao tác nhanh */}
+                      <div className="absolute right-3 top-3.5 flex items-center gap-1">
                         {!n.read ? (
                           <button
                             type="button"
                             onClick={(e) => handleToggleRead(n.id, e)}
-                            title="Bấm để đánh dấu đã đọc (lưu vĩnh viễn)"
-                            className="w-5 h-5 rounded-full flex items-center justify-center text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            title="Bấm để đánh dấu đã đọc"
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-gray-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                           >
-                            <div className="w-2 h-2 rounded-full bg-red-600" />
+                            <Check size={12} />
                           </button>
                         ) : (
                           <button
@@ -624,25 +669,121 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Thẻ quyền hạn của người dùng hiện tại */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.375rem',
-            fontSize: '12px',
-            color: '#E53935',
-            backgroundColor: '#FFEBEE',
-            padding: '0.25rem 0.625rem',
-            borderRadius: '9999px',
-            fontWeight: '600'
-          }}
-        >
-          <ShieldCheck size={14} />
-          <span>Vai trò: {user?.roles?.[0]}</span>
+        {/* NÚT AVATAR NGƯỜI DÙNG (ICON AVATAR TRÒN NHƯ ẢNH MẪU) */}
+        <div className="relative" ref={userMenuRef}>
+          <button
+            onClick={() => setIsOpenUserMenu(!isOpenUserMenu)}
+            className="flex items-center gap-1.5 p-1 rounded-full hover:bg-slate-100/80 transition-all cursor-pointer border border-transparent"
+            title={`${user?.fullName || 'Người dùng'} (${user?.roles?.[0] || 'ADMIN'})`}
+          >
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '9999px',
+                background: 'linear-gradient(135deg, #EA332A 0%, #D32F2F 100%)',
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: '700',
+                fontSize: '13px',
+                boxShadow: '0 2px 6px rgba(234, 51, 42, 0.28)'
+              }}
+            >
+              {user?.fullName?.charAt(0) || 'U'}
+            </div>
+            <ChevronDown size={14} className="text-slate-400 hidden sm:block" />
+          </button>
+
+          {/* Dropdown Menu Người dùng */}
+          {isOpenUserMenu && (
+            <div className="absolute right-0 mt-3 w-56 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/80 py-2 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="px-4 py-2.5 border-b border-slate-100">
+                <div className="font-bold text-xs text-slate-900 truncate">
+                  {user?.fullName || 'Người dùng'}
+                </div>
+                <div className="text-[11px] text-slate-500 truncate" title={user?.email}>
+                  {user?.email || 'admin@namkhanh.vn'}
+                </div>
+                <div className="mt-1.5">
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      color: '#EA332A',
+                      backgroundColor: '#FEF2F2',
+                      border: '1px solid #FECACA',
+                      padding: '0.1rem 0.45rem',
+                      borderRadius: '9999px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {user?.roles?.[0] || 'ADMIN'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-1">
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      setIsAdminMaintenanceOpen(true);
+                      setIsOpenUserMenu(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded-xl transition-colors cursor-pointer text-left ${
+                      isMaintenanceActive
+                        ? 'text-emerald-700 bg-emerald-50 font-bold'
+                        : 'text-amber-700 hover:bg-amber-50'
+                    }`}
+                  >
+                    {isMaintenanceActive ? (
+                      <Rocket size={15} className="text-emerald-600 shrink-0" />
+                    ) : (
+                      <Wrench size={15} className="text-amber-600 shrink-0" />
+                    )}
+                    <span>
+                      {isMaintenanceActive
+                        ? 'Mở lại web (Hoàn tất bảo trì)'
+                        : 'Đóng web để bảo trì'}
+                    </span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    onNavigateTab?.('settings');
+                    setIsOpenUserMenu(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-left"
+                >
+                  <Settings size={15} className="text-slate-500" />
+                  <span>Cài đặt hệ thống</span>
+                </button>
+                <button
+                  onClick={() => {
+                    logout();
+                    setIsOpenUserMenu(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer text-left"
+                >
+                  <LogOut size={15} className="text-red-500" />
+                  <span>Đăng xuất</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+      </div>
+
+      {isAdmin && (
+        <AdminMaintenanceDialog
+          isOpen={isAdminMaintenanceOpen}
+          isMaintenanceActive={isMaintenanceActive}
+          onClose={() => setIsAdminMaintenanceOpen(false)}
+          onSuccess={(newState) => setIsMaintenanceActive(newState)}
+        />
+      )}
     </header>
   );
 };
-

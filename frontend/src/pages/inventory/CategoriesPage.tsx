@@ -152,15 +152,17 @@ export const CategoriesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       {/* HEADER & FILTER */}
-      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-[#E53935]" />
-            Danh Mục Hàng Hóa VPP (Cấp 1)
+          <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-namkhanh-50 text-namkhanh-600 flex items-center justify-center font-bold shadow-inner">
+              <Layers className="w-5 h-5" />
+            </div>
+            <span>Danh Mục Hàng Hóa VPP (Cấp 1)</span>
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-slate-500 mt-1 font-medium">
             Phân loại cấp cao nhất của ngành hàng văn phòng phẩm & phân bổ kho lưu trữ
           </p>
         </div>
@@ -169,7 +171,7 @@ export const CategoriesPage: React.FC = () => {
           <select
             value={warehouseFilter}
             onChange={(e) => setWarehouseFilter(e.target.value)}
-            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#E53935]"
+            className="input input-pill text-xs font-semibold border border-slate-200 px-4 py-2 bg-white focus:outline-none focus:border-namkhanh-500"
           >
             <option value="">Tất cả kho</option>
             {warehouses.map((w) => (
@@ -180,30 +182,30 @@ export const CategoriesPage: React.FC = () => {
           </select>
 
           <form onSubmit={handleSearch} className="relative flex-1 sm:w-56">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Tìm mã, tên danh mục..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+              className="input input-pill pl-10 text-xs font-medium"
             />
           </form>
 
           {hasPermission('C_CATEGORIES', 'create') && (
             <button
               onClick={openAddModal}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-xs font-semibold shadow-sm transition-colors whitespace-nowrap"
+              className="btn btn-primary text-xs shadow-glow flex items-center gap-2 whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
-              Thêm Danh Mục
+              <span>Thêm Danh Mục</span>
             </button>
           )}
         </div>
       </div>
 
       {/* BẢNG DANH SÁCH DANH MỤC */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="card rounded-3xl border border-slate-100/80 shadow-card overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table
             className="w-full text-left text-sm border-collapse"

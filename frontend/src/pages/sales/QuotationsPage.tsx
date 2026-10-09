@@ -31,6 +31,17 @@ import { ImportItemsModal } from '../../components/common/ImportItemsModal';
 import { useTableResize } from '../../hooks/useTableResize';
 import { ProductSearchSelect } from '../../components/common/ProductSearchSelect';
 import { Toast } from '../../components/common/Toast';
+import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
+import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+
+const QUOTATION_STATUS_OPTIONS: StatusOption[] = [
+  { value: 'DRAFT', label: 'Bản thảo', colorClass: 'bg-gray-100 text-gray-700 border-gray-300' },
+  { value: 'NEGOTIATING', label: 'Đang đàm phán', colorClass: 'bg-amber-50 text-amber-700 border-amber-300' },
+  { value: 'SENT', label: 'Đã gửi', colorClass: 'bg-blue-50 text-blue-700 border-blue-300' },
+  { value: 'CONFIRMED', label: 'Đã chốt', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+  { value: 'ORDERED', label: 'Đã lên đơn', colorClass: 'bg-indigo-50 text-indigo-700 border-indigo-300', disabled: true },
+  { value: 'CANCELLED', label: 'Đã hủy', colorClass: 'bg-red-50 text-red-700 border-red-300' }
+];
 
 export const QuotationsPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -113,10 +124,6 @@ export const QuotationsPage: React.FC = () => {
     }
   });
 
-  const [draggedCol, setDraggedCol] = useState<string | null>(null);
-  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
-  const [showColumnConfig, setShowColumnConfig] = useState(false);
-
   const columnLabels: Record<string, string> = {
     stt: 'STT',
     code: 'Số báo giá',
@@ -129,46 +136,9 @@ export const QuotationsPage: React.FC = () => {
     actions: 'Thao tác'
   };
 
-  const handleDragStart = (e: React.DragEvent, colKey: string) => {
-    setDraggedCol(colKey);
-    e.dataTransfer.setData('text/plain', colKey);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent, colKey: string) => {
-    e.preventDefault();
-    if (draggedCol && draggedCol !== colKey) {
-      setDragOverCol(colKey);
-    }
-  };
-
-  const handleDragLeave = () => {
-    setDragOverCol(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, targetCol: string) => {
-    e.preventDefault();
-    if (!draggedCol || draggedCol === targetCol || targetCol === 'actions' || targetCol === 'stt' || draggedCol === 'actions' || draggedCol === 'stt') {
-      setDraggedCol(null);
-      setDragOverCol(null);
-      return;
-    }
-
-    const newOrder = [...columnOrder];
-    const dragIdx = newOrder.indexOf(draggedCol);
-    const dropIdx = newOrder.indexOf(targetCol);
-
-    if (dragIdx > -1 && dropIdx > -1) {
-      newOrder.splice(dragIdx, 1);
-      newOrder.splice(dropIdx, 0, draggedCol);
-      const withoutActions = newOrder.filter((k) => k !== 'actions');
-      withoutActions.push('actions');
-      setColumnOrder(withoutActions);
-      localStorage.setItem('namkhanh_quotations_col_order', JSON.stringify(withoutActions));
-    }
-
-    setDraggedCol(null);
-    setDragOverCol(null);
+  const handleReorderColumns = (newOrder: string[]) => {
+    setColumnOrder(newOrder);
+    localStorage.setItem('namkhanh_quotations_col_order', JSON.stringify(newOrder));
   };
 
   const toggleColumnVisibility = (key: string) => {
@@ -298,7 +268,7 @@ export const QuotationsPage: React.FC = () => {
       <div className="modal-overlay fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" style={{ zIndex: 1100 }}>
         <div className="modal-content bg-white rounded-xl shadow-2xl w-full relative z-[1101] max-h-[90vh] overflow-y-auto" style={{ maxWidth: '540px' }}>
           <div className="modal-header">
-            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1.155rem', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <UserPlus size={18} color="#E53935" />
               <span>Tạo Nhanh Khách Hàng Mới</span>
             </h3>
@@ -314,13 +284,13 @@ export const QuotationsPage: React.FC = () => {
           <form onSubmit={handleQuickCreateCustomer}>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               {quickCustomerError && (
-                <div style={{ padding: '0.5rem 0.75rem', backgroundColor: '#FEE2E2', color: '#B91C1C', borderRadius: '0.375rem', fontSize: '12.5px' }}>
+                <div style={{ padding: '0.5rem 0.75rem', backgroundColor: '#FEE2E2', color: '#B91C1C', borderRadius: '0.375rem', fontSize: '13.75px' }}>
                   {quickCustomerError}
                 </div>
               )}
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                <label style={{ display: 'block', fontSize: '13.2px', fontWeight: '600', marginBottom: '0.2rem' }}>
                   Tên công ty / Tên khách hàng *
                 </label>
                 <input
@@ -335,7 +305,7 @@ export const QuotationsPage: React.FC = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                  <label style={{ display: 'block', fontSize: '13.2px', fontWeight: '600', marginBottom: '0.2rem' }}>
                     Số điện thoại *
                   </label>
                   <input
@@ -349,7 +319,7 @@ export const QuotationsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                  <label style={{ display: 'block', fontSize: '13.2px', fontWeight: '600', marginBottom: '0.2rem' }}>
                     Mã số thuế
                   </label>
                   <input
@@ -364,7 +334,7 @@ export const QuotationsPage: React.FC = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                  <label style={{ display: 'block', fontSize: '13.2px', fontWeight: '600', marginBottom: '0.2rem' }}>
                     Người liên hệ
                   </label>
                   <input
@@ -377,7 +347,7 @@ export const QuotationsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                  <label style={{ display: 'block', fontSize: '13.2px', fontWeight: '600', marginBottom: '0.2rem' }}>
                     Loại khách hàng
                   </label>
                   <select
@@ -395,7 +365,7 @@ export const QuotationsPage: React.FC = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '0.2rem' }}>
+                <label style={{ display: 'block', fontSize: '13.2px', fontWeight: '600', marginBottom: '0.2rem' }}>
                   Địa chỉ giao nhận
                 </label>
                 <input
@@ -681,12 +651,17 @@ export const QuotationsPage: React.FC = () => {
     }
   };
 
-  const handleStatusChange = async (quoteId: string, newStatus: string) => {
+  const handleStatusChange = async (quoteId: string, newStatus: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
     try {
+      setQuotations((prev) =>
+        prev.map((q) => (q.id === quoteId ? { ...q, status: newStatus as any } : q))
+      );
       await api.put(`/quotations/${quoteId}`, { status: newStatus });
       loadData();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Lỗi cập nhật trạng thái');
+      loadData();
     }
   };
 
@@ -831,7 +806,7 @@ export const QuotationsPage: React.FC = () => {
 
   if (isCreatePage) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
         {/* Thanh tiêu đề & Điều hướng trang Tạo Báo Giá */}
         <div
           className="card"
@@ -840,8 +815,8 @@ export const QuotationsPage: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: '0.75rem',
-            padding: '1rem 1.25rem'
+            gap: '0.5rem',
+            padding: '0.65rem 1.25rem'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -855,11 +830,11 @@ export const QuotationsPage: React.FC = () => {
               <span>Quay lại</span>
             </button>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.21rem', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <FileSpreadsheet size={20} color="#E53935" />
                 <span>{editingQuotation ? `Chỉnh Sửa Báo Giá [${editingQuotation.code}]` : 'Lập Báo Giá Văn Phòng Phẩm Mới'}</span>
               </h2>
-              <p style={{ margin: '0.2rem 0 0 0', fontSize: '12px', color: '#6B7280' }}>
+              <p style={{ margin: '0.2rem 0 0 0', fontSize: '13.2px', color: '#6B7280' }}>
                 {editingQuotation
                   ? 'Cập nhật thông tin khách hàng, thời hạn hiệu lực và danh mục các sản phẩm báo giá'
                   : 'Nhập thông tin khách hàng, thời hạn hiệu lực và danh mục các sản phẩm báo giá'}
@@ -910,7 +885,7 @@ export const QuotationsPage: React.FC = () => {
         <div className="card" style={{ padding: '1.5rem' }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {formError && (
-              <div style={{ padding: '0.625rem 1rem', backgroundColor: '#FEE2E2', color: '#B91C1C', borderRadius: '0.375rem', fontSize: '13px' }}>
+              <div style={{ padding: '0.625rem 1rem', backgroundColor: '#FEE2E2', color: '#B91C1C', borderRadius: '0.375rem', fontSize: '14.3px' }}>
                 {formError}
               </div>
             )}
@@ -919,7 +894,7 @@ export const QuotationsPage: React.FC = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                  <label style={{ fontSize: '12.5px', fontWeight: '600', color: '#374151' }}>Khách hàng nhận báo giá *</label>
+                  <label style={{ fontSize: '13.75px', fontWeight: '600', color: '#374151' }}>Khách hàng nhận báo giá *</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -949,7 +924,7 @@ export const QuotationsPage: React.FC = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Ngày báo giá</label>
+                <label style={{ display: 'block', fontSize: '13.75px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Ngày báo giá</label>
                 <input
                   type="date"
                   className="input"
@@ -959,7 +934,7 @@ export const QuotationsPage: React.FC = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Hiệu lực đến ngày</label>
+                <label style={{ display: 'block', fontSize: '13.75px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Hiệu lực đến ngày</label>
                 <input
                   type="date"
                   className="input"
@@ -970,7 +945,7 @@ export const QuotationsPage: React.FC = () => {
 
               {editingQuotation && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Trạng thái báo giá</label>
+                  <label style={{ display: 'block', fontSize: '13.75px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Trạng thái báo giá</label>
                   <select
                     className="input"
                     value={formData.status}
@@ -990,7 +965,7 @@ export const QuotationsPage: React.FC = () => {
             {/* BẢNG DANH SÁCH MẶT HÀNG VĂN PHÒNG PHẨM */}
             <div style={{ border: '1px solid #E5E7EB', borderRadius: '0.75rem', padding: '1rem', backgroundColor: '#F9FAFB' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <span style={{ fontWeight: '700', fontSize: '13.5px', color: '#1F2937' }}>
+                <span style={{ fontWeight: '700', fontSize: '14.85px', color: '#1F2937' }}>
                   Danh mục hàng hóa báo giá ({formData.items.length})
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, maxWidth: '480px', justifyContent: 'flex-end' }}>
@@ -1001,10 +976,6 @@ export const QuotationsPage: React.FC = () => {
                     clearOnSelect={true}
                     minWidth={360}
                   />
-                  <button type="button" onClick={handleAddItem} className="btn btn-secondary btn-sm flex items-center gap-1 shrink-0" title="Thêm dòng sản phẩm">
-                    <Plus size={14} />
-                    <span>Thêm dòng</span>
-                  </button>
                   <button
                     type="button"
                     onClick={() => setIsImportItemsModalOpen(true)}
@@ -1050,7 +1021,7 @@ export const QuotationsPage: React.FC = () => {
                             <input
                               type="text"
                               className="input"
-                              style={{ padding: '0.4rem 0.5rem', fontSize: '12.5px', textAlign: 'center' }}
+                              style={{ padding: '0.4rem 0.5rem', fontSize: '13.75px', textAlign: 'center' }}
                               value={it.unit}
                               onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
                             />
@@ -1060,7 +1031,7 @@ export const QuotationsPage: React.FC = () => {
                               type="number"
                               min="1"
                               className="input"
-                              style={{ padding: '0.4rem 0.5rem', fontSize: '12.5px', textAlign: 'center' }}
+                              style={{ padding: '0.4rem 0.5rem', fontSize: '13.75px', textAlign: 'center' }}
                               value={it.quantity}
                               onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                             />
@@ -1071,7 +1042,7 @@ export const QuotationsPage: React.FC = () => {
                               min="0"
                               step="1000"
                               className="input"
-                              style={{ padding: '0.4rem 0.5rem', fontSize: '12.5px', textAlign: 'center' }}
+                              style={{ padding: '0.4rem 0.5rem', fontSize: '13.75px', textAlign: 'center' }}
                               value={it.unitPrice}
                               onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                             />
@@ -1097,12 +1068,25 @@ export const QuotationsPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Nút Thêm dòng được chuyển xuống dưới bảng */}
+              <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="btn btn-secondary btn-sm flex items-center gap-1.5 shrink-0"
+                  title="Thêm dòng sản phẩm"
+                >
+                  <Plus size={14} />
+                  <span>Thêm dòng</span>
+                </button>
+              </div>
             </div>
 
             {/* Tổng kết tiền & Ghi chú */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>
+                <label style={{ display: 'block', fontSize: '13.75px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>
                   Ghi chú / Điều khoản giao hàng
                 </label>
                 <textarea
@@ -1116,11 +1100,11 @@ export const QuotationsPage: React.FC = () => {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <div style={{ width: '100%', maxWidth: '360px', backgroundColor: '#FAFAFA', padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14.3px' }}>
                     <span style={{ color: '#4B5563' }}>Cộng tiền hàng:</span>
                     <strong style={{ color: '#111827' }}>{formatMoney(subtotal)}</strong>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14.3px' }}>
                     <span style={{ color: '#4B5563' }}>Thuế suất VAT:</span>
                     <select
                       className="input"
@@ -1133,11 +1117,11 @@ export const QuotationsPage: React.FC = () => {
                       <option value="0">0%</option>
                     </select>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#6B7280' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14.3px', color: '#6B7280' }}>
                     <span>Tiền thuế VAT:</span>
                     <span>{formatMoney(vatAmount)}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: '700', color: '#E53935', paddingTop: '0.75rem', borderTop: '1px solid #E5E7EB' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '17.6px', fontWeight: '700', color: '#E53935', paddingTop: '0.75rem', borderTop: '1px solid #E5E7EB' }}>
                     <span>TỔNG CỘNG:</span>
                     <span>{formatMoney(totalAmount)}</span>
                   </div>
@@ -1241,7 +1225,7 @@ export const QuotationsPage: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       {/* Thanh công cụ */}
       <div
         className="card"
@@ -1250,8 +1234,8 @@ export const QuotationsPage: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '0.75rem',
-          padding: '1rem 1.25rem'
+          gap: '0.5rem',
+          padding: '0.55rem 1rem'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '280px' }}>
@@ -1285,59 +1269,15 @@ export const QuotationsPage: React.FC = () => {
 
         <div style={{ display: 'flex', gap: '0.5rem', position: 'relative' }}>
           {/* Nút Tùy chỉnh cột */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowColumnConfig(!showColumnConfig)}
-              className="btn btn-secondary"
-              title="Tùy biến hiển thị các cột trên bảng"
-            >
-              <Columns size={16} />
-              <span>Tùy chỉnh cột</span>
-            </button>
-
-            {showColumnConfig && (
-              <div
-                style={{
-                  position: 'absolute',
-                  right: 0,
-                  top: '100%',
-                  marginTop: '0.5rem',
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '12px',
-                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-                  border: '1px solid #E5E7EB',
-                  padding: '1rem',
-                  width: '240px',
-                  zIndex: 50
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid #F3F4F6' }}>
-                  <span style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>Cột hiển thị</span>
-                  <button
-                    onClick={resetColumns}
-                    style={{ background: 'none', border: 'none', color: '#E53935', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
-                  >
-                    <RotateCcw size={11} />
-                    <span>Mặc định</span>
-                  </button>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '220px', overflowY: 'auto' }}>
-                  {columnOrder.map((key) => (
-                    <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '13px', color: '#374151', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={visibleColumns[key] ?? true}
-                        onChange={() => toggleColumnVisibility(key)}
-                        disabled={key === 'code' || key === 'customer'}
-                        style={{ accentColor: '#E53935' }}
-                      />
-                      <span>{columnLabels[key]}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <ColumnCustomizerDropdown
+            columnOrder={columnOrder}
+            columnLabels={columnLabels}
+            visibleColumns={visibleColumns}
+            onToggleColumn={toggleColumnVisibility}
+            onReorderColumns={handleReorderColumns}
+            onReset={resetColumns}
+            disabledKeys={['code', 'customer']}
+          />
 
           <button onClick={handleExportExcel} className="btn btn-secondary" title="Xuất danh sách báo giá ra file Excel">
             <FileSpreadsheet size={16} />
@@ -1373,29 +1313,15 @@ export const QuotationsPage: React.FC = () => {
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      draggable={colKey !== 'actions' && colKey !== 'stt'}
-                      onDragStart={(e) => handleDragStart(e, colKey)}
-                      onDragOver={(e) => handleDragOver(e, colKey)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, colKey)}
                       className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${
                         colKey === 'actions' ? 'sticky-action-th' : ''
-                      } ${
-                        dragOverCol === colKey ? 'bg-red-100 border-l-2 border-[#E53935]' : ''
-                      } ${draggedCol === colKey ? 'opacity-50' : ''}`}
+                      }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 120}px`,
-                        position: colKey === 'actions' ? 'sticky' : 'relative',
-                        cursor: colKey !== 'actions' && colKey !== 'stt' ? 'grab' : 'default'
+                        position: colKey === 'actions' ? 'sticky' : 'relative'
                       }}
-                      title={colKey !== 'actions' && colKey !== 'stt' ? 'Kéo thả để thay đổi vị trí cột' : undefined}
                     >
-                      <div
-                        className="inline-flex items-center justify-center gap-1.5 w-full"
-                      >
-                        {colKey !== 'actions' && colKey !== 'stt' && (
-                          <GripVertical size={13} className="text-gray-400 opacity-70 shrink-0" />
-                        )}
+                      <div className="inline-flex items-center justify-center gap-1.5 w-full">
                         <span className="whitespace-nowrap select-none font-semibold">{columnLabels[colKey]}</span>
                       </div>
                       {colKey !== 'actions' && (
@@ -1403,7 +1329,7 @@ export const QuotationsPage: React.FC = () => {
                           className="col-resizer"
                           onMouseDown={(e) => startResize(colKey, e)}
                           onClick={(e) => e.stopPropagation()}
-                          title="Kéo sang trái/phải để điều chỉnh độ rộng cột"
+                          title="Kéo để chỉnh độ rộng"
                         />
                       )}
                     </th>
@@ -1509,8 +1435,18 @@ export const QuotationsPage: React.FC = () => {
                             );
                           case 'status':
                             return (
-                              <td key={colKey} className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
-                                {getStatusBadge(q.status)}
+                              <td
+                                key={colKey}
+                                className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="flex items-center justify-center">
+                                  <StatusBadgeDropdown
+                                    value={q.status}
+                                    options={QUOTATION_STATUS_OPTIONS}
+                                    onChange={(newStatus) => handleStatusChange(q.id, newStatus)}
+                                  />
+                                </div>
                               </td>
                             );
                           case 'actions':

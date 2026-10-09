@@ -207,48 +207,42 @@ export const SalesReportsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       {/* HEADER TỔNG & TABS CHỌN BÁO CÁO */}
-      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-[#E53935]" />
-            Báo Cáo Bán Hàng & Quản Trị Công Nợ VPP
+          <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-namkhanh-50 text-namkhanh-600 flex items-center justify-center font-bold shadow-inner">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+            <span>Báo Cáo Bán Hàng & Quản Trị Công Nợ VPP</span>
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-slate-500 mt-1 font-medium">
             Hệ thống báo cáo tài chính nội bộ Công ty TNHH NK Nam Khánh
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="pill-nav">
             <button
               onClick={() => setActiveTab('revenue')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                activeTab === 'revenue'
-                  ? 'bg-white text-[#E53935] shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`pill-tab-item flex items-center gap-2 ${activeTab === 'revenue' ? 'pill-tab-item-active' : ''}`}
             >
               <BarChart3 className="w-4 h-4" />
-              Báo cáo Doanh thu & Sản lượng
+              <span>Báo cáo Doanh thu & Sản lượng</span>
             </button>
             <button
               onClick={() => setActiveTab('debts')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                activeTab === 'debts'
-                  ? 'bg-white text-[#E53935] shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`pill-tab-item flex items-center gap-2 ${activeTab === 'debts' ? 'pill-tab-item-active' : ''}`}
             >
               <AlertCircle className="w-4 h-4" />
-              Báo cáo Công nợ Phải thu
+              <span>Báo cáo Công nợ Phải thu</span>
             </button>
           </div>
 
           <button
             onClick={handleExportExcel}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-medium transition-colors shadow-sm cursor-pointer whitespace-nowrap"
+            className="btn btn-secondary text-xs flex items-center gap-1.5 shadow-sm"
             title="Xuất bảng báo cáo sang file Excel/CSV"
           >
             <Download className="w-4 h-4 text-emerald-600" />
@@ -257,7 +251,7 @@ export const SalesReportsPage: React.FC = () => {
 
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-xs font-medium transition-colors shadow-sm cursor-pointer whitespace-nowrap"
+            className="btn btn-secondary text-xs flex items-center gap-1.5 shadow-sm"
           >
             <Printer className="w-4 h-4" />
             <span>In báo cáo</span>
@@ -269,56 +263,44 @@ export const SalesReportsPage: React.FC = () => {
       {activeTab === 'revenue' && (
         <div className="space-y-6">
           {/* Sub-view selection */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gray-700">Góc nhìn phân tích:</span>
-              <div className="inline-flex rounded-lg border border-gray-200 p-1 bg-gray-50">
+          <div className="card p-4 rounded-3xl border border-slate-100/80 shadow-card flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Góc nhìn:</span>
+              <div className="pill-nav">
                 <button
                   onClick={() => setRevenueView('category')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                    revenueView === 'category'
-                      ? 'bg-white text-[#E53935] shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`pill-tab-item flex items-center gap-1.5 ${revenueView === 'category' ? 'pill-tab-item-active' : ''}`}
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  Theo Nhóm hàng VPP
+                  <span>Theo Nhóm hàng VPP</span>
                 </button>
                 <button
                   onClick={() => setRevenueView('product')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                    revenueView === 'product'
-                      ? 'bg-white text-[#E53935] shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`pill-tab-item flex items-center gap-1.5 ${revenueView === 'product' ? 'pill-tab-item-active' : ''}`}
                 >
                   <Package className="w-3.5 h-3.5" />
-                  Theo Từng mặt hàng VPP
+                  <span>Theo Mặt hàng VPP</span>
                 </button>
                 <button
                   onClick={() => setRevenueView('manager')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                    revenueView === 'manager'
-                      ? 'bg-white text-[#E53935] shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`pill-tab-item flex items-center gap-1.5 ${revenueView === 'manager' ? 'pill-tab-item-active' : ''}`}
                 >
                   <Users className="w-3.5 h-3.5" />
-                  Theo Nhân viên phụ trách
+                  <span>Theo Nhân viên phụ trách</span>
                 </button>
               </div>
             </div>
 
             <div className="text-right">
-              <span className="text-xs text-gray-500">Tổng doanh thu toàn hệ thống:</span>
-              <span className="text-base font-black text-[#E53935] ml-2">
+              <span className="text-xs text-slate-500 font-medium">Tổng doanh thu toàn hệ thống:</span>
+              <span className="text-lg font-black text-namkhanh-600 ml-2">
                 {formatVND(revenueData.totalRevenue)}
               </span>
             </div>
           </div>
 
           {/* Bảng dữ liệu chi tiết */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="card rounded-3xl border border-slate-100/80 shadow-card overflow-hidden p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
@@ -409,69 +391,75 @@ export const SalesReportsPage: React.FC = () => {
       {/* TAB 2: BÁO CÁO CÔNG NỢ PHẢI THU */}
       {activeTab === 'debts' && (
         <div className="space-y-6">
-          {/* 4 Thẻ tóm tắt công nợ */}
+          {/* 4 Thẻ tóm tắt công nợ Quixotic cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-xs font-medium text-gray-500 uppercase">Tổng doanh số xuất bán</p>
-              <p className="text-2xl font-black text-gray-900 mt-1">
+            <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card hover:shadow-card-hover transition-all">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng doanh số xuất bán</p>
+              <p className="text-2xl font-black text-slate-900 mt-2">
                 {formatVND(debtsData.summary.totalPurchased)}
               </p>
-              <p className="text-xs text-gray-400 mt-1">Gồm thuế VAT 8%</p>
+              <p className="text-xs text-slate-400 mt-1 font-medium">Gồm thuế VAT 8%</p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-xs font-medium text-gray-500 uppercase">Tổng tiền đã thu</p>
-              <p className="text-2xl font-black text-emerald-600 mt-1">
+            <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card hover:shadow-card-hover transition-all">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng tiền đã thu</p>
+                <span className="stat-pill-green text-[11px] font-bold">Thực thu</span>
+              </div>
+              <p className="text-2xl font-black text-emerald-600 mt-2">
                 {formatVND(debtsData.summary.totalPaid)}
               </p>
-              <p className="text-xs text-emerald-700 mt-1">Đã vào tài khoản hoặc tiền mặt</p>
+              <p className="text-xs text-emerald-700/80 mt-1 font-medium">Đã vào tài khoản hoặc tiền mặt</p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-red-200 shadow-sm bg-red-50/20">
-              <p className="text-xs font-semibold text-[#E53935] uppercase">Tổng nợ còn phải thu</p>
-              <p className="text-2xl font-black text-[#E53935] mt-1">
+            <div className="card p-6 rounded-3xl border border-rose-100/80 shadow-card hover:shadow-card-hover transition-all bg-gradient-to-br from-rose-50/40 to-white">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-namkhanh-700 uppercase tracking-wider">Tổng nợ còn phải thu</p>
+                <span className="stat-pill-red text-[11px] font-bold">Cần thu</span>
+              </div>
+              <p className="text-2xl font-black text-namkhanh-600 mt-2">
                 {formatVND(debtsData.summary.totalDebt)}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Công thức: Doanh số - Đã thu</p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Công thức: Doanh số - Đã thu</p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-xs font-medium text-gray-500 uppercase">Khách hàng đang nợ</p>
-              <p className="text-2xl font-black text-amber-600 mt-1">
+            <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card hover:shadow-card-hover transition-all">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Khách hàng đang nợ</p>
+              <p className="text-2xl font-black text-amber-600 mt-2">
                 {debtsData.summary.customerWithDebtCount} khách
               </p>
-              <p className="text-xs text-amber-700 mt-1">Cần theo dõi đôn đốc thanh toán</p>
+              <p className="text-xs text-amber-700/80 mt-1 font-medium">Cần theo dõi đôn đốc thanh toán</p>
             </div>
           </div>
 
           {/* Ô tìm kiếm khách nợ */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="card p-4 rounded-3xl border border-slate-100/80 shadow-card flex flex-col sm:flex-row justify-between items-center gap-4">
             <form onSubmit={handleDebtSearchSubmit} className="flex gap-2 w-full sm:w-96">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Tìm theo tên khách, mã KH, SĐT..."
                   value={debtSearch}
                   onChange={(e) => setDebtSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+                  className="input input-pill pl-10 text-sm font-medium"
                 />
               </div>
               <button
                 type="submit"
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-sm font-medium"
+                className="btn btn-secondary text-xs shadow-sm px-5"
               >
                 Tìm
               </button>
             </form>
 
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-slate-500 font-medium">
               Hiển thị: <strong>{debtsData.customers.length}</strong> khách hàng có lịch sử giao dịch
             </span>
           </div>
 
           {/* Bảng danh sách công nợ chi tiết */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="card rounded-3xl border border-slate-100/80 shadow-card overflow-hidden p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>

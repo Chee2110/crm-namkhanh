@@ -3,6 +3,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginPage } from './pages/auth/LoginPage';
 import { Layout } from './components/layout/Layout';
 import { GlobalLoadingIndicator } from './components/common/GlobalLoadingIndicator';
+import { ConcurrentLoginModal } from './components/common/ConcurrentLoginModal';
+import { MaintenanceModal } from './components/common/MaintenanceModal';
+import { WelcomeBackModal } from './components/common/WelcomeBackModal';
 
 // Phân hệ Quản trị nền tảng
 import { DepartmentsPage } from './pages/system/DepartmentsPage';
@@ -84,7 +87,7 @@ const getTabFromUrl = (): string => {
 
 const TAB_TITLES: Record<string, string> = {
   dashboard: 'Dashboard điều hành',
-  customers: 'Khách hàng & Bàn giao',
+  customers: 'Khách hàng',
   quotations: 'Quản lý Báo giá',
   orders: 'Quản lý Đơn hàng',
   'sales-overview': 'Doanh thu & Sản lượng',
@@ -107,7 +110,16 @@ const TAB_TITLES: Record<string, string> = {
 };
 
 const AppContent: React.FC = () => {
-  const { user, isLoading } = useAuth();
+  const {
+    user,
+    isLoading,
+    concurrentLoginInfo,
+    clearConcurrentLoginInfo,
+    isMaintenanceActive,
+    setIsMaintenanceActive,
+    welcomeBackNotice,
+    dismissWelcomeBackNotice
+  } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>(() => getTabFromUrl());
   const [selectedRoleForPerms, setSelectedRoleForPerms] = useState<string | undefined>(undefined);
 
@@ -116,6 +128,7 @@ const AppContent: React.FC = () => {
     const handleUrlChange = () => {
       const tabFromUrl = getTabFromUrl();
       setCurrentTab(tabFromUrl);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     window.addEventListener('hashchange', handleUrlChange);
@@ -144,6 +157,7 @@ const AppContent: React.FC = () => {
         window.location.hash = `/${tab}`;
       }
       setCurrentTab(tab);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -182,15 +196,11 @@ const AppContent: React.FC = () => {
             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
         </div>
-        <div style={{ color: '#E53935', fontSize: '15px', fontWeight: '600' }}>
+        <div style={{ color: '#E53935', fontSize: '16.5px', fontWeight: '600' }}>
           Đang khởi động CRM Công ty TNHH NK Nam Khánh...
         </div>
       </div>
     );
-  }
-
-  if (!user) {
-    return <LoginPage />;
   }
 
   const handleNavigateToPermissions = (roleId: string) => {
@@ -255,9 +265,39 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <Layout currentTab={currentTab} onSelectTab={handleSelectTab}>
-      {renderContent()}
-    </Layout>
+    <>
+      {/* Popup thông báo khi tài khoản bị đăng nhập từ thiết bị khác */}
+      <ConcurrentLoginModal
+        isOpen={Boolean(concurrentLoginInfo)}
+        info={concurrentLoginInfo}
+        onClose={clearConcurrentLoginInfo}
+      />
+
+      {/* Màn hình thông báo bảo trì hệ thống (cho nhân viên không phải ADMIN) */}
+      <MaintenanceModal
+        isOpen={isMaintenanceActive && (!user || !user.roles.includes('ADMIN'))}
+        onMaintenanceEnded={() => {
+          setIsMaintenanceActive(false);
+          window.location.reload();
+        }}
+      />
+
+      {/* Popup chào mừng quay trở lại sau khi bảo trì xong */}
+      <WelcomeBackModal
+        isOpen={welcomeBackNotice}
+        onClose={dismissWelcomeBackNotice}
+      />
+
+      {!user ? (
+        <LoginPage />
+      ) : (
+        <Layout currentTab={currentTab} onSelectTab={handleSelectTab}>
+          <div key={currentTab} className="page-transition-enter">
+            {renderContent()}
+          </div>
+        </Layout>
+      )}
+    </>
   );
 };
 

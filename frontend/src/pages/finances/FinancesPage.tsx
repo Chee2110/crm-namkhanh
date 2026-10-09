@@ -48,6 +48,21 @@ import {
 } from '../../types';
 import { useTableResize } from '../../hooks/useTableResize';
 import { VoucherPrintModal } from './components/VoucherPrintModal';
+import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
+import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+
+const RECEIPT_STATUS_OPTIONS: StatusOption[] = [
+  { value: 'PENDING', label: 'Chờ phê duyệt', colorClass: 'bg-amber-50 text-amber-700 border-amber-300' },
+  { value: 'PAID', label: 'Đã thu tiền', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+  { value: 'REJECTED', label: 'Từ chối', colorClass: 'bg-red-50 text-red-700 border-red-300' }
+];
+
+const PAYMENT_STATUS_OPTIONS: StatusOption[] = [
+  { value: 'PENDING', label: 'Chờ duyệt', colorClass: 'bg-amber-50 text-amber-700 border-amber-300' },
+  { value: 'APPROVED', label: 'Đã duyệt chi', colorClass: 'bg-blue-50 text-blue-700 border-blue-300' },
+  { value: 'PAID', label: 'Đã chi tiền', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+  { value: 'REJECTED', label: 'Từ chối chi', colorClass: 'bg-red-50 text-red-700 border-red-300' }
+];
 
 export const FinancesPage: React.FC = () => {
   const { user, hasPermission } = useAuth();
@@ -855,32 +870,32 @@ export const FinancesPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* TIÊU ĐỀ PHÂN HỆ & CÁC TAB ĐIỀU HƯỚNG */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#E53935]">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#EA332A]">
             <Receipt className="w-4 h-4" />
-            <span>Phân Hệ E • Sprint 4</span>
+            <span>Phân Hệ Tài Chính • Doanh Nghiệp Nam Khánh</span>
           </div>
-          <h1 className="text-xl font-black text-gray-900 mt-1">
+          <h1 className="text-xl md:text-2xl font-black text-slate-900 mt-1">
             Quản Lý Thu - Chi & Tài Chính Doanh Nghiệp
           </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
             Theo dõi dòng tiền, gạch nợ đơn hàng tự động và kiểm soát tính bất biến chứng từ tài chính
           </p>
         </div>
 
-        {/* Nút hành động nhanh */}
-        <div className="flex items-center gap-2">
+        {/* Nút hành động nhanh dạng Pill */}
+        <div className="flex items-center gap-2.5">
           {hasPermission('E_RECEIPT_VOUCHERS', 'create') && (
             <button
               onClick={() => {
                 resetReceiptForm();
                 setIsReceiptModalOpen(true);
               }}
-              className="btn-primary text-xs px-3.5 py-2"
+              className="btn btn-primary text-xs shadow-md"
             >
               <ArrowDownLeft className="w-4 h-4" />
-              Lập phiếu thu
+              <span>+ Lập phiếu thu</span>
             </button>
           )}
 
@@ -890,82 +905,64 @@ export const FinancesPage: React.FC = () => {
                 resetPaymentForm();
                 setIsPaymentModalOpen(true);
               }}
-              className="btn-secondary text-xs px-3.5 py-2 border-red-200 text-[#E53935] hover:bg-red-50"
+              className="btn btn-secondary text-xs border-red-200 text-[#EA332A] hover:bg-red-50"
             >
               <ArrowUpRight className="w-4 h-4" />
-              Lập phiếu chi
+              <span>+ Lập phiếu chi</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* 5 TABS CHÍNH */}
-      <div className="flex items-center gap-2 border-b border-gray-100 overflow-x-auto pb-1 text-sm font-semibold">
-        <button
-          onClick={() => {
-            setActiveTab('receipts');
-            setStatusFilter('ALL');
-          }}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all ${
-            activeTab === 'receipts'
-              ? 'bg-red-50 text-[#E53935] border-b-2 border-[#E53935]'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-          }`}
-        >
-          <ArrowDownLeft className="w-4 h-4 text-green-600" />
-          Phiếu thu tiền ({receipts.length})
-        </button>
+      {/* 5 TABS CHÍNH DẠNG PILL SEGMENTED CONTROL */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-sm font-semibold">
+        <div className="pill-nav shadow-xs">
+          <button
+            onClick={() => {
+              setActiveTab('receipts');
+              setStatusFilter('ALL');
+            }}
+            className={`pill-tab-item ${activeTab === 'receipts' ? 'active' : ''}`}
+          >
+            <ArrowDownLeft className={`w-4 h-4 ${activeTab === 'receipts' ? 'text-white' : 'text-emerald-600'}`} />
+            <span>Phiếu thu tiền ({receipts.length})</span>
+          </button>
 
-        <button
-          onClick={() => {
-            setActiveTab('payments');
-            setStatusFilter('ALL');
-          }}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all ${
-            activeTab === 'payments'
-              ? 'bg-red-50 text-[#E53935] border-b-2 border-[#E53935]'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-          }`}
-        >
-          <ArrowUpRight className="w-4 h-4 text-red-600" />
-          Phiếu chi tiền ({payments.length})
-        </button>
+          <button
+            onClick={() => {
+              setActiveTab('payments');
+              setStatusFilter('ALL');
+            }}
+            className={`pill-tab-item ${activeTab === 'payments' ? 'active' : ''}`}
+          >
+            <ArrowUpRight className={`w-4 h-4 ${activeTab === 'payments' ? 'text-white' : 'text-rose-600'}`} />
+            <span>Phiếu chi tiền ({payments.length})</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all ${
-            activeTab === 'reports'
-              ? 'bg-red-50 text-[#E53935] border-b-2 border-[#E53935]'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-          }`}
-        >
-          <TrendingUp className="w-4 h-4 text-blue-600" />
-          Báo cáo dòng tiền
-        </button>
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`pill-tab-item ${activeTab === 'reports' ? 'active' : ''}`}
+          >
+            <TrendingUp className={`w-4 h-4 ${activeTab === 'reports' ? 'text-white' : 'text-blue-600'}`} />
+            <span>Báo cáo dòng tiền</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('categories')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all ${
-            activeTab === 'categories'
-              ? 'bg-red-50 text-[#E53935] border-b-2 border-[#E53935]'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-          }`}
-        >
-          <Layers className="w-4 h-4 text-purple-600" />
-          Danh mục chi phí ({categories.length})
-        </button>
+          <button
+            onClick={() => setActiveTab('categories')}
+            className={`pill-tab-item ${activeTab === 'categories' ? 'active' : ''}`}
+          >
+            <Layers className={`w-4 h-4 ${activeTab === 'categories' ? 'text-white' : 'text-purple-600'}`} />
+            <span>Danh mục chi phí ({categories.length})</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('revenue-types')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all ${
-            activeTab === 'revenue-types'
-              ? 'bg-red-50 text-[#E53935] border-b-2 border-[#E53935]'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-          }`}
-        >
-          <Tag className="w-4 h-4 text-amber-600" />
-          Nhóm khoản thu ({revenueTypes.length})
-        </button>
+          <button
+            onClick={() => setActiveTab('revenue-types')}
+            className={`pill-tab-item ${activeTab === 'revenue-types' ? 'active' : ''}`}
+          >
+            <Tag className={`w-4 h-4 ${activeTab === 'revenue-types' ? 'text-white' : 'text-amber-600'}`} />
+            <span>Nhóm khoản thu ({revenueTypes.length})</span>
+          </button>
+        </div>
       </div>
 
       {/* ======================================================== */}
@@ -1010,45 +1007,13 @@ export const FinancesPage: React.FC = () => {
               </button>
 
               {/* Menu ẩn/hiện cột Phiếu thu */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsReceiptsColDropdownOpen(!isReceiptsColDropdownOpen)}
-                  className="btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-3 whitespace-nowrap cursor-pointer"
-                  title="Tùy biến hiển thị các cột trên bảng phiếu thu"
-                >
-                  <Columns className="w-4 h-4 text-gray-500" />
-                  <span>Tùy chỉnh cột</span>
-                </button>
-
-                {isReceiptsColDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 p-3 z-30 space-y-1.5 text-xs">
-                    <div className="font-bold text-gray-800 pb-1.5 border-b border-gray-100 flex justify-between items-center">
-                      <span>Cột hiển thị</span>
-                      <button
-                        onClick={resetReceiptsCols}
-                        className="text-red-600 hover:text-red-700 flex items-center gap-1 font-medium cursor-pointer"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        <span>Mặc định</span>
-                      </button>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto space-y-1">
-                      {Object.keys(receiptsColLabels).map((key) => (
-                        <label key={key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                          <input
-                            type="checkbox"
-                            checked={receiptsVisibleCols[key] ?? true}
-                            onChange={() => toggleReceiptsCol(key)}
-                            disabled={key === 'code' || key === 'amount'}
-                            className="rounded text-[#E53935]"
-                          />
-                          <span>{receiptsColLabels[key]}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ColumnCustomizerDropdown
+                columnLabels={receiptsColLabels}
+                visibleColumns={receiptsVisibleCols}
+                onToggleColumn={toggleReceiptsCol}
+                onReset={resetReceiptsCols}
+                disabledKeys={['code', 'amount']}
+              />
             </div>
           </div>
 
@@ -1110,7 +1075,7 @@ export const FinancesPage: React.FC = () => {
                       </th>
                     )}
                     {receiptsVisibleCols.status && (
-                      <th className="table-th select-none" style={{ width: `${receiptWidths.status || defaultReceiptWidths.status}px`, position: 'relative' }}>
+                      <th className="table-th text-center select-none" style={{ width: `${receiptWidths.status || defaultReceiptWidths.status}px`, position: 'relative' }}>
                         <span>Trạng thái</span>
                         <div className="col-resizer" onMouseDown={(e) => startReceiptResize('status', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                       </th>
@@ -1192,8 +1157,22 @@ export const FinancesPage: React.FC = () => {
                           </td>
                         )}
                         {receiptsVisibleCols.status && (
-                          <td className="table-td whitespace-nowrap overflow-hidden">
-                            {renderStatusBadge(r.status)}
+                          <td
+                            className="table-td text-center whitespace-nowrap overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-center">
+                              <StatusBadgeDropdown
+                                value={r.status}
+                                options={RECEIPT_STATUS_OPTIONS}
+                                disabled={r.status === 'PAID'}
+                                onChange={(newStatus) => {
+                                  if (newStatus === r.status) return;
+                                  if (newStatus === 'PAID') handleApproveReceipt(r.id, 'PAID');
+                                  else if (newStatus === 'REJECTED') handleApproveReceipt(r.id, 'REJECT');
+                                }}
+                              />
+                            </div>
                           </td>
                         )}
                         {receiptsVisibleCols.actions && (
@@ -1315,45 +1294,13 @@ export const FinancesPage: React.FC = () => {
               </button>
 
               {/* Menu ẩn/hiện cột Phiếu chi */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsPaymentsColDropdownOpen(!isPaymentsColDropdownOpen)}
-                  className="btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-3 whitespace-nowrap cursor-pointer"
-                  title="Tùy biến hiển thị các cột trên bảng phiếu chi"
-                >
-                  <Columns className="w-4 h-4 text-gray-500" />
-                  <span>Tùy chỉnh cột</span>
-                </button>
-
-                {isPaymentsColDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 p-3 z-30 space-y-1.5 text-xs">
-                    <div className="font-bold text-gray-800 pb-1.5 border-b border-gray-100 flex justify-between items-center">
-                      <span>Cột hiển thị</span>
-                      <button
-                        onClick={resetPaymentsCols}
-                        className="text-red-600 hover:text-red-700 flex items-center gap-1 font-medium cursor-pointer"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        <span>Mặc định</span>
-                      </button>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto space-y-1">
-                      {Object.keys(paymentsColLabels).map((key) => (
-                        <label key={key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                          <input
-                            type="checkbox"
-                            checked={paymentsVisibleCols[key] ?? true}
-                            onChange={() => togglePaymentsCol(key)}
-                            disabled={key === 'code' || key === 'amount'}
-                            className="rounded text-[#E53935]"
-                          />
-                          <span>{paymentsColLabels[key]}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ColumnCustomizerDropdown
+                columnLabels={paymentsColLabels}
+                visibleColumns={paymentsVisibleCols}
+                onToggleColumn={togglePaymentsCol}
+                onReset={resetPaymentsCols}
+                disabledKeys={['code', 'amount']}
+              />
             </div>
           </div>
 
@@ -1415,7 +1362,7 @@ export const FinancesPage: React.FC = () => {
                       </th>
                     )}
                     {paymentsVisibleCols.status && (
-                      <th className="table-th select-none" style={{ width: `${paymentWidths.status || defaultPaymentWidths.status}px`, position: 'relative' }}>
+                      <th className="table-th text-center select-none" style={{ width: `${paymentWidths.status || defaultPaymentWidths.status}px`, position: 'relative' }}>
                         <span>Trạng thái</span>
                         <div className="col-resizer" onMouseDown={(e) => startPaymentResize('status', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                       </th>
@@ -1487,8 +1434,23 @@ export const FinancesPage: React.FC = () => {
                           </td>
                         )}
                         {paymentsVisibleCols.status && (
-                          <td className="table-td whitespace-nowrap overflow-hidden">
-                            {renderStatusBadge(p.status)}
+                          <td
+                            className="table-td text-center whitespace-nowrap overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-center">
+                              <StatusBadgeDropdown
+                                value={p.status}
+                                options={PAYMENT_STATUS_OPTIONS}
+                                disabled={p.status === 'PAID'}
+                                onChange={(newStatus) => {
+                                  if (newStatus === p.status) return;
+                                  if (newStatus === 'APPROVED') handleApprovePayment(p.id, 'APPROVE');
+                                  else if (newStatus === 'PAID') handleApprovePayment(p.id, 'PAID');
+                                  else if (newStatus === 'REJECTED') handleApprovePayment(p.id, 'REJECT');
+                                }}
+                              />
+                            </div>
                           </td>
                         )}
                         {paymentsVisibleCols.actions && (

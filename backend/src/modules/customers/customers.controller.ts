@@ -5,7 +5,7 @@ import { successResponse, errorResponse } from '../../common/utils/response';
 export class CustomersController {
   async getCustomers(req: Request, res: Response) {
     try {
-      const { search, customerType, source, managerId, status, highDebtOnly } = req.query;
+      const { search, customerType, source, managerId, status, highDebtOnly, minDebt } = req.query;
       const user = (req as any).user;
       const dataScope = (req as any).dataScope || 'ALL';
 
@@ -16,6 +16,7 @@ export class CustomersController {
         managerId: managerId as string,
         status: status as string,
         highDebtOnly: highDebtOnly === 'true',
+        minDebt: minDebt !== undefined && minDebt !== null && minDebt !== '' ? Number(minDebt) : undefined,
         dataScope,
         currentUserId: user?.id,
         departmentId: user?.departmentId
@@ -86,8 +87,11 @@ export class CustomersController {
   async deleteCustomer(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const result = await customersService.deleteCustomer(id);
-      return successResponse(res, result, 'Xóa khách hàng thành công');
+      const result: any = await customersService.deleteCustomer(id);
+      const msg = result.isSoftDeleted
+        ? 'Khách hàng đã có đơn hàng/báo giá phát sinh nên hệ thống chuyển trạng thái sang Tạm dừng (INACTIVE)'
+        : 'Xóa vĩnh viễn khách hàng thành công';
+      return successResponse(res, result, msg);
     } catch (error: any) {
       return errorResponse(res, error.message || 'Lỗi xóa khách hàng', 400);
     }

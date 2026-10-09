@@ -392,6 +392,8 @@ export interface OrderItem {
   amount: number;
   vatRate: number;
   total: number;
+  imageUrl?: string | null;
+  product?: Product | null;
 }
 
 export interface Order {
@@ -710,7 +712,7 @@ export interface DashboardExecutiveKPIs {
 }
 
 export interface DashboardExecutiveOverview {
-  period: 'all' | 'year' | 'month';
+  period: 'all' | 'year' | 'quarter' | 'month';
   kpis: DashboardExecutiveKPIs;
   updatedAt: string;
 }
@@ -746,13 +748,16 @@ export interface TopCustomerStat {
   code: string;
   name: string;
   phone?: string;
+  contactPerson?: string;
+  managerName?: string;
+  latestOrderDate?: string | null;
   orderCount: number;
   totalSpent: number;
   remainingDebt: number;
 }
 
 export interface DashboardRevenueVolume {
-  period: 'all' | 'year' | 'month';
+  period: 'all' | 'year' | 'quarter' | 'month';
   totals: {
     revenue: number;
     volume: number;
@@ -784,7 +789,7 @@ export interface ProfitSummary {
 }
 
 export interface DashboardProfit {
-  period: 'all' | 'year' | 'month';
+  period: 'all' | 'year' | 'quarter' | 'month';
   summary: ProfitSummary;
   categoryProfits: CategoryProfit[];
   updatedAt: string;

@@ -150,9 +150,9 @@ export class ProductsController {
       const imageUrl = `/uploads/${req.file.filename}`;
       if (id) {
         const result = await productsService.updateProduct(id, { imageUrl });
-        return successResponse(res, result, 'Tải lên hình ảnh sản phẩm thành công');
+        return successResponse(res, { ...result, imageUrl, url: imageUrl }, 'Tải lên hình ảnh sản phẩm thành công');
       }
-      return successResponse(res, { imageUrl }, 'Tải lên hình ảnh sản phẩm thành công');
+      return successResponse(res, { imageUrl, url: imageUrl }, 'Tải lên hình ảnh sản phẩm thành công');
     } catch (error: any) {
       return errorResponse(res, error.message || 'Lỗi tải lên hình ảnh sản phẩm', 400);
     }

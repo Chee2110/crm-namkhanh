@@ -2,26 +2,21 @@ import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   DollarSign,
-  Package,
   ShoppingBag,
   Users,
   CreditCard,
   AlertCircle,
-  Calendar,
-  Layers,
-  ArrowUpRight,
-  ArrowDownLeft,
   Sparkles,
   RefreshCw,
   Printer,
-  Boxes,
   PieChart as PieIcon,
   BarChart3,
-  ShieldCheck,
+  FileSpreadsheet,
+  ChevronLeft,
   ChevronRight,
-  ArrowRight,
-  Target,
-  FileSpreadsheet
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -31,14 +26,18 @@ import {
   DashboardProfit
 } from '../../types';
 
-// Bảng màu 6 màu chuẩn Nam Khánh theo Checklist VII.1
+// Bảng màu nhận diện chuẩn Nam Khánh theo Logo (Đỏ - Xanh dương - Xanh lá - Vàng nắng)
 const CHART_PALETTE = [
-  '#E53935', // 1. Đỏ Nam Khánh
-  '#1E88E5', // 2. Xanh dương
-  '#43A047', // 3. Xanh lá
-  '#FB8C00', // 4. Cam tươi
-  '#8E24AA', // 5. Tím hoa cà
-  '#FDD835'  // 6. Vàng nắng
+  '#EA332A', // 1. Đỏ Nam Khánh
+  '#1A7FED', // 2. Xanh dương
+  '#22BB4E', // 3. Xanh lá
+  '#F9BB12', // 4. Vàng nắng
+  '#8B5CF6', // 5. Tím phụ trợ
+  '#06B6D4', // 6. Xanh ngọc Cyan
+  '#EC4899', // 7. Hồng cánh sen
+  '#F97316', // 8. Cam tươi
+  '#14B8A6', // 9. Xanh Teal
+  '#6366F1'  // 10. Chàm Indigo
 ];
 
 interface DashboardPageProps {
@@ -51,6 +50,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
   const [activeSubTab, setActiveSubTab] = useState<'revenue' | 'profit'>('revenue');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [categoryPage, setCategoryPage] = useState(1);
+  const [categorySortBy, setCategorySortBy] = useState<
+    'revenue_desc' | 'revenue_asc' | 'volume_desc' | 'volume_asc' | 'name_asc'
+  >('revenue_desc');
+  const CATEGORIES_PER_PAGE = 10;
 
   const [overview, setOverview] = useState<DashboardExecutiveOverview | null>(null);
   const [revenueVolume, setRevenueVolume] = useState<DashboardRevenueVolume | null>(null);
@@ -80,6 +84,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
   };
 
   useEffect(() => {
+    setCategoryPage(1);
     loadDashboard();
   }, [period]);
 
@@ -87,46 +92,88 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
   };
 
+  const currentYearNum = new Date().getFullYear();
+  const currentMonthNum = new Date().getMonth() + 1;
+
   const getPeriodText = () => {
-    if (period === 'month') return 'Tháng này (Thg 9/2026)';
-    if (period === 'year') return 'Năm nay (2026)';
+    if (period === 'month') return `Tháng này (Thg ${currentMonthNum}/${currentYearNum})`;
+    if (period === 'year') return `Năm nay (${currentYearNum})`;
     return 'Lũy kế toàn bộ';
   };
 
-  const maxMonthlyRevenue = revenueVolume?.monthlyData
-    ? Math.max(...revenueVolume.monthlyData.map((m) => m.revenue), 1)
-    : 1;
+  // Mảng chuẩn 12 tháng từ T1 đến T12
+  const all12Months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((mNum) => {
+    const found = revenueVolume?.monthlyData?.find(
+      (m) => m.monthNumber === mNum || m.month === `Thg ${mNum}` || m.month === `T${mNum}`
+    );
+    return {
+      monthNumber: mNum,
+      label: `T${mNum}`,
+      fullLabel: `Tháng ${mNum}`,
+      revenue: found?.revenue || 0,
+      orderCount: found?.orderCount || 0
+    };
+  });
+
+  const maxMonthlyRevenue = Math.max(
+    ...all12Months.map((m) => m.revenue),
+    1
+  );
+
+  const sortedCategories = React.useMemo(() => {
+    const list = [...(revenueVolume?.categoryBreakdown || [])];
+    switch (categorySortBy) {
+      case 'revenue_desc':
+        return list.sort((a, b) => (Number(b.revenue) || 0) - (Number(a.revenue) || 0));
+      case 'revenue_asc':
+        return list.sort((a, b) => (Number(a.revenue) || 0) - (Number(b.revenue) || 0));
+      case 'volume_desc':
+        return list.sort((a, b) => (Number(b.volume) || 0) - (Number(a.volume) || 0));
+      case 'volume_asc':
+        return list.sort((a, b) => (Number(a.volume) || 0) - (Number(b.volume) || 0));
+      case 'name_asc':
+        return list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+      default:
+        return list;
+    }
+  }, [revenueVolume?.categoryBreakdown, categorySortBy]);
+
+  const totalCategoryPages = Math.max(1, Math.ceil(sortedCategories.length / CATEGORIES_PER_PAGE));
+  const paginatedCategories = sortedCategories.slice(
+    (categoryPage - 1) * CATEGORIES_PER_PAGE,
+    categoryPage * CATEGORIES_PER_PAGE
+  );
 
   return (
     <div className="space-y-6 pb-12">
       {/* ================= HEADER ĐIỀU HÀNH ================= */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#E53935] animate-pulse"></span>
-            <span className="text-xs font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#EA332A] animate-pulse"></span>
+            <span className="text-xs font-bold uppercase tracking-wider text-[#EA332A] bg-red-50 px-2.5 py-0.5 rounded-full border border-red-100">
               Executive Real-Time Dashboard
             </span>
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 mt-1">
+          <h1 className="text-xl md:text-2xl font-black text-slate-900 mt-1">
             Dashboard Điều Hành Doanh Nghiệp Nam Khánh
           </h1>
-          <p className="text-xs md:text-sm text-gray-500 mt-0.5">
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
             Tổng hợp dữ liệu kinh doanh, doanh số bán lẻ/đại lý, lợi nhuận gộp và dòng tiền thời gian thực
           </p>
         </div>
 
         {/* Bộ lọc kỳ và nút thao tác */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <div className="inline-flex bg-gray-100 p-1 rounded-xl border border-gray-200 text-xs font-medium">
+          <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium">
             <button
               id="period-btn-all"
               type="button"
               onClick={() => setPeriod('all')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 period === 'all'
-                  ? 'bg-white text-gray-900 font-bold shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-slate-900 font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Lũy kế toàn bộ
@@ -137,11 +184,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
               onClick={() => setPeriod('year')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 period === 'year'
-                  ? 'bg-white text-gray-900 font-bold shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-slate-900 font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Năm nay (2026)
+              Năm nay ({currentYearNum})
             </button>
             <button
               id="period-btn-month"
@@ -149,8 +196,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
               onClick={() => setPeriod('month')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 period === 'month'
-                  ? 'bg-white text-gray-900 font-bold shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-slate-900 font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Tháng này
@@ -160,16 +207,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
           <button
             onClick={() => loadDashboard(true)}
             disabled={refreshing}
-            className="btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 text-gray-700 hover:text-gray-900"
+            className="btn btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 text-slate-700 hover:text-slate-900"
             title="Làm mới dữ liệu từ CSDL"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-red-600' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#EA332A]' : ''}`} />
             <span className="hidden sm:inline">Làm mới</span>
           </button>
 
           <button
             onClick={() => window.print()}
-            className="btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 text-gray-700"
+            className="btn btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 text-slate-700"
             title="In báo cáo điều hành"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -178,99 +225,46 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
         </div>
       </div>
 
-      {/* ================= THANH TÁC VỤ NHANH (QUICK ACTION SHORTCUTS) ================= */}
-      <div className="bg-gradient-to-r from-red-500/10 via-amber-500/5 to-transparent p-3.5 rounded-2xl border border-red-100 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#E53935] text-white flex items-center justify-center shadow-xs">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-              <span>Lối tắt tác vụ nhanh</span>
-              <span className="text-[10px] bg-red-100 text-red-700 font-semibold px-1.5 py-0.2 rounded-full">Phổ biến</span>
-            </div>
-            <div className="text-[11px] text-gray-500">Truy cập tức thì các phân hệ nghiệp vụ hàng ngày</div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onNavigateTab?.('orders')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 text-gray-800 hover:text-red-700 border border-gray-200 hover:border-red-200 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
-          >
-            <ShoppingBag className="w-3.5 h-3.5 text-[#E53935]" />
-            <span>+ Lập Đơn Hàng Mới</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigateTab?.('quotations')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-blue-50 text-gray-800 hover:text-blue-700 border border-gray-200 hover:border-blue-200 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-blue-600" />
-            <span>+ Tạo Báo Giá VPP</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigateTab?.('customers')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-50 text-gray-800 hover:text-emerald-700 border border-gray-200 hover:border-emerald-200 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
-          >
-            <Users className="w-3.5 h-3.5 text-emerald-600" />
-            <span>+ Khách Hàng Mới</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigateTab?.('finances')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-purple-50 text-gray-800 hover:text-purple-700 border border-gray-200 hover:border-purple-200 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
-          >
-            <DollarSign className="w-3.5 h-3.5 text-purple-600" />
-            <span>Sổ Quỹ Thu / Chi</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigateTab?.('products')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
-          >
-            <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-            <span>⚠️ Hàng sắp hết tồn</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ================= 6 EXECUTIVE STAT CARDS ================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* ================= 4 EXECUTIVE STAT CARDS ================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Tổng doanh thu thuần */}
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-red-200 transition-all">
+        <div
+          onClick={() => onNavigateTab?.('sales-overview')}
+          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-red-200 transition-all cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Doanh thu thuần</span>
-            <div className="w-8 h-8 rounded-lg bg-red-50 text-[#E53935] flex items-center justify-center">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Doanh thu thuần</span>
+            <div className="w-8 h-8 rounded-xl bg-red-50 text-[#EA332A] flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-bold text-gray-900">
+            <div className="text-xl font-black text-slate-900">
               {formatVND(overview?.kpis.totalRevenue || 0)}
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
-              <span className="font-semibold text-gray-700">{overview?.kpis.orderCount || 0}</span> đơn hàng đã chốt
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+              <span className="font-semibold text-slate-700">{overview?.kpis.orderCount || 0}</span> đơn hàng đã chốt
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#E53935]/80"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#EA332A]"></div>
         </div>
 
         {/* 2. Giá vốn hàng bán (COGS) */}
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-amber-200 transition-all">
+        <div
+          onClick={() => onNavigateTab?.('inventory-overview')}
+          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-amber-200 transition-all cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Giá vốn hàng bán</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Giá vốn hàng bán</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <ShoppingBag className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-bold text-gray-900">
+            <div className="text-xl font-black text-slate-900">
               {formatVND(overview?.kpis.totalCogs || 0)}
             </div>
-            <div className="flex items-center gap-1 text-xs text-amber-600 mt-1 font-medium">
+            <div className="flex items-center gap-1 text-xs text-amber-600 mt-1 font-semibold">
               Sản lượng: {new Intl.NumberFormat('vi-VN').format(overview?.kpis.totalVolume || 0)} SP
             </div>
           </div>
@@ -278,102 +272,66 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
         </div>
 
         {/* 3. Lợi nhuận gộp & Biên lãi */}
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-green-200 transition-all">
+        <div
+          onClick={() => setActiveSubTab('profit')}
+          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-emerald-200 transition-all cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Lợi nhuận gộp</span>
-            <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Lợi nhuận gộp</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-bold text-green-700">
+            <div className="text-xl font-black text-emerald-600">
               {formatVND(overview?.kpis.grossProfit || 0)}
             </div>
-            <div className="flex items-center gap-1 text-xs text-green-600 mt-1 font-semibold">
+            <div className="flex items-center gap-1 text-xs text-emerald-600 mt-1 font-semibold">
               Biên lãi: {overview?.kpis.grossMargin || 0}%
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-500"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
         </div>
 
         {/* 4. Tổng công nợ phải thu */}
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-purple-200 transition-all">
+        <div
+          onClick={() => onNavigateTab?.('customers')}
+          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-purple-200 transition-all cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Công nợ phải thu</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Công nợ phải thu</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
               <CreditCard className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-bold text-purple-700">
+            <div className="text-xl font-black text-purple-700">
               {formatVND(overview?.kpis.totalDebt || 0)}
             </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+            <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
               Chưa thanh toán hết
             </div>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-purple-500"></div>
         </div>
-
-        {/* 5. Dòng tiền ròng thực tế */}
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-blue-200 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Dòng tiền ròng (Net)</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <ArrowDownLeft className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className={`text-xl font-bold ${(overview?.kpis.netCashflow || 0) >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
-              {formatVND(overview?.kpis.netCashflow || 0)}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1 truncate">
-              Thu: {formatVND(overview?.kpis.totalReceipts || 0)}
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500"></div>
-        </div>
-
-        {/* 6. Giá trị tồn kho khả dụng */}
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-slate-300 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Giá trị tồn kho</span>
-            <div className="w-8 h-8 rounded-lg bg-gray-100 text-gray-700 flex items-center justify-center">
-              <Boxes className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-bold text-gray-800">
-              {formatVND(overview?.kpis.totalInventoryValue || 0)}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-              {overview?.kpis.lowStockCount ? (
-                <span className="text-red-500 font-semibold">{overview.kpis.lowStockCount} mặt hàng sắp hết</span>
-              ) : (
-                <span>Tồn kho an toàn</span>
-              )}
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-500"></div>
-        </div>
       </div>
 
-      {/* ================= TABS ĐIỀU HÀNH CHUYÊN SÂU (F-D1 & F-D2) ================= */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* ================= TABS ĐIỀU HÀNH CHUYÊN SÂU ================= */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {/* Navigation Bar */}
-        <div className="flex border-b border-gray-100 px-6 pt-4 gap-8">
+        <div className="flex border-b border-slate-200 px-6 pt-4 gap-8">
           <button
             id="tab-btn-revenue"
             type="button"
             onClick={() => setActiveSubTab('revenue')}
             className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
               activeSubTab === 'revenue'
-                ? 'border-[#E53935] text-[#E53935]'
-                : 'border-transparent text-gray-500 hover:text-gray-900'
+                ? 'border-[#EA332A] text-[#EA332A]'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
             }`}
           >
             <BarChart3 className="w-4 h-4" />
-            [F-D1] Doanh Thu & Sản Lượng
+            Doanh Thu & Sản Lượng
           </button>
           <button
             id="tab-btn-profit"
@@ -381,12 +339,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
             onClick={() => setActiveSubTab('profit')}
             className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
               activeSubTab === 'profit'
-                ? 'border-[#E53935] text-[#E53935]'
-                : 'border-transparent text-gray-500 hover:text-gray-900'
+                ? 'border-[#EA332A] text-[#EA332A]'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
             }`}
           >
             <PieIcon className="w-4 h-4" />
-            [F-D2] Lợi Nhuận Gộp & Phân Tích Biên Lãi
+            Lợi Nhuận Gộp & Phân Tích Biên Lãi
           </button>
         </div>
 
@@ -398,36 +356,41 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
               {/* Biểu đồ biến động 12 tháng & Cơ cấu danh mục */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Cột 1 & 2: Biểu đồ doanh thu 12 tháng */}
-                <div className="lg:col-span-2 bg-gray-50/70 p-5 rounded-xl border border-gray-100">
+                <div className="lg:col-span-2 bg-slate-50/70 p-5 rounded-xl border border-slate-200">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-sm font-bold text-gray-900">Biến động Doanh số 12 Tháng (Năm 2026)</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">Biểu đồ cột thể hiện doanh thu bán hàng thực tế theo từng tháng</p>
+                      <h3 className="text-sm font-bold text-slate-900">Biến động Doanh số 12 Tháng (Năm {currentYearNum})</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Biểu đồ cột thể hiện doanh thu bán hàng thực tế theo từng tháng</p>
                     </div>
-                    <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded">
+                    <span className="text-xs font-semibold text-[#EA332A] bg-red-50 border border-red-100 px-2.5 py-1 rounded-full">
                       Cao nhất: {formatVND(maxMonthlyRevenue)}
                     </span>
                   </div>
 
                   {/* Thanh biểu đồ tùy biến với CSS thuần */}
                   <div className="h-48 flex items-end gap-2 pt-6 pb-2 px-1">
-                    {revenueVolume?.monthlyData.map((m, idx) => {
+                    {all12Months.map((m, idx) => {
+                      const isPeak = m.revenue === maxMonthlyRevenue && m.revenue > 0;
                       const heightPercent = maxMonthlyRevenue > 0 ? (m.revenue / maxMonthlyRevenue) * 100 : 0;
                       return (
                         <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative">
                           {/* Tooltip khi hover */}
-                          <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap z-20 shadow-lg">
-                            <div>{m.month}: {formatVND(m.revenue)}</div>
-                            <div className="text-gray-400">{m.orderCount} đơn hàng</div>
+                          <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[10px] py-1 px-2 rounded-lg pointer-events-none whitespace-nowrap z-20 shadow-lg">
+                            <div>{m.fullLabel}: {formatVND(m.revenue)}</div>
+                            <div className="text-slate-400">{m.orderCount} đơn hàng</div>
                           </div>
 
-                          <div className="w-full bg-gray-200 rounded-t h-32 flex items-end overflow-hidden">
+                          <div className="w-full bg-slate-200 rounded-t h-32 flex items-end overflow-hidden">
                             <div
                               style={{ height: `${Math.max(heightPercent, m.revenue > 0 ? 8 : 2)}%` }}
-                              className="w-full bg-[#E53935] hover:bg-[#C62828] transition-all rounded-t cursor-pointer"
+                              className={`w-full transition-all rounded-t cursor-pointer ${
+                                isPeak ? 'bg-[#EA332A] hover:bg-[#D32F2F]' : m.revenue > 0 ? 'bg-[#EA332A]/80 hover:bg-[#EA332A]' : 'bg-slate-200'
+                              }`}
                             ></div>
                           </div>
-                          <span className="text-[11px] font-medium text-gray-500 mt-1">{m.month}</span>
+                          <span className={`text-[11px] font-semibold mt-1 ${isPeak ? 'text-[#EA332A]' : 'text-slate-500'}`}>
+                            {m.label}
+                          </span>
                         </div>
                       );
                     })}
@@ -435,173 +398,331 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                 </div>
 
                 {/* Cột 3: Tỷ trọng cơ cấu Danh mục */}
-                <div className="bg-gray-50/70 p-5 rounded-xl border border-gray-100 flex flex-col justify-between">
+                <div className="bg-slate-50/70 p-5 rounded-xl border border-slate-200 flex flex-col justify-between">
                   <div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-1">Cơ cấu Doanh thu theo Danh mục</h3>
-                    <p className="text-xs text-gray-500 mb-4">Tỷ lệ đóng góp doanh số ({getPeriodText()})</p>
+                    <h3 className="text-sm font-bold text-slate-900 mb-1">Cơ cấu Doanh thu theo Danh mục</h3>
+                    <p className="text-xs text-slate-500 mb-4">Tỷ lệ đóng góp doanh số ({getPeriodText()})</p>
 
-                    <div className="space-y-3">
-                      {revenueVolume?.categoryBreakdown.map((cat, idx) => (
-                        <div key={cat.id} className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="font-semibold text-gray-700 flex items-center gap-1.5">
-                              <span
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{ backgroundColor: CHART_PALETTE[idx % CHART_PALETTE.length] }}
-                              ></span>
-                              {cat.name}
-                            </span>
-                            <span className="font-bold text-gray-900">{cat.percentage}%</span>
+                    <div className="space-y-3 max-h-[190px] overflow-y-auto pr-1">
+                      {revenueVolume?.categoryBreakdown.map((cat, idx) => {
+                        const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+                        return (
+                          <div key={cat.id} className="space-y-1">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-semibold text-slate-700 flex items-center gap-1.5 truncate">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: color }}
+                                />
+                                <span className="truncate">{cat.name}</span>
+                              </span>
+                              <span className="font-bold text-slate-800 ml-2">{cat.percentage}%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                  width: `${Math.max(cat.percentage, cat.volume > 0 ? 3 : 0)}%`,
+                                  backgroundColor: color
+                                }}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{
-                                width: `${cat.percentage}%`,
-                                backgroundColor: CHART_PALETTE[idx % CHART_PALETTE.length]
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-200 mt-4 flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>Tổng Doanh Số:</span>
+                    <span className="text-[#EA332A] font-extrabold">{formatVND(revenueVolume?.totals.revenue || 0)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid 2 cột song song: Bảng số liệu chi tiết Doanh thu & Sản lượng vs Top 5 Sản phẩm & Top 5 Khách hàng */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Cột trái (7/12): Bảng số liệu chi tiết Doanh thu & Sản lượng */}
+                <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">
+                          Bảng Số Liệu Chi Tiết Doanh Thu & Sản Lượng
+                        </h3>
+                        <p className="text-xs text-slate-500">Phân tích chi tiết số lượng sản phẩm và doanh số theo danh mục cấp I</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                        {/* Bộ lọc sắp xếp cao nhất và thấp nhất */}
+                        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs shadow-2xs">
+                          <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span className="text-slate-500 font-medium whitespace-nowrap">Sắp xếp:</span>
+                          <select
+                            value={categorySortBy}
+                            onChange={(e) => {
+                              setCategorySortBy(e.target.value as any);
+                              setCategoryPage(1);
+                            }}
+                            className="bg-transparent border-none text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer pr-1"
+                          >
+                            <option value="revenue_desc">Doanh thu cao nhất ↓</option>
+                            <option value="revenue_asc">Doanh thu thấp nhất ↑</option>
+                            <option value="volume_desc">Sản lượng cao nhất ↓</option>
+                            <option value="volume_asc">Sản lượng thấp nhất ↑</option>
+                            <option value="name_asc">Tên danh mục: A - Z</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="table-container border border-slate-200 rounded-xl overflow-x-auto shadow-xs">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider select-none">
+                            <th className="py-3 px-3 w-12 text-center">STT</th>
+                            <th className="py-3 px-3 w-20 text-center">MÃ DM</th>
+                            <th
+                              onClick={() => {
+                                setCategorySortBy(categorySortBy === 'name_asc' ? 'revenue_desc' : 'name_asc');
+                                setCategoryPage(1);
                               }}
-                            ></div>
+                              className="py-3 px-3 cursor-pointer hover:bg-slate-100 transition-colors"
+                              title="Bấm để sắp xếp theo Tên danh mục"
+                            >
+                              <div className="inline-flex items-center gap-1">
+                                <span>TÊN DANH MỤC</span>
+                                {categorySortBy === 'name_asc' && <ArrowUp className="w-3.5 h-3.5 text-[#EA332A]" />}
+                              </div>
+                            </th>
+                            <th
+                              onClick={() => {
+                                setCategorySortBy(categorySortBy === 'volume_desc' ? 'volume_asc' : 'volume_desc');
+                                setCategoryPage(1);
+                              }}
+                              className="py-3 px-3 text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                              title="Bấm để sắp xếp theo Sản lượng (Cao nhất / Thấp nhất)"
+                            >
+                              <div className="inline-flex items-center justify-center gap-1 w-full">
+                                <span>SẢN LƯỢNG</span>
+                                {categorySortBy === 'volume_desc' ? (
+                                  <ArrowDown className="w-3.5 h-3.5 text-[#EA332A]" />
+                                ) : categorySortBy === 'volume_asc' ? (
+                                  <ArrowUp className="w-3.5 h-3.5 text-[#EA332A]" />
+                                ) : (
+                                  <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />
+                                )}
+                              </div>
+                            </th>
+                            <th
+                              onClick={() => {
+                                setCategorySortBy(categorySortBy === 'revenue_desc' ? 'revenue_asc' : 'revenue_desc');
+                                setCategoryPage(1);
+                              }}
+                              className="py-3 px-3 text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                              title="Bấm để sắp xếp theo Doanh thu (Cao nhất / Thấp nhất)"
+                            >
+                              <div className="inline-flex items-center justify-center gap-1 w-full">
+                                <span>DOANH THU</span>
+                                {categorySortBy === 'revenue_desc' ? (
+                                  <ArrowDown className="w-3.5 h-3.5 text-[#EA332A]" />
+                                ) : categorySortBy === 'revenue_asc' ? (
+                                  <ArrowUp className="w-3.5 h-3.5 text-[#EA332A]" />
+                                ) : (
+                                  <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />
+                                )}
+                              </div>
+                            </th>
+                            <th
+                              onClick={() => {
+                                setCategorySortBy(categorySortBy === 'revenue_desc' ? 'revenue_asc' : 'revenue_desc');
+                                setCategoryPage(1);
+                              }}
+                              className="py-3 px-3 text-right w-24 cursor-pointer hover:bg-slate-100 transition-colors"
+                              title="Bấm để sắp xếp theo Tỷ lệ (Cao nhất / Thấp nhất)"
+                            >
+                              <div className="inline-flex items-center justify-end gap-1 w-full">
+                                <span>TỶ LỆ</span>
+                                {categorySortBy === 'revenue_desc' ? (
+                                  <ArrowDown className="w-3.5 h-3.5 text-[#EA332A]" />
+                                ) : categorySortBy === 'revenue_asc' ? (
+                                  <ArrowUp className="w-3.5 h-3.5 text-[#EA332A]" />
+                                ) : null}
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {paginatedCategories.length > 0 ? (
+                            paginatedCategories.map((cat, idx) => (
+                              <tr key={cat.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="py-2.5 px-3 text-center font-medium text-slate-500">
+                                  {(categoryPage - 1) * CATEGORIES_PER_PAGE + idx + 1}
+                                </td>
+                                <td className="py-2.5 px-3 font-mono font-bold text-[#EA332A] text-center">{cat.code}</td>
+                                <td className="py-2.5 px-3 font-semibold text-slate-900 truncate max-w-[150px]" title={cat.name}>
+                                  {cat.name}
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-semibold text-slate-800">
+                                  {new Intl.NumberFormat('vi-VN').format(cat.volume)}
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-bold text-slate-900">
+                                  {formatVND(cat.revenue)}
+                                </td>
+                                <td className="py-2.5 px-3 text-right">
+                                  <span className="inline-block font-bold text-[11px] bg-slate-100 text-slate-800 px-2 py-0.5 rounded-full">
+                                    {cat.percentage}%
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} className="py-8 text-center text-slate-400">
+                                Không có dữ liệu danh mục trong kỳ
+                              </td>
+                            </tr>
+                          )}
+                          {/* DÒNG TỔNG CỘNG CHỐT Ở CHÂN BẢNG */}
+                          <tr className="bg-red-50/70 font-bold text-slate-900 border-t-2 border-red-200">
+                            <td colSpan={3} className="py-3 px-3 text-center uppercase tracking-wider text-[#EA332A] font-bold text-xs">
+                              TỔNG CỘNG TOÀN DOANH NGHIỆP:
+                            </td>
+                            <td className="py-3 px-3 text-center text-slate-900 font-extrabold text-xs">
+                              {new Intl.NumberFormat('vi-VN').format(revenueVolume?.totals.volume || 0)}
+                            </td>
+                            <td className="py-3 px-3 text-center text-[#EA332A] font-black text-xs">
+                              {formatVND(revenueVolume?.totals.revenue || 0)}
+                            </td>
+                            <td className="py-3 px-3 text-right text-[#EA332A] font-bold text-xs">
+                              100.00%
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Phân trang: Giới hạn 10 dòng dữ liệu 1 trang */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-3 border-t border-slate-100 text-xs text-slate-500">
+                    <div>
+                      {sortedCategories.length > 0 ? (
+                        <span>
+                          Hiển thị <span className="font-semibold text-slate-700">{(categoryPage - 1) * CATEGORIES_PER_PAGE + 1}</span> - <span className="font-semibold text-slate-700">{Math.min(categoryPage * CATEGORIES_PER_PAGE, sortedCategories.length)}</span> trên <span className="font-semibold text-slate-700">{sortedCategories.length}</span> danh mục
+                        </span>
+                      ) : (
+                        <span>0 danh mục</span>
+                      )}
+                    </div>
+
+                    {totalCategoryPages > 1 && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setCategoryPage((p) => Math.max(1, p - 1))}
+                          disabled={categoryPage === 1}
+                          className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                          title="Trang trước"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-slate-600" />
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalCategoryPages }, (_, i) => i + 1).map((pageNum) => (
+                            <button
+                              key={pageNum}
+                              type="button"
+                              onClick={() => setCategoryPage(pageNum)}
+                              className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${
+                                categoryPage === pageNum
+                                  ? 'bg-[#EA332A] text-white shadow-xs'
+                                  : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setCategoryPage((p) => Math.min(totalCategoryPages, p + 1))}
+                          disabled={categoryPage === totalCategoryPages}
+                          className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                          title="Trang sau"
+                        >
+                          <ChevronRight className="w-4 h-4 text-slate-600" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cột phải (5/12): Top 5 Sản phẩm & Top 5 Khách hàng */}
+                <div className="lg:col-span-5 space-y-6">
+                  {/* Top 5 Sản phẩm */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-500" />
+                        Top 5 Sản Phẩm Bán Chạy Nhất
+                      </h4>
+                      <span className="text-xs text-slate-400">Theo doanh số</span>
+                    </div>
+                    <div className="space-y-3">
+                      {revenueVolume?.topProducts.map((p, idx) => (
+                        <div key={p.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 border border-slate-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                              idx === 0 ? 'bg-amber-100 text-amber-800' :
+                              idx === 1 ? 'bg-slate-200 text-slate-800' :
+                              idx === 2 ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {idx + 1}
+                            </span>
+                            <div>
+                              <div className="text-xs font-bold text-slate-900 line-clamp-1">{p.name}</div>
+                              <div className="text-[11px] text-slate-400">{p.code} • ĐVT: {p.unit}</div>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0 ml-2">
+                            <div className="text-xs font-bold text-[#EA332A]">{formatVND(p.revenue)}</div>
+                            <div className="text-[11px] text-slate-500">Đã bán: {p.quantity}</div>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between text-xs font-bold text-gray-900">
-                    <span>Tổng doanh thu kỳ:</span>
-                    <span className="text-[#E53935]">{formatVND(revenueVolume?.totals.revenue || 0)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bảng số liệu chi tiết F-D1 theo chuẩn đặc tả */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900">
-                      Bảng Số Liệu Chi Tiết Doanh Thu & Sản Lượng (F-D1)
-                    </h3>
-                    <p className="text-xs text-gray-500">Phân tích chi tiết số lượng sản phẩm và doanh số theo danh mục cấp 1</p>
-                  </div>
-                  <span className="badge-green">Kỳ: {getPeriodText()}</span>
-                </div>
-
-                <div className="overflow-x-auto border border-gray-200 rounded-xl">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50 text-gray-600 text-xs font-bold uppercase tracking-wider">
-                        <th className="py-3 px-4 w-12 text-center">STT</th>
-                        <th className="py-3 px-4 w-28 text-center">Mã DM</th>
-                        <th className="py-3 px-4">Tên Danh Mục Hàng Hóa</th>
-                        <th className="py-3 px-4 text-center">Sản Lượng Bán (ĐVT)</th>
-                        <th className="py-3 px-4 text-center">Doanh Thu (VNĐ)</th>
-                        <th className="py-3 px-4 text-center w-36">Tỷ Lệ Đóng Góp</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 text-sm">
-                      {revenueVolume?.categoryBreakdown.map((cat, idx) => (
-                        <tr key={cat.id} className="hover:bg-gray-50/80 transition-colors">
-                          <td className="py-3 px-4 text-center font-medium text-gray-500">{idx + 1}</td>
-                          <td className="py-3 px-4 font-mono font-semibold text-red-600 text-center">{cat.code}</td>
-                          <td className="py-3 px-4 font-medium text-gray-900">{cat.name}</td>
-                          <td className="py-3 px-4 text-center font-semibold text-gray-800">
-                            {new Intl.NumberFormat('vi-VN').format(cat.volume)}
-                          </td>
-                          <td className="py-3 px-4 text-center font-bold text-gray-900">
-                            {formatVND(cat.revenue)}
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <span className="inline-block font-bold text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded">
-                              {cat.percentage}%
+                  {/* Top 5 Khách hàng VIP */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <Users className="w-4 h-4 text-blue-600" />
+                        Top 5 Khách Hàng Doanh Nghiệp VIP
+                      </h4>
+                      <span className="text-xs text-slate-400">Doanh số cao nhất</span>
+                    </div>
+                    <div className="space-y-3">
+                      {revenueVolume?.topCustomers.map((c, idx) => (
+                        <div key={c.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 border border-slate-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <span className="w-6 h-6 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xs font-bold">
+                              {idx + 1}
                             </span>
-                          </td>
-                        </tr>
+                            <div>
+                              <div className="text-xs font-bold text-slate-900 line-clamp-1">{c.name}</div>
+                              <div className="text-[11px] text-slate-400">{c.code} • SĐT: {c.phone || 'N/A'}</div>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0 ml-2">
+                            <div className="text-xs font-bold text-slate-900">{formatVND(c.totalSpent)}</div>
+                            <div className="text-[11px] text-purple-600 font-medium">
+                              Còn nợ: {formatVND(c.remainingDebt)}
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                      {/* DÒNG TỔNG CỘNG CHỐT Ở CHÂN BẢNG CHUẨN ĐẶC TẢ F-D1 */}
-                      <tr className="bg-red-50/70 font-bold text-gray-900 border-t-2 border-red-200">
-                        <td colSpan={3} className="py-3.5 px-4 text-center uppercase tracking-wider text-red-700">
-                          TỔNG CỘNG TOÀN DOANH NGHIỆP:
-                        </td>
-                        <td className="py-3.5 px-4 text-right text-gray-900 text-base">
-                          {new Intl.NumberFormat('vi-VN').format(revenueVolume?.totals.volume || 0)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right text-[#E53935] text-base">
-                          {formatVND(revenueVolume?.totals.revenue || 0)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right text-red-700 text-sm">
-                          100.00%
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Top 5 Sản phẩm & Top 5 Khách hàng */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
-                {/* Top 5 Sản phẩm */}
-                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                      Top 5 Sản Phẩm Bán Chạy Nhất
-                    </h4>
-                    <span className="text-xs text-gray-400">Theo doanh số</span>
-                  </div>
-                  <div className="space-y-3">
-                    {revenueVolume?.topProducts.map((p, idx) => (
-                      <div key={p.id} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 border border-gray-100 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                            idx === 0 ? 'bg-amber-100 text-amber-800' :
-                            idx === 1 ? 'bg-gray-200 text-gray-800' :
-                            idx === 2 ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {idx + 1}
-                          </span>
-                          <div>
-                            <div className="text-xs font-bold text-gray-900 line-clamp-1">{p.name}</div>
-                            <div className="text-[11px] text-gray-400">{p.code} • ĐVT: {p.unit}</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs font-bold text-[#E53935]">{formatVND(p.revenue)}</div>
-                          <div className="text-[11px] text-gray-500">Đã bán: {p.quantity}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Top 5 Khách hàng VIP */}
-                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                      <Users className="w-4 h-4 text-blue-600" />
-                      Top 5 Khách Hàng Doanh Nghiệp VIP
-                    </h4>
-                    <span className="text-xs text-gray-400">Doanh số cao nhất</span>
-                  </div>
-                  <div className="space-y-3">
-                    {revenueVolume?.topCustomers.map((c, idx) => (
-                      <div key={c.id} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 border border-gray-100 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <span className="w-6 h-6 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xs font-bold">
-                            {idx + 1}
-                          </span>
-                          <div>
-                            <div className="text-xs font-bold text-gray-900 line-clamp-1">{c.name}</div>
-                            <div className="text-[11px] text-gray-400">{c.code} • SĐT: {c.phone || 'N/A'}</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs font-bold text-gray-900">{formatVND(c.totalSpent)}</div>
-                          <div className="text-[11px] text-purple-600 font-medium">
-                            Còn nợ: {formatVND(c.remainingDebt)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -629,12 +750,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                   <p className="text-xs text-amber-600 mt-1">Tính theo giá nhập bình quân kho</p>
                 </div>
 
-                <div className="bg-green-50/60 p-4 rounded-xl border border-green-100">
-                  <span className="text-xs font-semibold text-green-700 uppercase tracking-wider">Tổng Lợi Nhuận Gộp</span>
-                  <div className="text-xl font-bold text-green-900 mt-1">
+                <div className="bg-emerald-50/60 p-4 rounded-xl border border-emerald-100">
+                  <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Tổng Lợi Nhuận Gộp</span>
+                  <div className="text-xl font-bold text-emerald-900 mt-1">
                     {formatVND(profitData?.summary.totalProfit || 0)}
                   </div>
-                  <p className="text-xs text-green-700 font-semibold mt-1">
+                  <p className="text-xs text-emerald-700 font-semibold mt-1">
                     Biên lãi trung bình: {profitData?.summary.overallMargin || 0}%
                   </p>
                 </div>
@@ -644,23 +765,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h3 className="text-base font-bold text-gray-900">
-                      Bảng Số Liệu Chi Tiết Lợi Nhuận Gộp (F-D2)
+                    <h3 className="text-base font-bold text-slate-900">
+                      Bảng Số Liệu Chi Tiết Lợi Nhuận Gộp
                     </h3>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-slate-500">
                       Công thức chuẩn: Lợi nhuận = Doanh thu bán – Giá vốn hàng bán (COGS)
                     </p>
                   </div>
-                  <span className="badge-green">Kỳ: {getPeriodText()}</span>
                 </div>
 
-                <div className="overflow-x-auto border border-gray-200 rounded-xl">
-                  <table className="w-full text-left border-collapse">
+                <div className="table-container border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+                  <table className="w-full text-left">
                     <thead>
-                      <tr className="bg-gray-50 text-gray-600 text-xs font-bold uppercase tracking-wider">
+                      <tr className="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider">
                         <th className="py-3 px-4 w-12 text-center">STT</th>
                         <th className="py-3 px-4 w-28 text-center">Mã DM</th>
-                        <th className="py-3 px-4">Tên Danh Mục</th>
+                        <th className="py-3 px-4 text-center">Tên Danh Mục</th>
                         <th className="py-3 px-4 text-center">Doanh Thu (VNĐ)</th>
                         <th className="py-3 px-4 text-center">Giá Vốn COGS (VNĐ)</th>
                         <th className="py-3 px-4 text-center">Lợi Nhuận Gộp (VNĐ)</th>
@@ -668,17 +788,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                         <th className="py-3 px-4 text-center w-28">Tỷ Trọng (%)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 text-sm">
+                    <tbody className="divide-y divide-slate-100 text-xs">
                       {profitData?.categoryProfits.map((cat, idx) => (
                         <tr
                           key={cat.id}
-                          className={`hover:bg-gray-50/80 transition-colors ${
+                          className={`hover:bg-slate-50/80 transition-colors ${
                             cat.isLoss ? 'bg-red-50/50' : ''
                           }`}
                         >
-                          <td className="py-3 px-4 text-center font-medium text-gray-500">{idx + 1}</td>
-                          <td className="py-3 px-4 font-mono font-semibold text-gray-800 text-center">{cat.code}</td>
-                          <td className="py-3 px-4 font-medium text-gray-900 flex items-center gap-2">
+                          <td className="py-3 px-4 text-center font-medium text-slate-500">{idx + 1}</td>
+                          <td className="py-3 px-4 font-mono font-bold text-[#EA332A] text-center">{cat.code}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-900 flex items-center gap-2">
                             {cat.name}
                             {/* CẢNH BÁO MÀU ĐỎ NỔI BẬT NẾU ÂM LỢI NHUẬN CHUẨN ĐẶC TẢ F-D2 */}
                             {cat.isLoss && (
@@ -687,7 +807,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-center font-medium text-gray-800">
+                          <td className="py-3 px-4 text-center font-medium text-slate-800">
                             {formatVND(cat.revenue)}
                           </td>
                           <td className="py-3 px-4 text-center font-medium text-amber-700">
@@ -695,16 +815,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                           </td>
                           <td
                             className={`py-3 px-4 text-center font-bold ${
-                              cat.isLoss ? 'text-red-600' : 'text-green-700'
+                              cat.isLoss ? 'text-red-600' : 'text-emerald-700'
                             }`}
                           >
                             {formatVND(cat.profit)}
                           </td>
-                          <td className="py-3 px-4 text-right font-bold text-gray-900">
+                          <td className="py-3 px-4 text-right font-bold text-slate-900">
                             <span
-                              className={`px-2 py-0.5 rounded text-xs ${
+                              className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                                 cat.margin >= 20
-                                  ? 'bg-green-100 text-green-800'
+                                  ? 'bg-emerald-100 text-emerald-800'
                                   : cat.margin >= 0
                                   ? 'bg-amber-100 text-amber-800'
                                   : 'bg-red-100 text-red-800'
@@ -713,30 +833,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                               {cat.margin}%
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right font-semibold text-gray-600">
+                          <td className="py-3 px-4 text-right font-semibold text-slate-600">
                             {cat.contribution}%
                           </td>
                         </tr>
                       ))}
 
                       {/* DÒNG TỔNG CỘNG CHỐT Ở CHÂN BẢNG CHUẨN ĐẶC TẢ F-D2 */}
-                      <tr className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-300">
-                        <td colSpan={3} className="py-3.5 px-4 text-center uppercase tracking-wider text-gray-800">
-                          TỔNG CỘNG DOANH NGHIỆP:
+                      <tr className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300">
+                        <td colSpan={3} className="py-3.5 px-4 text-center uppercase tracking-wider text-slate-800 font-bold">
+                          TỔNG CỘNG TOÀN DOANH NGHIỆP:
                         </td>
-                        <td className="py-3.5 px-4 text-right text-gray-900 text-sm">
+                        <td className="py-3.5 px-4 text-center text-slate-900 text-xs font-bold">
                           {formatVND(profitData?.summary.totalRevenue || 0)}
                         </td>
-                        <td className="py-3.5 px-4 text-right text-amber-800 text-sm">
+                        <td className="py-3.5 px-4 text-center text-amber-800 text-xs font-bold">
                           {formatVND(profitData?.summary.totalCogs || 0)}
                         </td>
-                        <td className="py-3.5 px-4 text-right text-green-700 text-base">
+                        <td className="py-3.5 px-4 text-center text-emerald-700 text-sm font-extrabold">
                           {formatVND(profitData?.summary.totalProfit || 0)}
                         </td>
-                        <td className="py-3.5 px-4 text-right text-green-800 text-sm">
+                        <td className="py-3.5 px-4 text-center text-emerald-800 text-xs font-bold">
                           {profitData?.summary.overallMargin || 0}%
                         </td>
-                        <td className="py-3.5 px-4 text-right text-gray-800 text-sm">
+                        <td className="py-3.5 px-4 text-right text-slate-800 text-xs font-bold">
                           100.00%
                         </td>
                       </tr>

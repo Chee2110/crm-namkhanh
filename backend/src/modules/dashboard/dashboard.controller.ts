@@ -5,7 +5,7 @@ import { successResponse, errorResponse } from '../../common/utils/response';
 export class DashboardController {
   async getExecutiveOverview(req: Request, res: Response) {
     try {
-      const period = (req.query.period as 'all' | 'year' | 'month') || 'year';
+      const period = (req.query.period as 'all' | 'year' | 'quarter' | 'month') || 'year';
       const refresh = req.query.refresh === 'true';
 
       const data = await dashboardService.getExecutiveOverview(period, refresh);
@@ -17,7 +17,7 @@ export class DashboardController {
 
   async getRevenueAndVolume(req: Request, res: Response) {
     try {
-      const period = (req.query.period as 'all' | 'year' | 'month') || 'year';
+      const period = (req.query.period as 'all' | 'year' | 'quarter' | 'month') || 'year';
       const refresh = req.query.refresh === 'true';
 
       const data = await dashboardService.getRevenueAndVolume(period, refresh);
@@ -29,7 +29,7 @@ export class DashboardController {
 
   async getProfitDashboard(req: Request, res: Response) {
     try {
-      const period = (req.query.period as 'all' | 'year' | 'month') || 'year';
+      const period = (req.query.period as 'all' | 'year' | 'quarter' | 'month') || 'year';
       const refresh = req.query.refresh === 'true';
 
       const data = await dashboardService.getProfitDashboard(period, refresh);

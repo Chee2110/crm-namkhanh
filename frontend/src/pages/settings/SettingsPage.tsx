@@ -74,57 +74,47 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      {/* Header */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
-              <Settings size={22} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 tracking-tight">Cài đặt Hệ thống</h1>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Quản lý hồ sơ tài khoản, đổi mật khẩu, tùy biến giao diện và thông tin bản quyền ERP
-              </p>
-            </div>
+    <div className="space-y-6 max-w-5xl mx-auto pb-16">
+      {/* Header with pill tabs */}
+      <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-namkhanh-50 text-namkhanh-600 flex items-center justify-center font-bold shadow-inner">
+            <Settings size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Cài đặt Hệ thống</h1>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">
+              Quản lý hồ sơ cá nhân, bảo mật, tùy biến giao diện và bản quyền Nam Khánh ERP
+            </p>
           </div>
         </div>
 
-        {/* Tab Nav buttons */}
-        <div className="flex items-center bg-gray-100 p-1 rounded-xl gap-1">
+        {/* Quixotic Pill Nav */}
+        <div className="pill-nav">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeTab === 'profile' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`pill-tab-item flex items-center gap-1.5 ${activeTab === 'profile' ? 'pill-tab-item-active' : ''}`}
           >
             <User size={14} />
             <span>Hồ sơ</span>
           </button>
           <button
             onClick={() => setActiveTab('security')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeTab === 'security' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`pill-tab-item flex items-center gap-1.5 ${activeTab === 'security' ? 'pill-tab-item-active' : ''}`}
           >
             <Lock size={14} />
             <span>Bảo mật</span>
           </button>
           <button
             onClick={() => setActiveTab('appearance')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeTab === 'appearance' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`pill-tab-item flex items-center gap-1.5 ${activeTab === 'appearance' ? 'pill-tab-item-active' : ''}`}
           >
             <Palette size={14} />
             <span>Tùy biến</span>
           </button>
           <button
             onClick={() => setActiveTab('about')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeTab === 'about' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`pill-tab-item flex items-center gap-1.5 ${activeTab === 'about' ? 'pill-tab-item-active' : ''}`}
           >
             <Building2 size={14} />
             <span>Hệ thống</span>
@@ -134,17 +124,17 @@ export const SettingsPage: React.FC = () => {
 
       {/* TAB 1: HỒ SƠ CÁ NHÂN */}
       {activeTab === 'profile' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-          <div className="flex items-center gap-4 pb-6 border-b border-gray-100">
-            <div className="w-16 h-16 rounded-full bg-red-600 text-white font-bold text-2xl flex items-center justify-center shadow-md">
+        <div className="card rounded-3xl border border-slate-100/80 shadow-card p-8 space-y-6">
+          <div className="flex items-center gap-5 pb-6 border-b border-slate-100">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-namkhanh-600 to-rose-400 text-white font-extrabold text-3xl flex items-center justify-center shadow-lg shadow-namkhanh-500/20">
               {user?.fullName?.charAt(0) || 'U'}
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">{user?.fullName}</h3>
-              <p className="text-sm text-gray-500">{user?.email}</p>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="badge badge-green text-xs font-medium">Đang hoạt động</span>
-                <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-mono font-medium">
+              <h3 className="text-xl font-bold text-slate-900">{user?.fullName}</h3>
+              <p className="text-sm text-slate-500 font-medium">{user?.email}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="badge badge-green text-xs font-semibold px-3 py-1 rounded-full">Đang hoạt động</span>
+                <span className="text-xs bg-slate-100 text-slate-700 px-3 py-1 rounded-full font-mono font-bold">
                   {user?.code || 'NV001'}
                 </span>
               </div>
@@ -153,46 +143,46 @@ export const SettingsPage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Họ và tên</label>
-              <div className="input bg-gray-50 text-gray-800 cursor-not-allowed">{user?.fullName}</div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Họ và tên</label>
+              <div className="input bg-slate-50 text-slate-800 cursor-not-allowed font-medium rounded-2xl">{user?.fullName}</div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Email làm việc</label>
-              <div className="input bg-gray-50 text-gray-800 cursor-not-allowed flex items-center gap-2">
-                <Mail size={14} className="text-gray-400" />
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Email làm việc</label>
+              <div className="input bg-slate-50 text-slate-800 cursor-not-allowed flex items-center gap-2 font-medium rounded-2xl">
+                <Mail size={15} className="text-slate-400" />
                 <span>{user?.email}</span>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Số điện thoại</label>
-              <div className="input bg-gray-50 text-gray-800 cursor-not-allowed flex items-center gap-2">
-                <Phone size={14} className="text-gray-400" />
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Số điện thoại</label>
+              <div className="input bg-slate-50 text-slate-800 cursor-not-allowed flex items-center gap-2 font-medium rounded-2xl">
+                <Phone size={15} className="text-slate-400" />
                 <span>{user?.phone || 'Chưa cập nhật'}</span>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Phòng ban / Đơn vị</label>
-              <div className="input bg-gray-50 text-gray-800 cursor-not-allowed flex items-center gap-2">
-                <Building2 size={14} className="text-gray-400" />
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Phòng ban / Đơn vị</label>
+              <div className="input bg-slate-50 text-slate-800 cursor-not-allowed flex items-center gap-2 font-medium rounded-2xl">
+                <Building2 size={15} className="text-slate-400" />
                 <span>{user?.department?.name || 'Văn phòng Công ty Nam Khánh'}</span>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Vai trò hệ thống</label>
-              <div className="input bg-gray-50 text-gray-800 cursor-not-allowed flex items-center gap-2 font-semibold text-red-600">
-                <Shield size={14} />
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Vai trò hệ thống</label>
+              <div className="input bg-slate-50 text-namkhanh-600 cursor-not-allowed flex items-center gap-2 font-bold rounded-2xl">
+                <Shield size={15} />
                 <span>{user?.roles?.join(', ') || 'Nhân viên'}</span>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Thời hạn phiên làm việc</label>
-              <div className="input bg-gray-50 text-gray-800 cursor-not-allowed flex items-center gap-2">
-                <Clock size={14} className="text-gray-400" />
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Thời hạn phiên làm việc</label>
+              <div className="input bg-slate-50 text-slate-800 cursor-not-allowed flex items-center gap-2 font-medium rounded-2xl">
+                <Clock size={15} className="text-slate-400" />
                 <span>JWT Token 7 ngày (Tự động gia hạn)</span>
               </div>
             </div>
@@ -202,35 +192,35 @@ export const SettingsPage: React.FC = () => {
 
       {/* TAB 2: ĐỔI MẬT KHẨU & BẢO MẬT */}
       {activeTab === 'security' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
+        <div className="card rounded-3xl border border-slate-100/80 shadow-card p-8 space-y-6">
           <div>
-            <h3 className="text-base font-bold text-gray-900">Thay đổi Mật khẩu Đăng nhập</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h3 className="text-lg font-bold text-slate-900">Thay đổi Mật khẩu Đăng nhập</h3>
+            <p className="text-xs text-slate-500 mt-1 font-medium">
               Để đảm bảo an toàn dữ liệu khách hàng và kinh doanh, mật khẩu nên có ít nhất 6 ký tự và đổi định kỳ.
             </p>
           </div>
 
           {pwdError && (
-            <div className="p-3 bg-red-50 text-red-700 text-xs rounded-lg flex items-center gap-2">
-              <AlertCircle size={15} />
-              <span>{pwdError}</span>
+            <div className="p-3.5 bg-rose-50 border border-rose-100 text-rose-700 text-xs rounded-2xl flex items-center gap-2.5">
+              <AlertCircle size={16} />
+              <span className="font-medium">{pwdError}</span>
             </div>
           )}
 
           {pwdSuccess && (
-            <div className="p-3 bg-green-50 text-green-700 text-xs rounded-lg flex items-center gap-2">
-              <CheckCircle2 size={15} />
-              <span>{pwdSuccess}</span>
+            <div className="p-3.5 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs rounded-2xl flex items-center gap-2.5">
+              <CheckCircle2 size={16} />
+              <span className="font-medium">{pwdSuccess}</span>
             </div>
           )}
 
           <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Mật khẩu hiện tại</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu hiện tại</label>
               <input
                 type="password"
                 required
-                className="input text-sm"
+                className="input text-sm rounded-2xl"
                 placeholder="••••••••"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -238,11 +228,11 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Mật khẩu mới</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu mới</label>
               <input
                 type="password"
                 required
-                className="input text-sm"
+                className="input text-sm rounded-2xl"
                 placeholder="Tối thiểu 6 ký tự"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -250,18 +240,18 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Xác nhận mật khẩu mới</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Xác nhận mật khẩu mới</label>
               <input
                 type="password"
                 required
-                className="input text-sm"
+                className="input text-sm rounded-2xl"
                 placeholder="Nhập lại mật khẩu mới"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </div>
 
-            <button type="submit" disabled={pwdLoading} className="btn btn-primary text-xs">
+            <button type="submit" disabled={pwdLoading} className="btn btn-primary text-xs shadow-md">
               <Save size={14} />
               <span>{pwdLoading ? 'Đang cập nhật...' : 'Cập nhật Mật khẩu'}</span>
             </button>
@@ -271,73 +261,76 @@ export const SettingsPage: React.FC = () => {
 
       {/* TAB 3: TÙY BIẾN GIAO DIỆN & TIỆN ÍCH */}
       {activeTab === 'appearance' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
+        <div className="card rounded-3xl border border-slate-100/80 shadow-card p-8 space-y-6">
           <div>
-            <h3 className="text-base font-bold text-gray-900">Tùy biến Giao diện & Trải nghiệm</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h3 className="text-lg font-bold text-slate-900">Tùy biến Giao diện & Trải nghiệm</h3>
+            <p className="text-xs text-slate-500 mt-1 font-medium">
               Cấu hình hiển thị theo thói quen thao tác của nhân sự văn phòng
             </p>
           </div>
 
           {savedSettingsSuccess && (
-            <div className="p-3 bg-green-50 text-green-700 text-xs rounded-lg flex items-center gap-2">
-              <CheckCircle2 size={15} />
-              <span>Đã lưu tùy biến thành công!</span>
+            <div className="p-3.5 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs rounded-2xl flex items-center gap-2.5">
+              <CheckCircle2 size={16} />
+              <span className="font-semibold">Đã lưu tùy biến thành công!</span>
             </div>
           )}
 
           <div className="space-y-4 max-w-xl">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
               <div>
-                <div className="text-sm font-semibold text-gray-900">Màu thương hiệu chủ đạo</div>
-                <div className="text-xs text-gray-500">Màu đỏ Nam Khánh (#E53935) theo quy chuẩn nhận diện thương hiệu</div>
+                <div className="text-sm font-bold text-slate-900">Màu thương hiệu chủ đạo (Hệ 4 màu Logo)</div>
+                <div className="text-xs text-slate-500 mt-0.5">Màu đỏ Nam Khánh (#EA332A) kết hợp Vàng (#F9BB12), Xanh lá (#22BB4E), Xanh dương (#1A7FED)</div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-[#E53935] border-2 border-white shadow-sm inline-block" />
-                <span className="text-xs font-mono font-bold text-gray-700">#E53935</span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-[#EA332A] border-2 border-white shadow-xs inline-block" title="Đỏ Nam Khánh" />
+                <span className="w-5 h-5 rounded-full bg-[#F9BB12] border-2 border-white shadow-xs inline-block" title="Vàng Nam Khánh" />
+                <span className="w-5 h-5 rounded-full bg-[#22BB4E] border-2 border-white shadow-xs inline-block" title="Xanh lá Nam Khánh" />
+                <span className="w-5 h-5 rounded-full bg-[#1A7FED] border-2 border-white shadow-xs inline-block" title="Xanh dương Nam Khánh" />
+                <span className="text-xs font-mono font-bold text-slate-700 ml-1">#EA332A</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
               <div>
-                <div className="text-sm font-semibold text-gray-900">Chế độ hiển thị cô đọng (Compact Mode)</div>
-                <div className="text-xs text-gray-500">Giảm khoảng cách dòng bảng để xem được nhiều hàng hóa hơn</div>
+                <div className="text-sm font-bold text-slate-900">Chế độ hiển thị cô đọng (Compact Mode)</div>
+                <div className="text-xs text-slate-500 mt-0.5">Giảm khoảng cách dòng bảng để xem được nhiều hàng hóa hơn</div>
               </div>
               <input
                 type="checkbox"
                 checked={compactMode}
                 onChange={(e) => setCompactMode(e.target.checked)}
-                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                className="w-5 h-5 text-namkhanh-600 rounded-lg border-slate-300 focus:ring-namkhanh-500 accent-namkhanh-600"
               />
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
               <div>
-                <div className="text-sm font-semibold text-gray-900">Thông báo âm thanh (Sound Notification)</div>
-                <div className="text-xs text-gray-500">Phát âm thanh nhẹ khi hoàn thành thao tác lưu hoặc có đơn hàng mới</div>
+                <div className="text-sm font-bold text-slate-900">Thông báo âm thanh (Sound Notification)</div>
+                <div className="text-xs text-slate-500 mt-0.5">Phát âm thanh nhẹ khi hoàn thành thao tác lưu hoặc có đơn hàng mới</div>
               </div>
               <input
                 type="checkbox"
                 checked={soundEnabled}
                 onChange={(e) => setSoundEnabled(e.target.checked)}
-                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                className="w-5 h-5 text-namkhanh-600 rounded-lg border-slate-300 focus:ring-namkhanh-500 accent-namkhanh-600"
               />
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
               <div>
-                <div className="text-sm font-semibold text-gray-900">Tự động làm mới Dashboard (Auto Refresh)</div>
-                <div className="text-xs text-gray-500">Cập nhật chỉ số doanh thu và tồn kho tự động mỗi 5 phút</div>
+                <div className="text-sm font-bold text-slate-900">Tự động làm mới Dashboard (Auto Refresh)</div>
+                <div className="text-xs text-slate-500 mt-0.5">Cập nhật chỉ số doanh thu và tồn kho tự động mỗi 5 phút</div>
               </div>
               <input
                 type="checkbox"
                 checked={autoRefresh}
                 onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                className="w-5 h-5 text-namkhanh-600 rounded-lg border-slate-300 focus:ring-namkhanh-500 accent-namkhanh-600"
               />
             </div>
 
-            <button onClick={handleSavePreferences} className="btn btn-primary text-xs">
+            <button onClick={handleSavePreferences} className="btn btn-primary text-xs shadow-md">
               <Save size={14} />
               <span>Lưu Cài đặt Giao diện</span>
             </button>
@@ -347,32 +340,32 @@ export const SettingsPage: React.FC = () => {
 
       {/* TAB 4: THÔNG TIN HỆ THỐNG & BẢN QUYỀN */}
       {activeTab === 'about' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 shadow-sm p-1.5 flex items-center justify-center">
+        <div className="card rounded-3xl border border-slate-100/80 shadow-card p-8 space-y-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 shadow-sm p-2 flex items-center justify-center">
               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-gray-900">CÔNG TY TNHH NK NAM KHÁNH</h3>
-              <p className="text-xs text-gray-500">Hệ thống ERP Quản trị Doanh nghiệp, Chuỗi cung ứng & Tài chính</p>
+              <h3 className="text-lg font-extrabold text-slate-900">CÔNG TY TNHH NK NAM KHÁNH</h3>
+              <p className="text-xs text-slate-500 font-medium">Hệ thống ERP Quản trị Doanh nghiệp, Chuỗi cung ứng & Tài chính</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
-              <div className="font-bold text-gray-800 text-sm">Thông tin phần mềm</div>
-              <div><strong>Phiên bản:</strong> Enterprise v2.0.0 (Release 2026)</div>
-              <div><strong>Công nghệ Frontend:</strong> React 18, TypeScript, Tailwind CSS, Vite</div>
-              <div><strong>Công nghệ Backend:</strong> Node.js, Express, Prisma ORM, PostgreSQL</div>
-              <div><strong>Bảo mật:</strong> RBAC Matrix, JWT Bearer, AES-256 Symmetric Encryption</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+            <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-2.5">
+              <div className="font-extrabold text-slate-900 text-sm">Thông tin phần mềm</div>
+              <div className="text-slate-600"><strong>Phiên bản:</strong> Enterprise v2.0.0 (Release 2026)</div>
+              <div className="text-slate-600"><strong>Công nghệ Frontend:</strong> React 18, TypeScript, Tailwind CSS, Vite</div>
+              <div className="text-slate-600"><strong>Công nghệ Backend:</strong> Node.js, Express, Prisma ORM, PostgreSQL</div>
+              <div className="text-slate-600"><strong>Bảo mật:</strong> RBAC Matrix, JWT Bearer, AES-256 Symmetric Encryption</div>
             </div>
 
-            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
-              <div className="font-bold text-gray-800 text-sm">Liên hệ hỗ trợ kỹ thuật</div>
-              <div><strong>Đơn vị vận hành:</strong> Phòng CNTT - Công ty TNHH NK Nam Khánh</div>
-              <div><strong>Hotline kỹ thuật:</strong> 0988.xxx.xxx (Hỗ trợ 24/7)</div>
-              <div><strong>Email hỗ trợ:</strong> support@namkhanh.vn</div>
-              <div><strong>Trụ sở:</strong> TP. Hà Nội, Việt Nam</div>
+            <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-2.5">
+              <div className="font-extrabold text-slate-900 text-sm">Liên hệ hỗ trợ kỹ thuật</div>
+              <div className="text-slate-600"><strong>Đơn vị vận hành:</strong> Phòng CNTT - Công ty TNHH NK Nam Khánh</div>
+              <div className="text-slate-600"><strong>Hotline kỹ thuật:</strong> 0988.xxx.xxx (Hỗ trợ 24/7)</div>
+              <div className="text-slate-600"><strong>Email hỗ trợ:</strong> support@namkhanh.vn</div>
+              <div className="text-slate-600"><strong>Trụ sở:</strong> TP. Hà Nội, Việt Nam</div>
             </div>
           </div>
         </div>

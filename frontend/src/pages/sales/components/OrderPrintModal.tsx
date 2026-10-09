@@ -57,7 +57,7 @@ export const OrderPrintModal: React.FC<OrderPrintModalProps> = ({
         </div>
 
         {/* ================= KHUNG IN A4 CHUẨN KẾ TOÁN (SECTION XI.6) ================= */}
-        <div className="p-8 md:p-12 overflow-y-auto flex-1 font-serif text-gray-900 bg-white" id="printable-invoice">
+        <div className="p-8 md:p-12 overflow-y-auto flex-1 font-sans text-gray-900 bg-white" id="printable-invoice">
           {/* Header thông tin công ty Nam Khánh */}
           <div className="flex flex-col sm:flex-row items-start justify-between border-b-2 border-[#E53935] pb-4 gap-4">
             <div className="flex items-start gap-4">

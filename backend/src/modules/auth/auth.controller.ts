@@ -11,7 +11,14 @@ export class AuthController {
         return errorResponse(res, 'Vui lòng nhập đầy đủ Email và Mật khẩu', 400);
       }
 
-      const result = await authService.login(email, password);
+      const userAgent = (req.headers['user-agent'] as string) || '';
+      const ipAddress =
+        (req.headers['x-forwarded-for'] as string) ||
+        req.socket.remoteAddress ||
+        req.ip ||
+        '';
+
+      const result = await authService.login(email, password, { userAgent, ipAddress });
       return successResponse(res, result, 'Đăng nhập thành công');
     } catch (error: any) {
       if (

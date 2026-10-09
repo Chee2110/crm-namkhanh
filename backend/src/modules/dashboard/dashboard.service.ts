@@ -14,11 +14,18 @@ export class DashboardService {
     if (key) await cacheService.del(key);
   }
 
-  private getDateRange(period: 'all' | 'year' | 'month') {
+  private getDateRange(period: 'all' | 'year' | 'quarter' | 'month') {
     const now = new Date();
     if (period === 'month') {
       const gte = new Date(now.getFullYear(), now.getMonth(), 1);
       const lte = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      return { gte, lte };
+    }
+    if (period === 'quarter') {
+      const currentQuarter = Math.floor(now.getMonth() / 3);
+      const startMonth = currentQuarter * 3;
+      const gte = new Date(now.getFullYear(), startMonth, 1);
+      const lte = new Date(now.getFullYear(), startMonth + 3, 0, 23, 59, 59);
       return { gte, lte };
     }
     if (period === 'year') {
@@ -32,7 +39,7 @@ export class DashboardService {
   // ==============================================================
   // 1. TỔNG QUAN ĐIỀU HÀNH EXECUTIVE OVERVIEW (6 THẺ KPI)
   // ==============================================================
-  async getExecutiveOverview(period: 'all' | 'year' | 'month' = 'year', refresh = false) {
+  async getExecutiveOverview(period: 'all' | 'year' | 'quarter' | 'month' = 'year', refresh = false) {
     const cacheKey = `dashboard:overview:${period}`;
     if (!refresh) {
       const cached = await this.getCache(cacheKey);
@@ -155,7 +162,7 @@ export class DashboardService {
   // ==============================================================
   // 2. [F-D1] DASHBOARD DOANH THU & SẢN LƯỢNG
   // ==============================================================
-  async getRevenueAndVolume(period: 'all' | 'year' | 'month' = 'year', refresh = false) {
+  async getRevenueAndVolume(period: 'all' | 'year' | 'quarter' | 'month' = 'year', refresh = false) {
     const cacheKey = `dashboard:revenue_volume:${period}`;
     if (!refresh) {
       const cached = await this.getCache(cacheKey);
@@ -197,16 +204,19 @@ export class DashboardService {
           totalAmount: true
         }
       }),
-      // Khách hàng
+      // Khách hàng (theo format Trang 6 PDF)
       prisma.customer.findMany({
         select: {
           id: true,
           code: true,
           name: true,
           phone: true,
+          contactPerson: true,
+          manager: { select: { fullName: true } },
           orders: {
             where: orderWhere,
-            select: { totalAmount: true, remainingAmount: true }
+            select: { orderDate: true, totalAmount: true, remainingAmount: true },
+            orderBy: { orderDate: 'desc' }
           }
         }
       })
@@ -303,7 +313,7 @@ export class DashboardService {
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
 
-    // Top 5 khách hàng VIP
+    // Danh sách khách hàng và lịch sử giao dịch (Chuẩn Trang 6 PDF)
     const topCustomers = customers
       .map((c) => {
         const totalSpent = c.orders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
@@ -313,6 +323,9 @@ export class DashboardService {
           code: c.code,
           name: c.name,
           phone: c.phone,
+          contactPerson: c.contactPerson || 'Chưa cập nhật',
+          managerName: c.manager?.fullName || 'Chưa phân công',
+          latestOrderDate: c.orders[0]?.orderDate || null,
           orderCount: c.orders.length,
           totalSpent,
           remainingDebt
@@ -320,7 +333,7 @@ export class DashboardService {
       })
       .filter((c) => c.orderCount > 0)
       .sort((a, b) => b.totalSpent - a.totalSpent)
-      .slice(0, 5);
+      .slice(0, 10);
 
     const result = {
       period,
@@ -342,7 +355,7 @@ export class DashboardService {
   // ==============================================================
   // 3. [F-D2] DASHBOARD LỢI NHUẬN GỘP (PROFIT DASHBOARD)
   // ==============================================================
-  async getProfitDashboard(period: 'all' | 'year' | 'month' = 'year', refresh = false) {
+  async getProfitDashboard(period: 'all' | 'year' | 'quarter' | 'month' = 'year', refresh = false) {
     const cacheKey = `dashboard:profit:${period}`;
     if (!refresh) {
       const cached = await this.getCache(cacheKey);

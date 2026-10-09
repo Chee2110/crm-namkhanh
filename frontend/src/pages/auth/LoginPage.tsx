@@ -22,7 +22,7 @@ export const LoginPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const res = await api.post('/auth/login', { email, password });
-      login(res.data.token, res.data.user, rememberMe);
+      login(res.data.token, res.data.user, rememberMe, res.data.maintenanceNotice);
     } catch (err: any) {
       setError(err.message || 'Đăng nhập thất bại');
     } finally {
@@ -32,112 +32,62 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div
+      className="min-h-screen flex items-center justify-center relative overflow-hidden p-6"
       style={{
-        minHeight: '100%',
-        height: '100%',
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F9FAFB',
-        position: 'relative',
-        overflow: 'hidden',
-        padding: '1.5rem'
+        backgroundColor: '#FFFFFF',
+        backgroundImage: `
+          radial-gradient(circle 520px at 0% 0%, rgba(251, 113, 133, 0.13) 0%, rgba(244, 114, 182, 0.07) 35%, rgba(253, 164, 175, 0.02) 65%, transparent 85%),
+          radial-gradient(circle 520px at 100% 100%, rgba(251, 113, 133, 0.13) 0%, rgba(244, 114, 182, 0.07) 35%, rgba(253, 164, 175, 0.02) 65%, transparent 85%)
+        `
       }}
     >
-      {/* 4 Đốm sáng hiệu ứng Ambient Blur Blobs theo Section XI.5 */}
-      <div className="blob blob-red" />
-      <div className="blob blob-blue" />
-      <div className="blob blob-green" />
-      <div className="blob blob-yellow" />
+      {/* Dynamic Ambient Blobs - Loang màu hồng nhẹ nhàng kích thước ~65% */}
+      <div className="absolute -top-20 -left-20 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-rose-400/12 via-pink-300/08 to-transparent blur-[75px] pointer-events-none" />
+      <div className="absolute -bottom-20 -right-20 w-[400px] h-[400px] rounded-full bg-gradient-to-tl from-rose-400/12 via-pink-300/08 to-transparent blur-[75px] pointer-events-none" />
 
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '440px',
-          position: 'relative',
-          zIndex: 10
-        }}
-      >
-        {/* Card Đăng nhập */}
-        <div
-          className="card"
-          style={{
-            padding: '2.25rem',
-            borderRadius: '1rem',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04)',
-            border: '1px solid rgba(229, 231, 235, 0.8)',
-            backdropFilter: 'blur(8px)',
-            backgroundColor: 'rgba(255, 255, 255, 0.95)'
-          }}
-        >
+      <div className="w-full max-w-md relative z-10">
+        {/* Solid White Content Card */}
+        <div className="bg-white p-9 rounded-3xl shadow-2xl border border-slate-100">
           {/* Logo Nam Khánh */}
-          <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-            <div
-              style={{
-                width: '76px',
-                height: '76px',
-                borderRadius: '18px',
-                backgroundColor: '#FFFFFF',
-                boxShadow: '0 8px 20px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(229, 57, 53, 0.15)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '8px',
-                marginBottom: '0.85rem',
-                border: '1px solid #F3F4F6'
-              }}
-            >
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 rounded-2xl bg-white shadow-card inline-flex items-center justify-center p-2.5 mb-3.5 border border-slate-100">
               <img
                 src="/logo.png"
                 alt="Logo Công ty TNHH NK Nam Khánh"
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                className="w-full h-full object-contain"
               />
             </div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#111827', margin: 0, letterSpacing: '-0.01em' }}>
+            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
               CÔNG TY TNHH NK NAM KHÁNH
             </h2>
-            <div style={{ fontSize: '13px', color: '#E53935', fontWeight: '600', marginTop: '0.3rem' }}>
-              Chuyên Cung Cấp Văn Phòng Phẩm & Thiết Bị Văn Phòng
+            <div className="text-xs text-namkhanh-600 font-bold uppercase tracking-wider mt-1">
+              Văn phòng phẩm & Thiết bị văn phòng
             </div>
-            <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '0.25rem' }}>
+            <p className="text-xs text-slate-400 mt-1 font-medium">
               Hệ thống Quản trị Doanh nghiệp & Chuỗi cung ứng
             </p>
           </div>
 
           {error && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                backgroundColor: '#FEE2E2',
-                color: '#B91C1C',
-                padding: '0.75rem 1rem',
-                borderRadius: '0.5rem',
-                fontSize: '13px',
-                marginBottom: '1.25rem'
-              }}
-            >
-              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <div className="flex items-center gap-2.5 bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-2xl text-xs mb-5 font-medium">
+              <AlertCircle size={16} className="shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#374151', marginBottom: '0.375rem' }}>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Email đăng nhập
               </label>
-              <div style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.75rem', color: '#9CA3AF' }}>
+              <div className="relative">
+                <div className="absolute top-1/2 -translate-y-1/2 left-3.5 text-slate-400">
                   <Mail size={16} />
                 </div>
                 <input
                   type="email"
-                  className="input"
-                  style={{ paddingLeft: '2.35rem' }}
-                  placeholder="Email đăng nhập"
+                  className="input input-pill pl-10 text-sm font-medium"
+                  placeholder="name@namkhanh.vn"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -145,45 +95,39 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#374151', marginBottom: '0.375rem' }}>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Mật khẩu
               </label>
-              <div style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.75rem', color: '#9CA3AF' }}>
+              <div className="relative">
+                <div className="absolute top-1/2 -translate-y-1/2 left-3.5 text-slate-400">
                   <Lock size={16} />
                 </div>
                 <input
                   type="password"
-                  className="input"
-                  style={{ paddingLeft: '2.35rem' }}
+                  className="input input-pill pl-10 text-sm font-medium"
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', marginTop: '0.1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', color: '#4B5563', fontSize: '13px', userSelect: 'none' }}>
+            <div className="flex items-center justify-between pt-1">
+              <label className="flex items-center gap-2 cursor-pointer text-slate-600 text-xs select-none font-medium">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  style={{ accentColor: '#E53935', width: '15px', height: '15px', cursor: 'pointer', borderRadius: '4px' }}
+                  className="w-4 h-4 rounded text-namkhanh-600 focus:ring-namkhanh-500 accent-namkhanh-600 cursor-pointer"
                 />
-                <span>Ghi nhớ đăng nhập trên thiết bị này</span>
+                <span>Ghi nhớ đăng nhập</span>
               </label>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary"
-              style={{
-                width: '100%',
-                padding: '0.65rem',
-                fontSize: '14px',
-                marginTop: '0.35rem'
-              }}
+              className="btn btn-primary w-full py-3 mt-2 text-sm font-bold shadow-glow flex items-center justify-center gap-2"
             >
               {loading ? (
                 'Đang xác thực...'

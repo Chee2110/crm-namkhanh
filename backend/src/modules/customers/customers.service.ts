@@ -11,6 +11,7 @@ export class CustomersService {
     currentUserId?: string;
     departmentId?: string;
     highDebtOnly?: boolean;
+    minDebt?: number;
   }) {
     const where: any = {};
 
@@ -70,6 +71,10 @@ export class CustomersService {
         isHighDebt: totalDebt > 50000000
       };
     });
+
+    if (params.minDebt !== undefined && params.minDebt !== null && !isNaN(Number(params.minDebt))) {
+      return mapped.filter((c: any) => c.totalDebt >= Number(params.minDebt));
+    }
 
     if (params.highDebtOnly) {
       return mapped.filter((c: any) => c.totalDebt > 50000000);
@@ -318,13 +323,15 @@ export class CustomersService {
 
     if (customer._count.quotations > 0 || customer._count.orders > 0) {
       // Soft delete
-      return prisma.customer.update({
+      const updated = await prisma.customer.update({
         where: { id },
         data: { status: 'INACTIVE' }
       });
+      return { ...updated, isSoftDeleted: true };
     }
 
-    return prisma.customer.delete({ where: { id } });
+    const deleted = await prisma.customer.delete({ where: { id } });
+    return { ...deleted, isSoftDeleted: false };
   }
 
   async handoverCustomer(id: string, toUserId: string, reason: string, fromUserId?: string) {

@@ -33,7 +33,8 @@ import {
   Edit2,
   FileSpreadsheet,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Order, Customer, Product, User } from '../../types';
@@ -43,6 +44,21 @@ import { ImportItemsModal } from '../../components/common/ImportItemsModal';
 import { useTableResize } from '../../hooks/useTableResize';
 import { ProductSearchSelect } from '../../components/common/ProductSearchSelect';
 import { Toast } from '../../components/common/Toast';
+import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
+import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+
+const DELIVERY_STATUS_OPTIONS: StatusOption[] = [
+  { value: 'PENDING', label: 'Chờ giao', colorClass: 'bg-amber-50 text-amber-700 border-amber-300' },
+  { value: 'DELIVERING', label: 'Đang giao', colorClass: 'bg-purple-50 text-purple-700 border-purple-300' },
+  { value: 'DELIVERED', label: 'Đã giao', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+  { value: 'CANCELLED', label: 'Đã hủy', colorClass: 'bg-red-50 text-red-700 border-red-300' }
+];
+
+const INVOICE_STATUS_OPTIONS: StatusOption[] = [
+  { value: 'NOT_ISSUED', label: 'Chưa xuất HĐ', colorClass: 'bg-gray-100 text-gray-700 border-gray-300' },
+  { value: 'ISSUING', label: 'Đang xuất HĐ', colorClass: 'bg-amber-50 text-amber-700 border-amber-300' },
+  { value: 'ISSUED', label: 'Đã xuất HĐ', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' }
+];
 
 export const OrdersPage: React.FC = () => {
   const { user, hasPermission } = useAuth();
@@ -176,50 +192,9 @@ export const OrdersPage: React.FC = () => {
     }
   });
 
-  const [draggedCol, setDraggedCol] = useState<string | null>(null);
-  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
-
-  const handleDragStart = (e: React.DragEvent, colKey: string) => {
-    setDraggedCol(colKey);
-    e.dataTransfer.setData('text/plain', colKey);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent, colKey: string) => {
-    e.preventDefault();
-    if (draggedCol && draggedCol !== colKey) {
-      setDragOverCol(colKey);
-    }
-  };
-
-  const handleDragLeave = () => {
-    setDragOverCol(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, targetCol: string) => {
-    e.preventDefault();
-    if (!draggedCol || draggedCol === targetCol || targetCol === 'actions' || targetCol === 'code' || draggedCol === 'actions') {
-      setDraggedCol(null);
-      setDragOverCol(null);
-      return;
-    }
-
-    const newOrder = [...columnOrder];
-    const dragIdx = newOrder.indexOf(draggedCol);
-    const dropIdx = newOrder.indexOf(targetCol);
-
-    if (dragIdx > -1 && dropIdx > -1) {
-      newOrder.splice(dragIdx, 1);
-      newOrder.splice(dropIdx, 0, draggedCol);
-      // Đảm bảo actions luôn ở vị trí cuối cùng
-      const withoutActions = newOrder.filter((k) => k !== 'actions');
-      withoutActions.push('actions');
-      setColumnOrder(withoutActions);
-      localStorage.setItem('namkhanh_orders_col_order', JSON.stringify(withoutActions));
-    }
-
-    setDraggedCol(null);
-    setDragOverCol(null);
+  const handleReorderColumns = (newOrder: string[]) => {
+    setColumnOrder(newOrder);
+    localStorage.setItem('namkhanh_orders_col_order', JSON.stringify(newOrder));
   };
 
   const toggleColumnVisibility = (key: string) => {
@@ -296,6 +271,7 @@ export const OrdersPage: React.FC = () => {
       quantity: number;
       unitPrice: number;
       vatRate: number;
+      imageUrl?: string;
     }>
   });
 
@@ -370,10 +346,15 @@ export const OrdersPage: React.FC = () => {
     if (!prod) return;
 
     // Tránh thêm trùng sản phẩm, tăng số lượng nếu đã có
-    const existingIndex = createData.items.findIndex((item) => item.productId === productId);
+    const existingIndex = createData.items.findIndex(
+      (item) => item.productId === productId || (item.productCode && item.productCode === prod.code)
+    );
     if (existingIndex >= 0) {
       const updated = [...createData.items];
       updated[existingIndex].quantity += 1;
+      if (!updated[existingIndex].imageUrl && prod.imageUrl) {
+        updated[existingIndex].imageUrl = prod.imageUrl;
+      }
       setCreateData({ ...createData, items: updated });
     } else {
       setCreateData({
@@ -387,7 +368,8 @@ export const OrdersPage: React.FC = () => {
             unit: prod.unit,
             quantity: 1,
             unitPrice: Number(prod.sellingPrice || 0),
-            vatRate: createData.vatRate
+            vatRate: createData.vatRate,
+            imageUrl: prod.imageUrl || ''
           }
         ]
       });
@@ -413,7 +395,8 @@ export const OrdersPage: React.FC = () => {
       productCode: product.code,
       productName: product.name,
       unit: product.unit,
-      unitPrice: Number(product.sellingPrice || 0)
+      unitPrice: Number(product.sellingPrice || 0),
+      imageUrl: product.imageUrl || ''
     };
     setCreateData({ ...createData, items: updated });
   };
@@ -432,7 +415,8 @@ export const OrdersPage: React.FC = () => {
           unit: defaultProd.unit,
           quantity: 1,
           unitPrice: Number(defaultProd.sellingPrice || 0),
-          vatRate: createData.vatRate
+          vatRate: createData.vatRate,
+          imageUrl: defaultProd.imageUrl || ''
         }
       ]
     });
@@ -440,9 +424,18 @@ export const OrdersPage: React.FC = () => {
 
   const handleBulkImportItems = (importedItems: any[]) => {
     const validExisting = createData.items.filter((it) => it.productId || it.productCode);
+    const enrichedImported = importedItems.map((item) => {
+      const matched = products.find(
+        (p) => (item.productId && p.id === item.productId) || (item.productCode && p.code === item.productCode)
+      );
+      return {
+        ...item,
+        imageUrl: item.imageUrl || matched?.imageUrl || ''
+      };
+    });
     setCreateData({
       ...createData,
-      items: [...validExisting, ...importedItems]
+      items: [...validExisting, ...enrichedImported]
     });
     setToastMessage(`Đã nhập thành công ${importedItems.length} sản phẩm từ file Excel/CSV!`);
   };
@@ -482,15 +475,21 @@ export const OrdersPage: React.FC = () => {
       useCreditBalance: false,
       notes: order.notes || '',
       items: (order.items && order.items.length > 0)
-        ? order.items.map((it) => ({
-            productId: it.productId || '',
-            productCode: it.productCode,
-            productName: it.productName,
-            unit: it.unit,
-            quantity: Number(it.quantity) || 1,
-            unitPrice: Number(it.unitPrice) || 0,
-            vatRate: it.vatRate !== undefined ? Number(it.vatRate) : (order.vatRate ?? 8)
-          }))
+        ? order.items.map((it) => {
+            const matchedProd = products.find(
+              (p) => (it.productId && p.id === it.productId) || (it.productCode && p.code === it.productCode)
+            );
+            return {
+              productId: it.productId || '',
+              productCode: it.productCode,
+              productName: it.productName,
+              unit: it.unit,
+              quantity: Number(it.quantity) || 1,
+              unitPrice: Number(it.unitPrice) || 0,
+              vatRate: it.vatRate !== undefined ? Number(it.vatRate) : (order.vatRate ?? 8),
+              imageUrl: (it as any).imageUrl || it.product?.imageUrl || matchedProd?.imageUrl || ''
+            };
+          })
         : []
     });
     setFormError(null);
@@ -624,6 +623,34 @@ export const OrdersPage: React.FC = () => {
       alert(err.response?.data?.message || 'Cập nhật đơn hàng thất bại');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleQuickDeliveryStatusChange = async (orderId: string, newDeliveryStatus: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, deliveryStatus: newDeliveryStatus as any } : o))
+      );
+      await api.put(`/orders/${orderId}`, { deliveryStatus: newDeliveryStatus });
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Cập nhật trạng thái giao hàng thất bại');
+      loadData();
+    }
+  };
+
+  const handleQuickInvoiceStatusChange = async (orderId: string, newInvoiceStatus: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, invoiceStatus: newInvoiceStatus as any } : o))
+      );
+      await api.put(`/orders/${orderId}`, { invoiceStatus: newInvoiceStatus });
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Cập nhật trạng thái hóa đơn thất bại');
+      loadData();
     }
   };
 
@@ -1177,15 +1204,6 @@ export const OrdersPage: React.FC = () => {
                   />
                   <button
                     type="button"
-                    onClick={handleAddEmptyRow}
-                    className="px-2.5 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center gap-1 shrink-0 cursor-pointer"
-                    title="Thêm một dòng trống vào đơn hàng"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Thêm dòng</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setIsImportItemsModalOpen(true)}
                     className="px-2.5 py-1.5 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-semibold transition-colors shadow-sm flex items-center gap-1 shrink-0 cursor-pointer"
                     title="Tải lên danh sách sản phẩm từ file Excel hoặc CSV"
@@ -1205,7 +1223,9 @@ export const OrdersPage: React.FC = () => {
                   <table className="w-full text-xs text-left">
                     <thead className="bg-gray-100/70 border-b border-gray-200 text-gray-700">
                       <tr>
-                        <th className="p-2.5 min-w-[300px] text-center">Mã & Tên SP (Nhập tìm kiếm)</th>
+                        <th className="p-2.5 w-12 text-center">STT</th>
+                        <th className="p-2.5 w-16 text-center">Hình ảnh</th>
+                        <th className="p-2.5 min-w-[280px] text-center">Mã & Tên SP (Nhập tìm kiếm)</th>
                         <th className="p-2.5 w-24 text-center">ĐVT</th>
                         <th className="p-2.5 w-28 text-center">Số lượng</th>
                         <th className="p-2.5 w-36 text-center">Đơn giá (VNĐ)</th>
@@ -1215,11 +1235,42 @@ export const OrdersPage: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {createData.items.map((item, index) => {
-                        const prod = products.find((p) => p.id === item.productId);
+                        const prod = products.find(
+                          (p) => (item.productId && p.id === item.productId) || (item.productCode && p.code === item.productCode)
+                        );
                         const isExcessStock = prod !== undefined && prod.stockQuantity < item.quantity;
+                        const itemImageUrl = (item as any).imageUrl || prod?.imageUrl;
+
                         return (
                           <tr key={index} className="hover:bg-gray-50/50">
-                            <td className="p-2 min-w-[300px]">
+                            {/* Cột 1: STT */}
+                            <td className="p-2.5 text-center font-medium text-gray-500 tabular-nums w-12">
+                              {index + 1}
+                            </td>
+
+                            {/* Cột 2: Hình ảnh sản phẩm (auto nhập khi thêm hàng hóa) */}
+                            <td className="p-1.5 text-center w-16">
+                              {itemImageUrl ? (
+                                <img
+                                  src={itemImageUrl}
+                                  alt={item.productName || 'Sản phẩm'}
+                                  className="w-10 h-10 rounded-lg object-contain border border-gray-200 bg-white mx-auto shadow-2xs hover:scale-110 transition-transform cursor-pointer"
+                                  title={item.productName || 'Hình ảnh sản phẩm'}
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  className="w-10 h-10 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-300 mx-auto bg-gray-50/50"
+                                  title="Chưa có hình ảnh"
+                                >
+                                  <ImageIcon className="w-4 h-4 text-gray-400" />
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="p-2 min-w-[280px]">
                               <ProductSearchSelect
                                 products={products}
                                 selectedProductId={item.productId}
@@ -1290,6 +1341,19 @@ export const OrdersPage: React.FC = () => {
                   </table>
                 </div>
               )}
+
+              {/* Nút Thêm dòng chuyển xuống dưới bảng */}
+              <div className="mt-3 flex items-center justify-start">
+                <button
+                  type="button"
+                  onClick={handleAddEmptyRow}
+                  className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  title="Thêm một dòng trống vào đơn hàng"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm dòng</span>
+                </button>
+              </div>
             </div>
 
             {/* Thanh toán & Công nợ tự động */}
@@ -1659,52 +1723,17 @@ export const OrdersPage: React.FC = () => {
         </form>
 
         <div className="flex items-center gap-2">
-          {/* Nút Ẩn/Hiện cột DataGrid */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsColumnDropdownOpen(!isColumnDropdownOpen)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap cursor-pointer"
-              title="Tùy biến cấu hình ẩn/hiện các cột trên bảng"
-            >
-              <SlidersHorizontal className="w-4 h-4 text-gray-500" />
-              <span>Ẩn/Hiện cột</span>
-            </button>
-            {isColumnDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 p-3 z-30 space-y-1.5 text-xs">
-                <div className="font-bold text-gray-800 pb-1.5 border-b border-gray-100 flex justify-between items-center">
-                  <span>Cấu hình cột hiển thị</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={resetColumns}
-                      className="text-red-600 hover:text-red-700 flex items-center gap-1 font-medium cursor-pointer"
-                      title="Khôi phục mặc định"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Mặc định</span>
-                    </button>
-                    <button onClick={() => setIsColumnDropdownOpen(false)} className="text-gray-400 hover:text-gray-600">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-                <div className="max-h-60 overflow-y-auto space-y-1">
-                  {columnOrder.map((key) => (
-                    <label key={key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={visibleColumns[key] ?? true}
-                        onChange={() => toggleColumnVisibility(key)}
-                        disabled={key === 'code' || key === 'customer'}
-                        className="rounded text-[#E53935]"
-                      />
-                      <span>{columnLabels[key]}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Nút Cột */}
+          <ColumnCustomizerDropdown
+            columnOrder={columnOrder}
+            columnLabels={columnLabels}
+            visibleColumns={visibleColumns}
+            onToggleColumn={toggleColumnVisibility}
+            onReorderColumns={handleReorderColumns}
+            onReset={resetColumns}
+            disabledKeys={['code', 'customer']}
+            fixedKeys={['actions']}
+          />
 
           <button
             type="button"
@@ -1742,7 +1771,7 @@ export const OrdersPage: React.FC = () => {
               className="flex items-center gap-2 px-4 py-2 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
-              Tạo đơn hàng VPP mới
+              Tạo đơn hàng mới
             </button>
           )}
         </div>
@@ -1766,27 +1795,15 @@ export const OrdersPage: React.FC = () => {
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      draggable={colKey !== 'actions'}
-                      onDragStart={(e) => handleDragStart(e, colKey)}
-                      onDragOver={(e) => handleDragOver(e, colKey)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, colKey)}
                       className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${
                         colKey === 'actions' ? 'sticky-action-th' : ''
-                      } ${
-                        dragOverCol === colKey ? 'bg-red-100 border-l-2 border-[#E53935]' : ''
-                      } ${draggedCol === colKey ? 'opacity-50' : ''}`}
+                      }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 140}px`,
-                        position: colKey === 'actions' ? 'sticky' : 'relative',
-                        cursor: colKey !== 'actions' ? 'grab' : 'default'
+                        position: colKey === 'actions' ? 'sticky' : 'relative'
                       }}
-                      title="Kéo thả để thay đổi vị trí cột"
                     >
-                      <div
-                        className="inline-flex items-center justify-center gap-1.5 w-full"
-                      >
-                        {colKey !== 'actions' && <GripVertical className="w-3 h-3 text-gray-400 opacity-60 flex-shrink-0" />}
+                      <div className="inline-flex items-center justify-center gap-1.5 w-full">
                         <span className="whitespace-nowrap select-none font-semibold">{columnLabels[colKey]}</span>
                       </div>
                       {colKey !== 'actions' && (
@@ -1794,7 +1811,7 @@ export const OrdersPage: React.FC = () => {
                           className="col-resizer"
                           onMouseDown={(e) => startResize(colKey, e)}
                           onClick={(e) => e.stopPropagation()}
-                          title="Kéo sang trái/phải để điều chỉnh độ rộng cột"
+                          title="Kéo để chỉnh độ rộng"
                         />
                       )}
                     </th>
@@ -1814,7 +1831,7 @@ export const OrdersPage: React.FC = () => {
                   <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length} className="py-12 text-center text-gray-500">
                     <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-base font-medium text-gray-700">Chưa có đơn hàng nào phù hợp</p>
-                    <p className="text-xs text-gray-400 mt-1">Bấm "Tạo đơn hàng VPP mới" để ghi nhận đơn hàng</p>
+                    <p className="text-xs text-gray-400 mt-1">Bấm "Tạo đơn hàng mới" để ghi nhận đơn hàng</p>
                   </td>
                 </tr>
               ) : (
@@ -1839,11 +1856,6 @@ export const OrdersPage: React.FC = () => {
                                   <div className="font-semibold text-gray-900 flex items-center justify-center gap-1.5 min-w-0" title={`Mã đơn: ${order.code}${order.quotation ? ` (Từ BG: ${order.quotation.code})` : ''}`}>
                                     <ShoppingBag className="w-4 h-4 text-[#E53935] shrink-0" />
                                     <span className="font-mono">{order.code}</span>
-                                    {order.quotation && (
-                                      <span className="text-[10px] text-gray-500 font-mono bg-gray-100 px-1 py-0.5 rounded shrink-0">
-                                        BG:{order.quotation.code}
-                                      </span>
-                                    )}
                                   </div>
                                 </td>
                               );
@@ -1857,20 +1869,6 @@ export const OrdersPage: React.FC = () => {
                                     <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
                                       {order.customer?.name || '—'}
                                     </div>
-                                    {(contact || phone) && (
-                                      <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5 truncate">
-                                        {contact && (
-                                          <span className="inline-flex items-center gap-1 truncate text-gray-600">
-                                            <UserIcon className="w-3 h-3 text-gray-400 shrink-0" />
-                                            <span className="truncate">{contact}</span>
-                                          </span>
-                                        )}
-                                        {contact && phone && <span className="text-gray-300 shrink-0">•</span>}
-                                        {phone && (
-                                          <span className="font-mono text-gray-500 shrink-0">{phone}</span>
-                                        )}
-                                      </div>
-                                    )}
                                   </div>
                                 </td>
                               );
@@ -1894,30 +1892,44 @@ export const OrdersPage: React.FC = () => {
                               );
                             case 'dates':
                               return (
-                                <td key={colKey} className="py-2.5 px-3.5 text-xs overflow-hidden">
-                                  <div className="min-w-0" title={`Ngày đặt: ${new Date(order.orderDate).toLocaleDateString('vi-VN')}${order.deliveryDate ? ` - Hẹn giao: ${new Date(order.deliveryDate).toLocaleDateString('vi-VN')}` : ''}`}>
+                                <td key={colKey} className="py-2.5 px-3.5 text-xs overflow-hidden text-center">
+                                  <div className="min-w-0 text-center" title={`Ngày đặt: ${new Date(order.orderDate).toLocaleDateString('vi-VN')}${order.deliveryDate ? ` - Hẹn giao: ${new Date(order.deliveryDate).toLocaleDateString('vi-VN')}` : ''}`}>
                                     <div className="text-gray-900 font-medium">
                                       {new Date(order.orderDate).toLocaleDateString('vi-VN')}
                                     </div>
-                                    {order.deliveryDate && (
-                                      <div className="text-gray-500 flex items-center gap-1 mt-0.5">
-                                        <Truck className="w-3 h-3 text-gray-400 shrink-0" />
-                                        <span>{new Date(order.deliveryDate).toLocaleDateString('vi-VN')}</span>
-                                      </div>
-                                    )}
                                   </div>
                                 </td>
                               );
                             case 'delivery':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden">
-                                  {renderDeliveryBadge(order.deliveryStatus)}
+                                <td
+                                  key={colKey}
+                                  className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="flex items-center justify-center">
+                                    <StatusBadgeDropdown
+                                      value={order.deliveryStatus}
+                                      options={DELIVERY_STATUS_OPTIONS}
+                                      onChange={(newStatus) => handleQuickDeliveryStatusChange(order.id, newStatus)}
+                                    />
+                                  </div>
                                 </td>
                               );
                             case 'invoice':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden">
-                                  {renderInvoiceBadge(order.invoiceStatus)}
+                                <td
+                                  key={colKey}
+                                  className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="flex items-center justify-center">
+                                    <StatusBadgeDropdown
+                                      value={order.invoiceStatus}
+                                      options={INVOICE_STATUS_OPTIONS}
+                                      onChange={(newStatus) => handleQuickInvoiceStatusChange(order.id, newStatus)}
+                                    />
+                                  </div>
                                 </td>
                               );
                             case 'totalAmount':
