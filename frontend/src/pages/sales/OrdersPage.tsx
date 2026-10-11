@@ -46,6 +46,7 @@ import { ProductSearchSelect } from '../../components/common/ProductSearchSelect
 import { Toast } from '../../components/common/Toast';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+import { withActionsLast } from '../../utils/columnOrder';
 
 const DELIVERY_STATUS_OPTIONS: StatusOption[] = [
   { value: 'PENDING', label: 'Chờ giao', colorClass: 'bg-amber-50 text-amber-700 border-amber-300' },
@@ -151,7 +152,7 @@ export const OrdersPage: React.FC = () => {
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('namkhanh_orders_col_order');
-      return saved ? JSON.parse(saved) : defaultColOrder;
+      return saved ? withActionsLast(JSON.parse(saved), defaultColOrder) : defaultColOrder;
     } catch {
       return defaultColOrder;
     }
@@ -193,8 +194,9 @@ export const OrdersPage: React.FC = () => {
   });
 
   const handleReorderColumns = (newOrder: string[]) => {
-    setColumnOrder(newOrder);
-    localStorage.setItem('namkhanh_orders_col_order', JSON.stringify(newOrder));
+    const normalized = withActionsLast(newOrder, defaultColOrder);
+    setColumnOrder(normalized);
+    localStorage.setItem('namkhanh_orders_col_order', JSON.stringify(normalized));
   };
 
   const toggleColumnVisibility = (key: string) => {
@@ -1650,7 +1652,7 @@ export const OrdersPage: React.FC = () => {
       </div>
 
       {/* FILTER & ACTIONS BAR */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
+      <div className="toolbar-pill bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
         <form onSubmit={handleSearch} className="flex flex-1 w-full md:w-auto gap-2 items-center flex-wrap">
           <div className="relative flex-1 min-w-[240px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />

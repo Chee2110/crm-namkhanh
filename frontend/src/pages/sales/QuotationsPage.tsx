@@ -33,6 +33,7 @@ import { ProductSearchSelect } from '../../components/common/ProductSearchSelect
 import { Toast } from '../../components/common/Toast';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+import { withActionsLast } from '../../utils/columnOrder';
 
 const QUOTATION_STATUS_OPTIONS: StatusOption[] = [
   { value: 'DRAFT', label: 'Bản thảo', colorClass: 'bg-gray-100 text-gray-700 border-gray-300' },
@@ -89,7 +90,7 @@ export const QuotationsPage: React.FC = () => {
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('namkhanh_quotations_col_order');
-      return saved ? JSON.parse(saved) : defaultColOrder;
+      return saved ? withActionsLast(JSON.parse(saved), defaultColOrder) : defaultColOrder;
     } catch {
       return defaultColOrder;
     }
@@ -137,8 +138,9 @@ export const QuotationsPage: React.FC = () => {
   };
 
   const handleReorderColumns = (newOrder: string[]) => {
-    setColumnOrder(newOrder);
-    localStorage.setItem('namkhanh_quotations_col_order', JSON.stringify(newOrder));
+    const normalized = withActionsLast(newOrder, defaultColOrder);
+    setColumnOrder(normalized);
+    localStorage.setItem('namkhanh_quotations_col_order', JSON.stringify(normalized));
   };
 
   const toggleColumnVisibility = (key: string) => {
@@ -1228,7 +1230,7 @@ export const QuotationsPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       {/* Thanh công cụ */}
       <div
-        className="card"
+        className="card toolbar-pill"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -1461,61 +1463,53 @@ export const QuotationsPage: React.FC = () => {
                                   maxWidth: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 220}px`
                                 }}
                               >
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '0.35rem'
-                                }}
-                              >
+                              <div className="flex items-center justify-center gap-1 w-full">
                                 <button
                                   onClick={() => {
                                     setSelectedQuotation(q);
                                     setIsPrintModalOpen(true);
                                   }}
-                                  className="btn btn-secondary btn-sm"
+                                  className="p-1 text-gray-500 hover:text-[#E53935] hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                   title="Xem chi tiết & Mẫu in A4"
                                 >
-                                  <Printer size={14} />
+                                  <Printer className="w-4 h-4 text-[#E53935]" />
                                 </button>
                                 {hasPermission('B_QUOTATIONS', 'update') && (
                                   <button
                                     onClick={() => openEditModal(q)}
-                                    className="btn btn-secondary btn-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                    className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                                     title="Chỉnh sửa báo giá"
                                   >
-                                    <Edit2 size={14} />
+                                    <Edit2 className="w-4 h-4" />
                                   </button>
                                 )}
                                 {hasPermission('B_QUOTATIONS', 'delete') && (
                                   <button
                                     onClick={() => handleDelete(q.id, q.code)}
-                                    className="btn btn-secondary btn-sm text-red-600 hover:text-red-800 hover:bg-red-50"
+                                    className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                     title="Xóa báo giá"
                                   >
-                                    <Trash2 size={14} />
+                                    <Trash2 className="w-4 h-4" />
                                   </button>
                                 )}
                                 <button
                                   onClick={() => handleExportSingleQuotationExcel(q)}
-                                  className="btn btn-secondary btn-sm"
+                                  className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
                                   title="Xuất file Excel báo giá này"
                                 >
-                                  <FileSpreadsheet size={14} color="#16A34A" />
+                                  <FileSpreadsheet className="w-4 h-4" />
                                 </button>
                                 {q.status === 'CONFIRMED' && (
                                   <button
                                     onClick={() => handleConvertToOrder(q)}
                                     disabled={convertingQuoteId === q.id}
-                                    className="btn btn-primary btn-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                                    className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                                     title="Tạo Đơn hàng từ Báo giá này"
-                                    style={{ backgroundColor: '#16A34A', borderColor: '#16A34A' }}
                                   >
                                     {convertingQuoteId === q.id ? (
-                                      <Loader2 size={14} className="animate-spin" />
+                                      <Loader2 className="w-4 h-4 animate-spin" />
                                     ) : (
-                                      <ShoppingBag size={14} />
+                                      <ShoppingBag className="w-4 h-4" />
                                     )}
                                   </button>
                                 )}
@@ -1532,19 +1526,19 @@ export const QuotationsPage: React.FC = () => {
                                 {q.status === 'DRAFT' && (
                                   <button
                                     onClick={() => handleStatusChange(q.id, 'SENT')}
-                                    className="btn btn-secondary btn-sm"
+                                    className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                                     title="Đánh dấu đã gửi khách"
                                   >
-                                    <Send size={13} color="#2563EB" />
+                                    <Send className="w-4 h-4" />
                                   </button>
                                 )}
                                 {q.status === 'SENT' && (
                                   <button
                                     onClick={() => handleStatusChange(q.id, 'CONFIRMED')}
-                                    className="btn btn-secondary btn-sm"
+                                    className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
                                     title="Chốt báo giá thành công"
                                   >
-                                    <CheckCircle2 size={13} color="#16A34A" />
+                                    <CheckCircle2 className="w-4 h-4" />
                                   </button>
                                 )}
                               </div>

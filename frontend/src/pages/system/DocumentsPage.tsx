@@ -226,7 +226,7 @@ export const DocumentsPage: React.FC = () => {
             </button>
           </div>
 
-          <div style={{ position: 'relative', width: '260px' }}>
+          <div className="toolbar-pill" style={{ position: 'relative', width: '260px' }}>
             <Search
               size={15}
               style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.75rem', color: '#9CA3AF' }}
@@ -344,16 +344,15 @@ export const DocumentsPage: React.FC = () => {
                   <td className="table-td text-xs text-gray-500 font-mono whitespace-nowrap overflow-hidden">
                     {new Date(doc.createdAt).toLocaleDateString('vi-VN')}
                   </td>
-                  <td className="table-td sticky-action-td whitespace-nowrap overflow-hidden" style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
+                  <td className="table-td text-center sticky-action-td whitespace-nowrap overflow-hidden">
+                    <div className="flex items-center justify-center gap-1 w-full">
                       {/* Tải về an toàn */}
                       <a
                         href={`/api/v1/documents/${doc.id}/download`}
-                        className="btn btn-secondary btn-sm"
-                        style={{ color: '#1E88E5' }}
+                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                         title="Tải về"
                       >
-                        <Download size={13} />
+                        <Download className="w-4 h-4" />
                       </a>
 
                       {/* Xem trước nếu là link web hoặc file trực tiếp */}
@@ -362,21 +361,20 @@ export const DocumentsPage: React.FC = () => {
                           href={doc.fileUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="btn btn-secondary btn-sm"
+                          className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                           title="Xem trước"
                         >
-                          <Eye size={13} />
+                          <Eye className="w-4 h-4" />
                         </a>
                       )}
 
                       {hasPermission('A_DOCUMENTS', 'delete') && (
                         <button
                           onClick={() => handleDelete(doc)}
-                          className="btn btn-secondary btn-sm"
-                          style={{ color: '#DC2626' }}
+                          className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                           title="Xóa"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>

@@ -251,35 +251,33 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
                   <td className="table-td text-xs text-gray-500 font-mono whitespace-nowrap overflow-hidden">
                     {new Date(r.createdAt).toLocaleDateString('vi-VN')}
                   </td>
-                  <td className="table-td sticky-action-td whitespace-nowrap overflow-hidden" style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '0.375rem' }}>
+                  <td className="table-td text-center sticky-action-td whitespace-nowrap overflow-hidden">
+                    <div className="flex items-center justify-center gap-1 w-full">
                       <button
                         onClick={() => onNavigateToPermissions(r.id)}
-                        className="btn btn-secondary btn-sm"
-                        style={{ color: '#E53935' }}
+                        className="p-1 text-gray-500 hover:text-[#E53935] hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                         title="Thiết lập ma trận phân quyền"
                       >
-                        <KeyRound size={13} />
+                        <KeyRound className="w-4 h-4 text-[#E53935]" />
                       </button>
 
                       {hasPermission('A_ROLES', 'update') && (
                         <button
                           onClick={() => openEditModal(r)}
-                          className="btn btn-secondary btn-sm"
+                          className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                           title="Sửa"
                         >
-                          <Edit2 size={13} />
+                          <Edit2 className="w-4 h-4" />
                         </button>
                       )}
 
                       {hasPermission('A_ROLES', 'delete') && !r.isSystem && (
                         <button
                           onClick={() => handleDelete(r)}
-                          className="btn btn-secondary btn-sm"
-                          style={{ color: '#DC2626' }}
+                          className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                           title="Xóa"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>

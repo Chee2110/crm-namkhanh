@@ -971,7 +971,7 @@ export const FinancesPage: React.FC = () => {
       {activeTab === 'receipts' && (
         <div className="space-y-4">
           {/* Thanh tìm kiếm và bộ lọc trạng thái */}
-          <div className="card p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="card toolbar-pill p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
             <div className="relative flex-1 w-full">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -1181,17 +1181,17 @@ export const FinancesPage: React.FC = () => {
                               {/* Nút In phiếu A4/A5 */}
                               <button
                                 onClick={() => setPrintModalData({ voucher: r, type: 'RECEIPT' })}
-                                className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded"
+                                className="p-1 text-gray-500 hover:text-[#E53935] hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                 title="In phiếu thu A4 / A5"
                               >
-                                <Printer className="w-4 h-4" />
+                                <Printer className="w-4 h-4 text-[#E53935]" />
                               </button>
 
                               {/* Duyệt chuyển sang ĐÃ THU (PAID) - Kế toán / Quản lý */}
                               {r.status !== 'PAID' && (
                                 <button
                                   onClick={() => handleApproveReceipt(r.id, 'PAID')}
-                                  className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                                  className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
                                   title="Xác nhận Đã thu (Tự động gạch nợ đơn hàng)"
                                 >
                                   <CheckCircle2 className="w-4 h-4" />
@@ -1202,7 +1202,7 @@ export const FinancesPage: React.FC = () => {
                               {r.status === 'PENDING' && (
                                 <button
                                   onClick={() => handleApproveReceipt(r.id, 'REJECT')}
-                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                                  className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                   title="Từ chối thu"
                                 >
                                   <XCircle className="w-4 h-4" />
@@ -1222,7 +1222,7 @@ export const FinancesPage: React.FC = () => {
                                     });
                                     setIsOverrideModalOpen(true);
                                   }}
-                                  className="p-1.5 text-amber-600 hover:bg-amber-50 rounded"
+                                  className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
                                   title="Đặc quyền TGĐ: Mở khóa sửa kèm Audit Log"
                                 >
                                   <Unlock className="w-4 h-4" />
@@ -1233,7 +1233,7 @@ export const FinancesPage: React.FC = () => {
                               {r.status !== 'PAID' && hasPermission('E_RECEIPT_VOUCHERS', 'delete') && (
                                 <button
                                   onClick={() => handleDeleteReceipt(r.id)}
-                                  className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                                  className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                   title="Xóa phiếu thu"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -1258,7 +1258,7 @@ export const FinancesPage: React.FC = () => {
       {activeTab === 'payments' && (
         <div className="space-y-4">
           {/* Thanh tìm kiếm và bộ lọc trạng thái */}
-          <div className="card p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="card toolbar-pill p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
             <div className="relative flex-1 w-full">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -1459,17 +1459,17 @@ export const FinancesPage: React.FC = () => {
                               {/* In phiếu chi */}
                               <button
                                 onClick={() => setPrintModalData({ voucher: p, type: 'PAYMENT' })}
-                                className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded"
+                                className="p-1 text-gray-500 hover:text-[#E53935] hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                 title="In phiếu chi A4 / A5"
                               >
-                                <Printer className="w-4 h-4" />
+                                <Printer className="w-4 h-4 text-[#E53935]" />
                               </button>
 
                               {/* Duyệt chi */}
                               {p.status === 'PENDING' && (
                                 <button
                                   onClick={() => handleApprovePayment(p.id, 'APPROVE')}
-                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                                  className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                                   title="Duyệt chi"
                                 >
                                   <CheckCircle2 className="w-4 h-4" />
@@ -1480,7 +1480,7 @@ export const FinancesPage: React.FC = () => {
                               {p.status === 'APPROVED' && (
                                 <button
                                   onClick={() => handleApprovePayment(p.id, 'PAID')}
-                                  className="p-1.5 text-green-600 hover:bg-green-50 rounded font-semibold text-xs"
+                                  className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
                                   title="Xác nhận Đã xuất quỹ chi tiền"
                                 >
                                   <CheckCircle2 className="w-4 h-4" />
@@ -1491,7 +1491,7 @@ export const FinancesPage: React.FC = () => {
                               {p.status === 'PENDING' && (
                                 <button
                                   onClick={() => handleApprovePayment(p.id, 'REJECT')}
-                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                                  className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                   title="Từ chối duyệt chi"
                                 >
                                   <XCircle className="w-4 h-4" />
@@ -1511,7 +1511,7 @@ export const FinancesPage: React.FC = () => {
                                     });
                                     setIsOverrideModalOpen(true);
                                   }}
-                                  className="p-1.5 text-amber-600 hover:bg-amber-50 rounded"
+                                  className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
                                   title="Đặc quyền TGĐ: Mở khóa sửa kèm Audit Log"
                                 >
                                   <Unlock className="w-4 h-4" />
@@ -1522,7 +1522,7 @@ export const FinancesPage: React.FC = () => {
                               {p.status !== 'PAID' && hasPermission('E_PAYMENT_VOUCHERS', 'delete') && (
                                 <button
                                   onClick={() => handleDeletePayment(p.id)}
-                                  className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                                  className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                   title="Xóa phiếu chi"
                                 >
                                   <Trash2 className="w-4 h-4" />

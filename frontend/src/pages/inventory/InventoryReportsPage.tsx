@@ -331,7 +331,7 @@ export const InventoryReportsPage: React.FC = () => {
         </div>
 
         {/* Thanh tìm kiếm & bộ lọc */}
-        <div className="flex flex-col lg:flex-row gap-3 items-center justify-between mt-6 pt-4 border-t border-gray-100 print:hidden">
+        <div className="toolbar-pill flex flex-col lg:flex-row gap-3 items-center justify-between mt-6 pt-4 border-t border-gray-100 print:hidden">
           <div className="w-full lg:w-96 relative">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input

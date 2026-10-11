@@ -168,7 +168,7 @@ export const ProductTypesPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+        <div className="toolbar-pill flex items-center gap-3 w-full sm:w-auto flex-wrap">
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -297,11 +297,11 @@ export const ProductTypesPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-center gap-1 w-full">
                         {hasPermission('C_PRODUCT_TYPES', 'update') && (
                           <button
                             onClick={() => openEditModal(t)}
-                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                             title="Sửa loại hàng"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -310,7 +310,7 @@ export const ProductTypesPage: React.FC = () => {
                         {hasPermission('C_PRODUCT_TYPES', 'delete') && (
                           <button
                             onClick={() => handleDelete(t)}
-                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                             title="Xóa loại hàng"
                           >
                             <Trash2 className="w-4 h-4" />

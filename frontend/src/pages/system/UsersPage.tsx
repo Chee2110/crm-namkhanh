@@ -318,7 +318,7 @@ export const UsersPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       {/* Thanh công cụ tìm kiếm và lọc */}
       <div
-        className="card"
+        className="card toolbar-pill"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -671,25 +671,28 @@ export const UsersPage: React.FC = () => {
                     </td>
                   )}
                   {visibleColumns.actions && (
-                    <td className="table-td sticky-action-td whitespace-nowrap overflow-hidden" style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
+                    <td className="table-td text-center sticky-action-td whitespace-nowrap overflow-hidden">
+                      <div className="flex items-center justify-center gap-1 w-full">
                         {hasPermission('A_USERS', 'update') && (
                           <button
                             onClick={() => openEditModal(u)}
-                            className="btn btn-secondary btn-sm"
+                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                             title="Chỉnh sửa thông tin"
                           >
-                            <Edit2 size={13} />
+                            <Edit2 className="w-4 h-4" />
                           </button>
                         )}
                         {hasPermission('A_USERS', 'update') && (
                           <button
                             onClick={() => handleToggleStatus(u)}
-                            className="btn btn-secondary btn-sm"
-                            style={{ color: u.status === 'ACTIVE' ? '#DC2626' : '#16A34A' }}
+                            className={`p-1 rounded-md transition-colors cursor-pointer ${
+                              u.status === 'ACTIVE'
+                                ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
+                                : 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50'
+                            }`}
                             title={u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Kích hoạt lại'}
                           >
-                            {u.status === 'ACTIVE' ? <Lock size={13} /> : <Unlock size={13} />}
+                            {u.status === 'ACTIVE' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                           </button>
                         )}
                       </div>

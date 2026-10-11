@@ -354,7 +354,7 @@ export const DepartmentsPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       {/* Thanh công cụ tìm kiếm và lọc */}
       <div
-        className="card"
+        className="card toolbar-pill"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -567,25 +567,24 @@ export const DepartmentsPage: React.FC = () => {
                         />
                       </div>
                     </td>
-                    <td className="table-td sticky-action-td whitespace-nowrap overflow-hidden" style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
+                    <td className="table-td text-center sticky-action-td whitespace-nowrap overflow-hidden">
+                      <div className="flex items-center justify-center gap-1 w-full">
                         {hasPermission('A_DEPARTMENTS', 'update') && (
                           <button
                             onClick={() => openEditModal(d)}
-                            className="btn btn-secondary btn-sm"
+                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                             title="Sửa"
                           >
-                            <Edit2 size={13} />
+                            <Edit2 className="w-4 h-4" />
                           </button>
                         )}
                         {hasPermission('A_DEPARTMENTS', 'delete') && (
                           <button
                             onClick={() => handleDelete(d)}
-                            className="btn btn-secondary btn-sm"
-                            style={{ color: '#DC2626' }}
+                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                             title="Xóa"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>

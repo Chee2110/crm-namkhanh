@@ -81,12 +81,12 @@ export const LoginPage: React.FC = () => {
                 Email đăng nhập
               </label>
               <div className="relative">
-                <div className="absolute top-1/2 -translate-y-1/2 left-3.5 text-slate-400">
+                <div className="absolute top-1/2 -translate-y-1/2 left-4 text-slate-400 pointer-events-none flex items-center">
                   <Mail size={16} />
                 </div>
                 <input
                   type="email"
-                  className="input input-pill pl-10 text-sm font-medium"
+                  className="input input-pill !pl-11 text-sm font-medium"
                   placeholder="name@namkhanh.vn"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -99,12 +99,12 @@ export const LoginPage: React.FC = () => {
                 Mật khẩu
               </label>
               <div className="relative">
-                <div className="absolute top-1/2 -translate-y-1/2 left-3.5 text-slate-400">
+                <div className="absolute top-1/2 -translate-y-1/2 left-4 text-slate-400 pointer-events-none flex items-center">
                   <Lock size={16} />
                 </div>
                 <input
                   type="password"
-                  className="input input-pill pl-10 text-sm font-medium"
+                  className="input input-pill !pl-11 text-sm font-medium"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

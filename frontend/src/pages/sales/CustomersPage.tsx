@@ -53,6 +53,7 @@ import { useTableResize } from '../../hooks/useTableResize';
 import { Toast } from '../../components/common/Toast';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
+import { withActionsLast } from '../../utils/columnOrder';
 
 const CUSTOMER_STATUS_OPTIONS: StatusOption[] = [
   { value: 'ACTIVE', label: 'Hoạt động', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
@@ -222,12 +223,12 @@ export const CustomersPage: React.FC = () => {
     'taxCode',
     'address',
     'deliveryAddress',
-    'actions',
     'manager',
     'totalDebt',
     'creditBalance',
     'orders',
-    'status'
+    'status',
+    'actions' // Cột Thao tác luôn cố định ở cuối bảng
   ];
 
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
@@ -248,7 +249,7 @@ export const CustomersPage: React.FC = () => {
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('namkhanh_customers_col_order_v4');
-      if (saved) return JSON.parse(saved);
+      if (saved) return withActionsLast(JSON.parse(saved), defaultColOrder);
       const savedV3 = localStorage.getItem('namkhanh_customers_col_order_v3');
       if (savedV3) {
         const parsed: string[] = JSON.parse(savedV3);
@@ -260,7 +261,7 @@ export const CustomersPage: React.FC = () => {
             parsed.push('source');
           }
         }
-        return parsed;
+        return withActionsLast(parsed, defaultColOrder);
       }
       return defaultColOrder;
     } catch {
@@ -328,8 +329,9 @@ export const CustomersPage: React.FC = () => {
   };
 
   const handleReorderColumns = (newOrder: string[]) => {
-    setColumnOrder(newOrder);
-    localStorage.setItem('namkhanh_customers_col_order_v4', JSON.stringify(newOrder));
+    const normalized = withActionsLast(newOrder, defaultColOrder);
+    setColumnOrder(normalized);
+    localStorage.setItem('namkhanh_customers_col_order_v4', JSON.stringify(normalized));
   };
 
   const toggleColumnVisibility = (key: string) => {
@@ -675,7 +677,7 @@ export const CustomersPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       {/* Thanh công cụ tìm kiếm & Thêm mới */}
       <div
-        className="card"
+        className="card toolbar-pill"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -1567,7 +1569,7 @@ export const CustomersPage: React.FC = () => {
                                     className="py-2.5 px-3 whitespace-nowrap sticky-action-td"
                                     onClick={(e) => e.stopPropagation()}
                                   >
-                                    <div className="flex items-center justify-center gap-1.5">
+                                    <div className="flex items-center justify-center gap-1 w-full">
                                       {hasPermission('B_CUSTOMERS', 'update') && (
                                         <button
                                           type="button"
@@ -1575,10 +1577,10 @@ export const CustomersPage: React.FC = () => {
                                             e.stopPropagation();
                                             openEditModal(c);
                                           }}
-                                          className="w-7 h-7 flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                                          className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                                           title="Chỉnh sửa thông tin khách hàng"
                                         >
-                                          <Pencil size={13} />
+                                          <Pencil className="w-4 h-4" />
                                         </button>
                                       )}
                                       <button
@@ -1587,10 +1589,10 @@ export const CustomersPage: React.FC = () => {
                                           e.stopPropagation();
                                           openHandoverModal(c);
                                         }}
-                                        className="w-7 h-7 flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                                        className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
                                         title="Bàn giao khách hàng"
                                       >
-                                        <ArrowLeftRight size={13} />
+                                        <ArrowLeftRight className="w-4 h-4" />
                                       </button>
                                       {hasPermission('B_CUSTOMERS', 'delete') && (
                                         <button
@@ -1599,10 +1601,10 @@ export const CustomersPage: React.FC = () => {
                                             e.stopPropagation();
                                             openDeleteModal(c);
                                           }}
-                                          className="w-7 h-7 flex items-center justify-center rounded border border-red-200 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
+                                          className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                           title="Xóa khách hàng"
                                         >
-                                          <Trash2 size={13} />
+                                          <Trash2 className="w-4 h-4" />
                                         </button>
                                       )}
                                     </div>

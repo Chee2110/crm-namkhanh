@@ -33,6 +33,7 @@ import { useTableResize } from '../../hooks/useTableResize';
 import { Toast } from '../../components/common/Toast';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+import { withActionsLast } from '../../utils/columnOrder';
 
 const PRODUCT_STATUS_OPTIONS: StatusOption[] = [
   { value: 'ACTIVE', label: 'Đang kinh doanh', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
@@ -158,7 +159,7 @@ export const ProductsPage: React.FC = () => {
       const saved = localStorage.getItem('namkhanh_products_col_order_v2');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.includes('warehouseCode')) return parsed;
+        if (parsed.includes('warehouseCode')) return withActionsLast(parsed, defaultColOrder);
       }
       return defaultColOrder;
     } catch {
@@ -223,8 +224,9 @@ export const ProductsPage: React.FC = () => {
   });
 
   const handleReorderColumns = (newOrder: string[]) => {
-    setColumnOrder(newOrder);
-    localStorage.setItem('namkhanh_products_col_order_v2', JSON.stringify(newOrder));
+    const normalized = withActionsLast(newOrder, defaultColOrder);
+    setColumnOrder(normalized);
+    localStorage.setItem('namkhanh_products_col_order_v2', JSON.stringify(normalized));
   };
 
   const toggleColumnVisibility = (key: string) => {
@@ -1060,7 +1062,7 @@ export const ProductsPage: React.FC = () => {
 
       {/* BỘ LỌC TÌM KIẾM DỮ LIỆU */}
       <div
-        className="card"
+        className="card toolbar-pill"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -1433,25 +1435,25 @@ export const ProductsPage: React.FC = () => {
                                   onClick={(e) => e.stopPropagation()}
                                   className="py-2.5 px-2 text-center sticky-action-td whitespace-nowrap bg-white border-l border-gray-100"
                                 >
-                                  <div className="flex items-center justify-center gap-1">
+                                  <div className="flex items-center justify-center gap-1 w-full">
                                     {hasPermission('C_PRODUCTS', 'update') && (
                                       <button
                                         type="button"
                                         onClick={() => openEditModal(p)}
-                                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                                         title="Chỉnh sửa sản phẩm"
                                       >
-                                        <Edit2 size={14} />
+                                        <Edit2 className="w-4 h-4" />
                                       </button>
                                     )}
                                     {hasPermission('C_PRODUCTS', 'delete') && (
                                       <button
                                         type="button"
                                         onClick={() => handleDelete(p)}
-                                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                        className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                         title="Xóa sản phẩm"
                                       >
-                                        <Trash2 size={14} />
+                                        <Trash2 className="w-4 h-4" />
                                       </button>
                                     )}
                                   </div>

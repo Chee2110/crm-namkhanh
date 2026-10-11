@@ -123,6 +123,20 @@ export const ColumnCustomizerDropdown: React.FC<ColumnCustomizerProps> = ({
         }
       }
 
+      // Giữ lại các cột cố định nằm lẫn ở giữa (tránh bị mất cột khi kéo thả)
+      for (const k of effectiveKeys) {
+        if (fixedKeys.includes(k) && !leadingFixed.includes(k) && !trailingFixed.includes(k)) {
+          trailingFixed.unshift(k);
+        }
+      }
+
+      // Cột "Thao tác" (actions) luôn cố định ở cuối bảng
+      const actionsIdx = trailingFixed.indexOf('actions');
+      if (actionsIdx !== -1) {
+        trailingFixed.splice(actionsIdx, 1);
+        trailingFixed.push('actions');
+      }
+
       const newFullOrder = [...leadingFixed, ...currentCustomizable, ...trailingFixed];
       onReorderColumns(newFullOrder);
     }
@@ -139,10 +153,10 @@ export const ColumnCustomizerDropdown: React.FC<ColumnCustomizerProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         title={title}
         style={buttonStyle}
-        className={
+        className={`col-customizer-trigger ${
           buttonClassName ||
-          "flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-medium shadow-xs transition-colors cursor-pointer select-none"
-        }
+          "flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-full text-xs font-medium shadow-xs transition-colors cursor-pointer select-none"
+        }`}
       >
         <Settings className="w-3.5 h-3.5 text-gray-600" />
         <span className="text-[13px] font-medium text-gray-800">Cột</span>

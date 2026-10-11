@@ -21,12 +21,16 @@
   --color-text-main: #0F172A;
   --color-text-muted: #64748B;
   --color-text-sub: #94A3B8;
-  
+
   /* Hệ 4 màu biểu trưng Logo Nam Khánh */
-  --brand-red: #EA332A;    /* Đỏ cánh hoa đỉnh */
-  --brand-yellow: #F9BB12; /* Vàng cánh hoa trái */
-  --brand-green: #22BB4E;  /* Xanh lá cánh hoa đáy */
-  --brand-blue: #1A7FED;   /* Xanh dương cánh hoa phải */
+  --brand-red: #EA332A;
+  /* Đỏ cánh hoa đỉnh */
+  --brand-yellow: #F9BB12;
+  /* Vàng cánh hoa trái */
+  --brand-green: #22BB4E;
+  /* Xanh lá cánh hoa đáy */
+  --brand-blue: #1A7FED;
+  /* Xanh dương cánh hoa phải */
 
   --color-success: #22BB4E;
   --color-success-bg: rgba(240, 253, 244, 0.85);
@@ -60,7 +64,7 @@ html {
   scroll-behavior: smooth;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background-color: #FFFFFF;
-  background-image: 
+  background-image:
     /* Loang hồng nhạt góc trên bên trái (kích thước ~65%, màu êm dịu thanh thoát) */
     radial-gradient(circle 520px at 0% 0%, rgba(251, 113, 133, 0.13) 0%, rgba(244, 114, 182, 0.07) 35%, rgba(253, 164, 175, 0.02) 65%, transparent 85%),
     /* Loang hồng nhạt góc dưới bên phải (kích thước ~65%, màu êm dịu thanh thoát) */
@@ -70,7 +74,9 @@ html {
   background-repeat: no-repeat !important;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -93,7 +99,11 @@ body {
 }
 
 /* Đồng bộ toàn bộ các điều khiển nhập liệu và nút bấm sang font Inter */
-button, input, optgroup, select, textarea {
+button,
+input,
+optgroup,
+select,
+textarea {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
 }
 
@@ -117,14 +127,17 @@ button, input, optgroup, select, textarea {
   width: 5px;
   height: 5px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(203, 213, 225, 0.7);
   border-radius: 9999px;
   backdrop-filter: blur(4px);
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.9);
 }
@@ -145,6 +158,7 @@ button, input, optgroup, select, textarea {
   text-decoration: none;
   user-select: none;
 }
+
 .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -160,11 +174,13 @@ button, input, optgroup, select, textarea {
   border: 1px solid rgba(255, 255, 255, 0.25) !important;
   box-shadow: 0 8px 24px -4px rgba(234, 51, 42, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.4) !important;
 }
+
 .btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, rgba(240, 68, 56, 0.98) 0%, rgba(234, 51, 42, 0.98) 100%) !important;
   box-shadow: 0 10px 28px -4px rgba(234, 51, 42, 0.45), inset 0 1px 1px 0 rgba(255, 255, 255, 0.5) !important;
   transform: translateY(-1.5px);
 }
+
 .btn-primary:active:not(:disabled) {
   transform: translateY(0);
   filter: brightness(0.96);
@@ -176,6 +192,7 @@ button, input, optgroup, select, textarea {
   color: #334155 !important;
   box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.05) !important;
 }
+
 .btn-secondary:hover:not(:disabled) {
   background: #F8FAFC !important;
   border-color: #94A3B8 !important;
@@ -183,6 +200,7 @@ button, input, optgroup, select, textarea {
   transform: translateY(-1.5px);
   box-shadow: 0 4px 8px 0 rgba(15, 23, 42, 0.08) !important;
 }
+
 .btn-secondary:active:not(:disabled) {
   transform: translateY(0);
 }
@@ -192,6 +210,7 @@ button, input, optgroup, select, textarea {
   color: #FFFFFF !important;
   box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.28) !important;
 }
+
 .btn-danger:hover:not(:disabled) {
   background: linear-gradient(135deg, #F87171 0%, #EF4444 100%) !important;
   box-shadow: 0 6px 18px 0 rgba(239, 68, 68, 0.35) !important;
@@ -221,6 +240,7 @@ select.input,
   transition: border-color 0.15s, box-shadow 0.15s;
   box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.03);
 }
+
 .input:focus,
 select.input:focus,
 .select:focus {
@@ -228,6 +248,7 @@ select.input:focus,
   background: #FFFFFF !important;
   box-shadow: 0 0 0 3px rgba(234, 51, 42, 0.14), 0 2px 4px 0 rgba(15, 23, 42, 0.04);
 }
+
 .input:disabled,
 select.input:disabled,
 .select:disabled {
@@ -258,6 +279,7 @@ select.input:disabled,
   box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03) !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .card:hover,
 .glass-card:hover {
   background: #FFFFFF !important;
@@ -268,19 +290,19 @@ select.input:disabled,
 /* ==========================================================================
    RÚT NGẮN KHOẢNG CÁCH GIỮA CÁC Ô NỘI DUNG BO GÓC TRÊN TOÀN BỘ CÁC TRANG
    ========================================================================== */
-.space-y-6 > :not([hidden]) ~ :not([hidden]) {
+.space-y-6> :not([hidden])~ :not([hidden]) {
   --tw-space-y-reverse: 0;
   margin-top: calc(0.625rem * calc(1 - var(--tw-space-y-reverse))) !important;
   margin-bottom: calc(0.625rem * var(--tw-space-y-reverse)) !important;
 }
 
-.space-y-5 > :not([hidden]) ~ :not([hidden]) {
+.space-y-5> :not([hidden])~ :not([hidden]) {
   --tw-space-y-reverse: 0;
   margin-top: calc(0.55rem * calc(1 - var(--tw-space-y-reverse))) !important;
   margin-bottom: calc(0.55rem * var(--tw-space-y-reverse)) !important;
 }
 
-.space-y-4 > :not([hidden]) ~ :not([hidden]) {
+.space-y-4> :not([hidden])~ :not([hidden]) {
   --tw-space-y-reverse: 0;
   margin-top: calc(0.5rem * calc(1 - var(--tw-space-y-reverse))) !important;
   margin-bottom: calc(0.5rem * var(--tw-space-y-reverse)) !important;
@@ -290,6 +312,7 @@ select.input:disabled,
 .grid.gap-6 {
   gap: 0.625rem !important;
 }
+
 .grid.gap-4 {
   gap: 0.5rem !important;
 }
@@ -307,19 +330,22 @@ select.input:disabled,
   box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.04) !important;
 }
 
-.table-custom, table {
+.table-custom,
+table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   text-align: left;
 }
 
-th, td {
+th,
+td {
   box-sizing: border-box;
 }
 
 /* Ngăn ngừa chữ dài tự do tràn và đè sang các cột lân cận */
-table td, table th {
+table td,
+table th {
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -329,12 +355,12 @@ table thead th {
   background-color: #F8FAFC !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  padding: 0.85rem 1rem;
+  padding: 0.55rem 0.75rem;
   text-align: center !important;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: #475569;
   border-bottom: 1px solid #E2E8F0 !important;
   white-space: nowrap;
@@ -350,9 +376,9 @@ table th {
   text-align: center !important;
 }
 
-table thead th > div,
-.table-th > div,
-table th > div {
+table thead th>div,
+.table-th>div,
+table th>div {
   justify-content: center !important;
   text-align: center !important;
 }
@@ -364,9 +390,9 @@ table th.th-left {
   text-align: left !important;
 }
 
-table thead th.th-left > div,
-.table-th.th-left > div,
-table th.th-left > div {
+table thead th.th-left>div,
+.table-th.th-left>div,
+table th.th-left>div {
   justify-content: flex-start !important;
   text-align: left !important;
 }
@@ -399,8 +425,9 @@ th.sticky-action-th::after,
 
 .table-td {
   border-bottom: 1px solid #F1F5F9;
-  padding: 0.75rem 1rem;
-  font-size: 0.9625rem;
+  padding: 0.4rem 0.75rem;
+  line-height: 1.35;
+  font-size: 13px;
   color: #1E293B;
   vertical-align: middle;
   background-color: #FFFFFF !important;
@@ -408,7 +435,7 @@ th.sticky-action-th::after,
 }
 
 .table-tr:hover .table-td,
-tr:hover > td {
+tr:hover>td {
   background-color: #F8FAFC !important;
   backdrop-filter: none !important;
 }
@@ -438,7 +465,7 @@ tr:hover > td {
 
 .table-tr:hover .sticky-action-td,
 tr:hover .sticky-action-td,
-tr:hover > td.sticky-action-td {
+tr:hover>td.sticky-action-td {
   background-color: #F8FAFC !important;
 }
 
@@ -447,9 +474,67 @@ tr.is-selected td,
 tr[data-selected="true"] td {
   background-color: #FEF2F2 !important;
 }
+
 tr.is-selected .sticky-action-td,
 tr[data-selected="true"] .sticky-action-td {
   background-color: #FEF2F2 !important;
+}
+
+/* ==========================================================================
+   ĐỒNG BỘ GIAO DIỆN BẢNG TOÀN HỆ THỐNG THEO CHUẨN TRANG KHÁCH HÀNG
+   - Tiêu đề: 12px, đậm (700), chữ hoa, giãn chữ 0.05em, màu slate-600, padding 0.75rem
+   - Ô dữ liệu: 13px, gạch phân cách dòng #F1F5F9
+   - Chỉ áp dụng cho bảng trong nội dung trang, KHÔNG áp dụng cho bảng nằm
+     trong popup / mẫu in (.fixed) để giữ nguyên bố cục in ấn & nhập liệu.
+   ========================================================================== */
+.page-transition-enter table:not(.fixed table)>thead>tr>th {
+  padding: 0.55rem 0.75rem !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase;
+  color: #475569 !important;
+  background-color: #F8FAFC !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  vertical-align: middle;
+}
+
+/* Nhãn tiêu đề cột (span đầu tiên) đồng bộ màu / độ đậm / cỡ chữ như trang Khách hàng */
+.page-transition-enter table:not(.fixed table)>thead>tr>th>span,
+.page-transition-enter table:not(.fixed table)>thead>tr>th>div>span:first-child {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+}
+
+/* Dùng :where() để độ ưu tiên thấp: class Tailwind ghi trực tiếp trên td vẫn được giữ */
+:where(.page-transition-enter table:not(.fixed table))>tbody>tr>td {
+  font-size: 13px;
+  vertical-align: middle;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+/* Bỏ gạch dưới ở dòng cuối cùng cho gọn khung bảng */
+:where(.page-transition-enter table:not(.fixed table))>tbody>tr:last-child>td {
+  border-bottom-color: transparent;
+}
+
+/* THU GỌN KHOẢNG CÁCH GIỮA CÁC DÒNG (toàn hệ thống)
+   Ép padding trên/dưới của ô dữ liệu về 0.4rem (ghi đè py-2.5 / py-3 / py-3.5 của từng trang)
+   và giảm line-height. Bỏ qua ô gộp cột (colSpan: dòng trống / đang tải) để giữ khoảng thoáng. */
+.page-transition-enter table:not(.fixed table)>tbody>tr>td:not([colspan]) {
+  padding-top: 0.4rem !important;
+  padding-bottom: 0.4rem !important;
+  line-height: 1.35;
+}
+
+/* GIỮ KHOẢNG CÁCH LỀ TRÁI KHI LƯỚT NGANG BẢNG
+   Khung cuộn (thẻ cha trực tiếp của bảng) che 1 dải 0.75rem ở mép trái
+   (0.375rem đầu ẩn hẳn, sau đó mờ dần) nên khi lướt sang phải chữ không dính sát lề khung.
+   Ở vị trí ban đầu dải này nằm trong padding trái 0.75rem của cột đầu nên không che nội dung. */
+.page-transition-enter div:has(> table:not(.fixed table)) {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 0.375rem, #000 0.75rem);
+  mask-image: linear-gradient(to right, transparent 0, transparent 0.375rem, #000 0.75rem);
 }
 
 /* Tiện ích cắt chữ 1 hàng có dấu ... an toàn trong flex */
@@ -552,6 +637,7 @@ tr[data-selected="true"] .sticky-action-td {
   flex-shrink: 0;
   box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04);
 }
+
 .card-action-btn:hover {
   background-color: #F8FAFC;
   color: #0F172A;
@@ -587,10 +673,12 @@ tr[data-selected="true"] .sticky-action-td {
   gap: 6px;
   white-space: nowrap;
 }
+
 .pill-tab-item:hover:not(.active):not(.pill-tab-item-active) {
   color: #0F172A;
   background-color: #FFFFFF;
 }
+
 .pill-tab-item.active,
 .pill-tab-item-active {
   background-color: #EA332A !important;
@@ -614,10 +702,12 @@ tr[data-selected="true"] .sticky-action-td {
   box-shadow: 0 14px 34px -4px rgba(234, 51, 42, 0.38), inset 0 1px 2px 0 rgba(255, 255, 255, 0.4);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
+
 .executive-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 18px 40px -4px rgba(234, 51, 42, 0.45), inset 0 1px 2px 0 rgba(255, 255, 255, 0.5);
 }
+
 .executive-card::before {
   content: '';
   position: absolute;
@@ -662,6 +752,7 @@ tr[data-selected="true"] .sticky-action-td {
   border-radius: 9999px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .capsule-bar:hover {
   filter: brightness(0.95);
   transform: scaleY(1.03);
@@ -682,14 +773,22 @@ tr[data-selected="true"] .sticky-action-td {
   width: auto !important;
   height: auto !important;
   background-color: rgba(15, 23, 42, 0.45) !important;
-  backdrop-filter: blur(8px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(8px) saturate(160%) !important;
+  backdrop-filter: blur(2px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(2px) saturate(120%) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   z-index: 9999 !important;
   padding: 1.25rem !important;
   overflow-y: auto !important;
+}
+
+/* NỀN MỜ PHÍA SAU POPUP - CHỈ MỜ NHẸ (vẫn nhìn rõ nội dung phía sau)
+   Áp dụng cho mọi overlay dùng backdrop-blur-* của Tailwind (sm/md/lg...),
+   trừ lớp phủ loading toàn cục (cursor-wait). */
+.fixed.inset-0[class*="backdrop-blur"]:not(.cursor-wait) {
+  backdrop-filter: blur(2px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(2px) saturate(120%) !important;
 }
 
 .modal-content,
@@ -750,6 +849,7 @@ tr[data-selected="true"] .sticky-action-td {
   border-radius: 14px;
   padding: 22px 22px 24px;
 }
+
 .customer-modal-card-title {
   display: flex;
   align-items: center;
@@ -761,9 +861,11 @@ tr[data-selected="true"] .sticky-action-td {
   color: #111827;
   margin-bottom: 18px;
 }
-.customer-modal-field + .customer-modal-field {
+
+.customer-modal-field+.customer-modal-field {
   margin-top: 14px;
 }
+
 .customer-modal-label {
   display: block;
   font-size: 13.5px;
@@ -771,10 +873,12 @@ tr[data-selected="true"] .sticky-action-td {
   color: #374151;
   margin-bottom: 6px;
 }
+
 .customer-modal-label .req {
   color: #EF4444;
   margin-right: 3px;
 }
+
 .customer-modal-container .customer-modal-input {
   width: 100%;
   height: 40px;
@@ -787,19 +891,23 @@ tr[data-selected="true"] .sticky-action-td {
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+
 .customer-modal-container textarea.customer-modal-input {
   height: auto;
   min-height: 76px;
   padding: 9px 12px;
   resize: vertical;
 }
+
 .customer-modal-container .customer-modal-input::placeholder {
   color: #9CA3AF;
 }
+
 .customer-modal-container .customer-modal-input:focus {
   border-color: #EA332A;
   box-shadow: 0 0 0 3px rgba(234, 51, 42, 0.12);
 }
+
 .customer-modal-container .customer-modal-input[readonly] {
   background: #F3F4F6;
   color: #6B7280;
@@ -808,14 +916,17 @@ tr[data-selected="true"] .sticky-action-td {
 .customer-modal-body::-webkit-scrollbar {
   width: 6px;
 }
+
 .customer-modal-body::-webkit-scrollbar-track {
   background: #F8FAFC;
   border-radius: 9999px;
 }
+
 .customer-modal-body::-webkit-scrollbar-thumb {
   background: #CBD5E1;
   border-radius: 9999px;
 }
+
 .customer-modal-body::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }
@@ -866,6 +977,7 @@ tr[data-selected="true"] .sticky-action-td {
   filter: blur(64px);
   pointer-events: none;
 }
+
 .blob-red {
   width: 18rem;
   height: 18rem;
@@ -873,6 +985,7 @@ tr[data-selected="true"] .sticky-action-td {
   top: -4rem;
   left: -4rem;
 }
+
 .blob-blue {
   width: 18rem;
   height: 18rem;
@@ -880,6 +993,7 @@ tr[data-selected="true"] .sticky-action-td {
   bottom: -4rem;
   right: -4rem;
 }
+
 .blob-green {
   width: 14rem;
   height: 14rem;
@@ -887,6 +1001,7 @@ tr[data-selected="true"] .sticky-action-td {
   top: 40%;
   left: 5%;
 }
+
 .blob-yellow {
   width: 14rem;
   height: 14rem;
@@ -910,14 +1025,27 @@ tr[data-selected="true"] .sticky-action-td {
     opacity: 0;
     transform: translateY(8px);
   }
+
   100% {
     opacity: 1;
     transform: none;
   }
 }
 
+/* Lưu ý: KHÔNG dùng fill-mode "forwards" vì giữ lại thuộc tính transform sau khi
+   chạy xong -> trình duyệt coi wrapper là "containing block" khiến các popup
+   position: fixed bên trong trang chỉ phủ vùng nội dung thay vì cả màn hình.
+   Dùng "backwards": trạng thái cuối giống hệt (opacity 1, không transform). */
 .page-transition-enter {
-  animation: pageFadeSlideIn 0.22s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+  animation: pageFadeSlideIn 0.22s cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
+}
+
+/* POPUP TRONG TRANG PHỦ KÍN TOÀN MÀN HÌNH (giống popup Thêm khách hàng)
+   Khi trong trang có lớp phủ fixed inset-0 (nhập Excel, thêm/sửa, xác nhận...),
+   nâng lớp nội dung lên trên Sidebar (z 990) để nền phủ che cả Sidebar & Header. */
+.main-content-layout:has(.page-transition-enter .fixed.inset-0),
+.main-content-layout:has(.page-transition-enter .modal-overlay) {
+  z-index: 9990 !important;
 }
 
 /* Cố định thanh Navbar trên cùng khi cuộn trang, bo góc dạng Capsule Pill như ảnh mẫu Quixotic */
@@ -953,6 +1081,7 @@ tr[data-selected="true"] .sticky-action-td {
   .navbar-sticky-wrapper {
     padding: 0.5rem 0.75rem 0.25rem 0.75rem;
   }
+
   .navbar-floating-pill {
     height: 48px;
     padding: 0 0.65rem;
@@ -963,6 +1092,7 @@ tr[data-selected="true"] .sticky-action-td {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -972,15 +1102,19 @@ tr[data-selected="true"] .sticky-action-td {
   .hamburger-mobile {
     display: flex !important;
   }
+
   .desktop-toggle-btn {
     display: none !important;
   }
+
   .sidebar-responsive {
     transform: translateX(-150%) !important;
   }
+
   .sidebar-open {
     transform: translateX(0) !important;
   }
+
   .main-content-layout {
     margin-left: 0 !important;
   }
@@ -990,20 +1124,25 @@ tr[data-selected="true"] .sticky-action-td {
   .hamburger-mobile {
     display: none !important;
   }
+
   .desktop-toggle-btn {
     display: flex !important;
   }
+
   .sidebar-desktop-open {
     width: 280px !important;
     transform: translateX(0) !important;
   }
+
   .sidebar-desktop-closed {
     width: 82px !important;
     transform: translateX(0) !important;
   }
+
   .main-content-layout.sidebar-expanded {
     margin-left: 274px !important;
   }
+
   .main-content-layout.sidebar-collapsed {
     margin-left: 78px !important;
   }
@@ -1021,42 +1160,183 @@ tr[data-selected="true"] .sticky-action-td {
    ============================================================ */
 
 /* 1. Tiện ích cỡ chữ tùy biến Tailwind (Arbitrary text classes) +10% */
-.text-\[9px\] { font-size: 9.9px !important; }
-.text-\[10px\] { font-size: 11px !important; }
-.text-\[10\.5px\] { font-size: 11.55px !important; }
-.text-\[11px\] { font-size: 12.1px !important; }
-.text-\[11\.5px\] { font-size: 12.65px !important; }
-.text-\[12px\] { font-size: 13.2px !important; }
-.text-\[12\.5px\] { font-size: 13.75px !important; }
-.text-\[13px\] { font-size: 14.3px !important; }
-.text-\[13\.5px\] { font-size: 14.85px !important; }
-.text-\[14px\] { font-size: 15.4px !important; }
-.text-\[14\.5px\] { font-size: 15.95px !important; }
-.text-\[15px\] { font-size: 16.5px !important; }
-.text-\[16px\] { font-size: 17.6px !important; }
-.text-\[18px\] { font-size: 19.8px !important; }
-.text-\[20px\] { font-size: 22px !important; }
-.text-\[24px\] { font-size: 26.4px !important; }
+.text-\[9px\] {
+  font-size: 9.9px !important;
+}
+
+.text-\[10px\] {
+  font-size: 11px !important;
+}
+
+.text-\[10\.5px\] {
+  font-size: 11.55px !important;
+}
+
+.text-\[11px\] {
+  font-size: 12.1px !important;
+}
+
+.text-\[11\.5px\] {
+  font-size: 12.65px !important;
+}
+
+.text-\[12px\] {
+  font-size: 13.2px !important;
+}
+
+.text-\[12\.5px\] {
+  font-size: 13.75px !important;
+}
+
+.text-\[13px\] {
+  font-size: 14.3px !important;
+}
+
+.text-\[13\.5px\] {
+  font-size: 14.85px !important;
+}
+
+.text-\[14px\] {
+  font-size: 15.4px !important;
+}
+
+.text-\[14\.5px\] {
+  font-size: 15.95px !important;
+}
+
+.text-\[15px\] {
+  font-size: 16.5px !important;
+}
+
+.text-\[16px\] {
+  font-size: 17.6px !important;
+}
+
+.text-\[18px\] {
+  font-size: 19.8px !important;
+}
+
+.text-\[20px\] {
+  font-size: 22px !important;
+}
+
+.text-\[24px\] {
+  font-size: 26.4px !important;
+}
 
 /* 2. Bộ chọn tự động nâng 10% cho các phần tử dùng inline style font-size */
-[style*="font-size: 9px"], [style*="font-size:9px"] { font-size: 9.9px !important; }
-[style*="font-size: 10px"], [style*="font-size:10px"] { font-size: 11px !important; }
-[style*="font-size: 10.5px"], [style*="font-size:10.5px"] { font-size: 11.55px !important; }
-[style*="font-size: 11px"], [style*="font-size:11px"] { font-size: 12.1px !important; }
-[style*="font-size: 11.5px"], [style*="font-size:11.5px"] { font-size: 12.65px !important; }
-[style*="font-size: 12px"], [style*="font-size:12px"] { font-size: 13.2px !important; }
-[style*="font-size: 12.5px"], [style*="font-size:12.5px"] { font-size: 13.75px !important; }
-[style*="font-size: 13px"], [style*="font-size:13px"] { font-size: 14.3px !important; }
-[style*="font-size: 13.5px"], [style*="font-size:13.5px"] { font-size: 14.85px !important; }
-[style*="font-size: 14px"], [style*="font-size:14px"] { font-size: 15.4px !important; }
-[style*="font-size: 14.5px"], [style*="font-size:14.5px"] { font-size: 15.95px !important; }
-[style*="font-size: 15px"], [style*="font-size:15px"] { font-size: 16.5px !important; }
-[style*="font-size: 16px"], [style*="font-size:16px"] { font-size: 17.6px !important; }
-[style*="font-size: 18px"], [style*="font-size:18px"] { font-size: 19.8px !important; }
-[style*="font-size: 20px"], [style*="font-size:20px"] { font-size: 22px !important; }
-[style*="font-size: 1.05rem"], [style*="font-size:1.05rem"] { font-size: 1.155rem !important; }
-[style*="font-size: 1.1rem"], [style*="font-size:1.1rem"] { font-size: 1.21rem !important; }
-[style*="font-size: 1.125rem"], [style*="font-size:1.125rem"] { font-size: 1.2375rem !important; }
-[style*="font-size: 1.15rem"], [style*="font-size:1.15rem"] { font-size: 1.265rem !important; }
-[style*="font-size: 1.25rem"], [style*="font-size:1.25rem"] { font-size: 1.375rem !important; }
-[style*="font-size: 1.5rem"], [style*="font-size:1.5rem"] { font-size: 1.65rem !important; }
+[style*="font-size: 9px"],
+[style*="font-size:9px"] {
+  font-size: 9.9px !important;
+}
+
+[style*="font-size: 10px"],
+[style*="font-size:10px"] {
+  font-size: 11px !important;
+}
+
+[style*="font-size: 10.5px"],
+[style*="font-size:10.5px"] {
+  font-size: 11.55px !important;
+}
+
+[style*="font-size: 11px"],
+[style*="font-size:11px"] {
+  font-size: 12.1px !important;
+}
+
+[style*="font-size: 11.5px"],
+[style*="font-size:11.5px"] {
+  font-size: 12.65px !important;
+}
+
+[style*="font-size: 12px"],
+[style*="font-size:12px"] {
+  font-size: 13.2px !important;
+}
+
+[style*="font-size: 12.5px"],
+[style*="font-size:12.5px"] {
+  font-size: 13.75px !important;
+}
+
+[style*="font-size: 13px"],
+[style*="font-size:13px"] {
+  font-size: 14.3px !important;
+}
+
+[style*="font-size: 13.5px"],
+[style*="font-size:13.5px"] {
+  font-size: 14.85px !important;
+}
+
+[style*="font-size: 14px"],
+[style*="font-size:14px"] {
+  font-size: 15.4px !important;
+}
+
+[style*="font-size: 14.5px"],
+[style*="font-size:14.5px"] {
+  font-size: 15.95px !important;
+}
+
+[style*="font-size: 15px"],
+[style*="font-size:15px"] {
+  font-size: 16.5px !important;
+}
+
+[style*="font-size: 16px"],
+[style*="font-size:16px"] {
+  font-size: 17.6px !important;
+}
+
+[style*="font-size: 18px"],
+[style*="font-size:18px"] {
+  font-size: 19.8px !important;
+}
+
+[style*="font-size: 20px"],
+[style*="font-size:20px"] {
+  font-size: 22px !important;
+}
+
+[style*="font-size: 1.05rem"],
+[style*="font-size:1.05rem"] {
+  font-size: 1.155rem !important;
+}
+
+[style*="font-size: 1.1rem"],
+[style*="font-size:1.1rem"] {
+  font-size: 1.21rem !important;
+}
+
+[style*="font-size: 1.125rem"],
+[style*="font-size:1.125rem"] {
+  font-size: 1.2375rem !important;
+}
+
+[style*="font-size: 1.15rem"],
+[style*="font-size:1.15rem"] {
+  font-size: 1.265rem !important;
+}
+
+[style*="font-size: 1.25rem"],
+[style*="font-size:1.25rem"] {
+  font-size: 1.375rem !important;
+}
+
+[style*="font-size: 1.5rem"],
+[style*="font-size:1.5rem"] {
+  font-size: 1.65rem !important;
+}
+
+/* ============================================================
+   THANH CÔNG CỤ: bo tròn ô tìm kiếm, ô lọc, nút lọc & nút "Cột"
+   (đồng bộ dạng pill với nút "Thêm mới" / "Nhập Excel")
+   ============================================================ */
+.toolbar-pill input:not([type="checkbox"]):not([type="radio"]):not(.absolute *):not(.fixed *),
+.toolbar-pill select:not(.absolute *):not(.fixed *),
+.toolbar-pill button:not(.absolute *):not(.fixed *),
+.col-customizer-trigger {
+  border-radius: 9999px !important;
+}

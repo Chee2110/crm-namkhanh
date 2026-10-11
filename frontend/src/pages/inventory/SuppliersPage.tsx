@@ -21,6 +21,7 @@ import { Supplier, Product } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+import { withActionsLast } from '../../utils/columnOrder';
 
 export const SuppliersPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -61,7 +62,7 @@ export const SuppliersPage: React.FC = () => {
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('namkhanh_suppliers_col_order');
-      return saved ? JSON.parse(saved) : defaultColOrder;
+      return saved ? withActionsLast(JSON.parse(saved), defaultColOrder) : defaultColOrder;
     } catch {
       return defaultColOrder;
     }
@@ -91,9 +92,10 @@ export const SuppliersPage: React.FC = () => {
   });
 
   const handleReorderColumns = (newOrder: string[]) => {
-    setColumnOrder(newOrder);
+    const normalized = withActionsLast(newOrder, defaultColOrder);
+    setColumnOrder(normalized);
     try {
-      localStorage.setItem('namkhanh_suppliers_col_order', JSON.stringify(newOrder));
+      localStorage.setItem('namkhanh_suppliers_col_order', JSON.stringify(normalized));
     } catch (e) {
       console.error(e);
     }
@@ -263,7 +265,7 @@ export const SuppliersPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="toolbar-pill flex items-center gap-3 w-full sm:w-auto">
           <form onSubmit={handleSearch} className="relative flex-1 sm:w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -421,10 +423,10 @@ export const SuppliersPage: React.FC = () => {
                           case 'actions':
                             return (
                               <td key={colKey} className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
-                                <div className="flex items-center justify-center gap-1">
+                                <div className="flex items-center justify-center gap-1 w-full">
                                   <button
                                     onClick={() => openProductsModal(s)}
-                                    className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                    className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                                     title="Xem danh sách sản phẩm của NCC"
                                   >
                                     <Eye className="w-4 h-4" />
@@ -432,7 +434,7 @@ export const SuppliersPage: React.FC = () => {
                                   {hasPermission('C_SUPPLIERS', 'update') && (
                                     <button
                                       onClick={() => openEditModal(s)}
-                                      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                      className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                                       title="Sửa thông tin NCC"
                                     >
                                       <Edit2 className="w-4 h-4" />
@@ -441,7 +443,7 @@ export const SuppliersPage: React.FC = () => {
                                   {hasPermission('C_SUPPLIERS', 'delete') && (
                                     <button
                                       onClick={() => handleDelete(s)}
-                                      className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                      className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                       title="Xóa NCC"
                                     >
                                       <Trash2 className="w-4 h-4" />
