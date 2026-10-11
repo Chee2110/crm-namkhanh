@@ -168,9 +168,10 @@ export const UsersPage: React.FC = () => {
     status: 'ACTIVE'
   });
 
-  const loadData = async () => {
+  const loadData = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const query = new URLSearchParams({
         page: page.toString(),
         pageSize: '20',
@@ -193,7 +194,7 @@ export const UsersPage: React.FC = () => {
     } catch (err: any) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -287,25 +288,38 @@ export const UsersPage: React.FC = () => {
     }
 
     try {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus as any } : u))
+      );
       await api.patch(`/users/${user.id}/status`, { status: newStatus });
-      loadData();
+      // Đồng bộ ngầm không tải lại toàn trang
+      loadData(true);
     } catch (err: any) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, status: user.status } : u))
+      );
       alert(err.message || 'Lỗi khi cập nhật trạng thái');
+      loadData(true);
     }
   };
 
   const handleQuickStatusChange = async (user: User, newStatus: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
     if (user.status === newStatus) return;
+    const oldStatus = user.status;
     try {
       setUsers((prev) =>
         prev.map((u) => (u.id === user.id ? { ...u, status: newStatus as any } : u))
       );
       await api.patch(`/users/${user.id}/status`, { status: newStatus });
-      loadData();
+      // Đồng bộ ngầm không tải lại toàn trang
+      loadData(true);
     } catch (err: any) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, status: oldStatus } : u))
+      );
       alert(err.message || 'Lỗi khi cập nhật trạng thái');
-      loadData();
+      loadData(true);
     }
   };
 
@@ -685,11 +699,10 @@ export const UsersPage: React.FC = () => {
                         {hasPermission('A_USERS', 'update') && (
                           <button
                             onClick={() => handleToggleStatus(u)}
-                            className={`p-1 rounded-md transition-colors cursor-pointer ${
-                              u.status === 'ACTIVE'
+                            className={`p-1 rounded-md transition-colors cursor-pointer ${u.status === 'ACTIVE'
                                 ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
                                 : 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50'
-                            }`}
+                              }`}
                             title={u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Kích hoạt lại'}
                           >
                             {u.status === 'ACTIVE' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}

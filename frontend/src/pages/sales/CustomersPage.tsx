@@ -101,6 +101,59 @@ const getCustomerTypeBadge = (type?: string) => {
   };
 };
 
+// Cấu trúc cột file Excel nhập khách hàng (thứ tự chuẩn theo file mẫu)
+const CUSTOMER_IMPORT_HEADERS = [
+  'STT',
+  'Mã khách hàng',
+  'Tên khách hàng',
+  'Mã số thuế',
+  'Số điện thoại',
+  'Địa chỉ công ty',
+  'Tên người liên hệ',
+  'Số điện thoại người liên hệ',
+  'Địa chỉ giao hàng',
+  'Người phụ trách',
+  'Loại khách hàng',
+  'Nguồn gốc'
+];
+
+// Ánh xạ tiêu đề cột (đã bỏ dấu, viết liền) -> trường dữ liệu. Hỗ trợ cả tiêu đề của file mẫu cũ.
+const CUSTOMER_IMPORT_FIELD_MAP: Record<string, string> = {
+  makhachhang: 'code',
+  makh: 'code',
+  tenkhachhang: 'name',
+  tenkh: 'name',
+  masothue: 'taxCode',
+  mst: 'taxCode',
+  sodienthoai: 'phone',
+  sdt: 'phone',
+  dienthoai: 'phone',
+  diachicongty: 'address',
+  diachi: 'address',
+  tennguoilienhe: 'contactPerson',
+  nguoilienhe: 'contactPerson',
+  sodienthoainguoilienhe: 'contactPhone',
+  sdtnguoilienhe: 'contactPhone',
+  dienthoailienhe: 'contactPhone',
+  diachigiaohang: 'deliveryAddress',
+  nguoiphutrach: 'manager',
+  nhanvienphutrach: 'manager',
+  loaikhachhang: 'customerType',
+  loaikhach: 'customerType',
+  loaikh: 'customerType',
+  nguongoc: 'source',
+  nguongoctiepcan: 'source'
+};
+
+const normalizeImportHeader = (h: string) =>
+  String(h || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
 export const CustomersPage: React.FC = () => {
   const { hasPermission } = useAuth();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -351,39 +404,55 @@ export const CustomersPage: React.FC = () => {
   };
 
   const handleImportCustomers = async (rows: Record<string, any>[]) => {
+    // Chuyển từng dòng Excel (key = tiêu đề cột) thành payload chuẩn cho API
+    const payloadRows = rows.map((r, idx) => {
+      const mapped: Record<string, any> = { rowNumber: idx + 2 };
+      Object.keys(r).forEach((header) => {
+        const field = CUSTOMER_IMPORT_FIELD_MAP[normalizeImportHeader(header)];
+        if (!field) return;
+        const raw = r[header];
+        const val = raw === undefined || raw === null ? '' : String(raw).trim();
+        if (val && !mapped[field]) mapped[field] = val;
+      });
+      return mapped;
+    });
+
+    // Gửi theo lô để tránh vượt giới hạn kích thước request
+    const CHUNK_SIZE = 200;
     let successCount = 0;
-    const errList: string[] = [];
-    for (const r of rows) {
+    const failed: { rowNumber: number; name: string; message: string }[] = [];
+    for (let i = 0; i < payloadRows.length; i += CHUNK_SIZE) {
+      const chunk = payloadRows.slice(i, i + CHUNK_SIZE);
       try {
-        const name = String(r['Tên khách hàng'] || '').trim();
-        const phone = String(r['Số điện thoại'] || '').trim();
-        const taxCode = r['Mã số thuế'] ? String(r['Mã số thuế']).trim() : undefined;
-        const address = r['Địa chỉ'] ? String(r['Địa chỉ']).trim() : '';
-        const contactPerson = r['Người liên hệ'] ? String(r['Người liên hệ']).trim() : '';
-        const customerType = r['Loại khách'] || 'ENTERPRISE';
-
-        if (!name || !phone) continue;
-
-        await api.post('/customers', {
-          name,
-          phone,
-          taxCode,
-          address,
-          contactPerson,
-          customerType,
-          source: 'SELF_FOUND',
-          status: 'ACTIVE'
-        });
-        successCount++;
+        const res = await api.post<{
+          successCount: number;
+          failed: { rowNumber: number; name: string; message: string }[];
+        }>('/customers/import', { rows: chunk });
+        successCount += res.data?.successCount || 0;
+        failed.push(...(res.data?.failed || []));
       } catch (err: any) {
-        errList.push(err.message || 'Lỗi lưu khách hàng');
+        chunk.forEach((row) =>
+          failed.push({ rowNumber: row.rowNumber, name: row.name || '', message: err.message || 'Lỗi lưu khách hàng' })
+        );
       }
     }
+
     await loadCustomers();
+    if (successCount > 0) {
+      setToastMessage(`Đã nhập thành công ${successCount} khách hàng`);
+    }
+
+    const errorPreview = failed
+      .slice(0, 5)
+      .map((f) => `Dòng ${f.rowNumber}${f.name ? ` (${f.name})` : ''}: ${f.message}`)
+      .join(' • ');
     return {
-      success: successCount > 0,
+      success: successCount > 0 && failed.length === 0,
       count: successCount,
-      message: errList.length > 0 ? `Nhập được ${successCount} KH. Lỗi: ${errList.slice(0, 2).join(', ')}` : undefined
+      message:
+        failed.length > 0
+          ? `Đã nhập ${successCount}/${payloadRows.length} KH. ${failed.length} dòng lỗi: ${errorPreview}${failed.length > 5 ? ' …' : ''}`
+          : undefined
     };
   };
 
@@ -535,7 +604,7 @@ export const CustomersPage: React.FC = () => {
       customerType: c.customerType,
       source: c.source || 'SELF_FOUND',
       contactPerson: c.contactPerson || '',
-      contactPhone: c.phone || '',
+      contactPhone: c.contactPhone || c.phone || '',
       contactPosition: roleName,
       email: c.email || '',
       notes: c.notes || '',
@@ -1077,9 +1146,8 @@ export const CustomersPage: React.FC = () => {
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                             <div
-                              className={`h-2 rounded-full transition-all duration-500 ${
-                                isOver ? 'bg-red-600' : usedPercent >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
-                              }`}
+                              className={`h-2 rounded-full transition-all duration-500 ${isOver ? 'bg-red-600' : usedPercent >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
+                                }`}
                               style={{ width: `${Math.min(100, (totalDebt / creditLimit) * 100)}%` }}
                             />
                           </div>
@@ -1342,11 +1410,10 @@ export const CustomersPage: React.FC = () => {
                                     setIsCustomerTypeFilterOpen(!isCustomerTypeFilterOpen);
                                     setIsSourceFilterOpen(false);
                                   }}
-                                  className={`p-1 rounded transition-all cursor-pointer ${
-                                    customerType
+                                  className={`p-1 rounded transition-all cursor-pointer ${customerType
                                       ? 'bg-red-100 text-red-700 border border-red-300 shadow-sm'
                                       : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/70'
-                                  }`}
+                                    }`}
                                   title={customerType ? `Đang lọc: ${CUSTOMER_TYPE_FILTER_OPTIONS.find(o => o.value === customerType)?.label}` : 'Lọc Loại khách hàng'}
                                 >
                                   <Filter size={11} className={customerType ? 'fill-red-600' : ''} />
@@ -1368,11 +1435,10 @@ export const CustomersPage: React.FC = () => {
                                           setCustomerType(opt.value);
                                           setIsCustomerTypeFilterOpen(false);
                                         }}
-                                        className={`w-full px-3 py-1.5 text-[12.5px] flex items-center justify-between transition-colors text-left ${
-                                          customerType === opt.value
+                                        className={`w-full px-3 py-1.5 text-[12.5px] flex items-center justify-between transition-colors text-left ${customerType === opt.value
                                             ? 'bg-red-50 text-red-600 font-semibold'
                                             : 'text-slate-700 hover:bg-slate-50'
-                                        }`}
+                                          }`}
                                       >
                                         <span>{opt.label}</span>
                                         {customerType === opt.value && <Check size={13} className="text-red-600 ml-2 flex-shrink-0" />}
@@ -1392,11 +1458,10 @@ export const CustomersPage: React.FC = () => {
                                     setIsSourceFilterOpen(!isSourceFilterOpen);
                                     setIsCustomerTypeFilterOpen(false);
                                   }}
-                                  className={`p-1 rounded transition-all cursor-pointer ${
-                                    source
+                                  className={`p-1 rounded transition-all cursor-pointer ${source
                                       ? 'bg-red-100 text-red-700 border border-red-300 shadow-sm'
                                       : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/70'
-                                  }`}
+                                    }`}
                                   title={source ? `Đang lọc: ${SOURCE_FILTER_OPTIONS.find(o => o.value === source)?.label}` : 'Lọc Nguồn gốc'}
                                 >
                                   <Filter size={11} className={source ? 'fill-red-600' : ''} />
@@ -1418,11 +1483,10 @@ export const CustomersPage: React.FC = () => {
                                           setSource(opt.value);
                                           setIsSourceFilterOpen(false);
                                         }}
-                                        className={`w-full px-3 py-1.5 text-[12.5px] flex items-center justify-between transition-colors text-left ${
-                                          source === opt.value
+                                        className={`w-full px-3 py-1.5 text-[12.5px] flex items-center justify-between transition-colors text-left ${source === opt.value
                                             ? 'bg-red-50 text-red-600 font-semibold'
                                             : 'text-slate-700 hover:bg-slate-50'
-                                        }`}
+                                          }`}
                                       >
                                         <span>{opt.label}</span>
                                         {source === opt.value && <Check size={13} className="text-red-600 ml-2 flex-shrink-0" />}
@@ -1662,12 +1726,12 @@ export const CustomersPage: React.FC = () => {
                                     {c.source === 'SELF_FOUND'
                                       ? 'Tự tìm kiếm'
                                       : c.source === 'REFERRAL'
-                                      ? 'Giới thiệu'
-                                      : c.source === 'SOCIAL'
-                                      ? 'Mạng xã hội'
-                                      : c.source === 'EXHIBITION'
-                                      ? 'Triển lãm'
-                                      : 'Khác'}
+                                        ? 'Giới thiệu'
+                                        : c.source === 'SOCIAL'
+                                          ? 'Mạng xã hội'
+                                          : c.source === 'EXHIBITION'
+                                            ? 'Triển lãm'
+                                            : 'Khác'}
                                   </td>
                                 );
                               case 'orders':
@@ -2110,13 +2174,13 @@ export const CustomersPage: React.FC = () => {
         onClose={() => setIsImportModalOpen(false)}
         title="Nhập danh sách Khách hàng từ Excel/CSV"
         sampleFileName="Mau_Nhap_Khach_Hang_NamKhanh.csv"
-        sampleHeaders={['Tên khách hàng', 'Số điện thoại', 'Mã số thuế', 'Địa chỉ', 'Người liên hệ', 'Loại khách']}
+        sampleHeaders={CUSTOMER_IMPORT_HEADERS}
         sampleRows={[
-          ['Công ty Cổ phần Tập đoàn FPT', '02473007300', '0101248141', 'Tòa nhà FPT, Phố Duy Tân, Cầu Giấy, Hà Nội', 'Anh Hoàng', 'ENTERPRISE'],
-          ['Trường THCS Lê Quý Đôn', '02438345678', '0102345678', 'Số 66 Nguyễn Văn Huyên, Cầu Giấy, Hà Nội', 'Cô Lan', 'SCHOOL']
+          [1, '', 'Công ty Cổ phần Tập đoàn FPT', '0101248141', '02473007300', 'Tòa nhà FPT, Phố Duy Tân, Cầu Giấy, Hà Nội', 'Anh Hoàng', '0912345678', 'Số 17 Duy Tân, Cầu Giấy, Hà Nội', users[0]?.fullName || '', 'Doanh nghiệp', 'Tự tìm kiếm'],
+          [2, '', 'Trường THCS Lê Quý Đôn', '0102345678', '02438345678', 'Số 66 Nguyễn Văn Huyên, Cầu Giấy, Hà Nội', 'Cô Lan', '0987654321', '', users[0]?.fullName || '', 'Trường học', 'Được giới thiệu']
         ]}
         requiredFields={['Tên khách hàng', 'Số điện thoại']}
-        fieldMappingHelp="Điền Tên khách hàng, SĐT (bắt buộc). Mã số thuế, Địa chỉ, Người liên hệ, Loại khách (ENTERPRISE/SCHOOL/INDIVIDUAL)."
+        fieldMappingHelp="Tên khách hàng, Số điện thoại (bắt buộc). Mã khách hàng để trống sẽ tự sinh (KH00001, KH00002, ...). Địa chỉ giao hàng trống sẽ lấy theo địa chỉ công ty. Người phụ trách: Họ tên / Mã NV / Email (trống = người nhập). Loại khách hàng: Doanh nghiệp / Trường học / Cơ quan - Tổ chức / Hộ kinh doanh / Cá nhân. Nguồn gốc: Tự tìm kiếm / Được giới thiệu / Mạng xã hội - Web / Hội thảo - Triển lãm / Khác."
         onImport={handleImportCustomers}
       />
       {/* MODAL IN ĐỐI CHIẾU CÔNG NỢ A4 */}

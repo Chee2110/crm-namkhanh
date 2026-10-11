@@ -341,9 +341,10 @@ export const FinancesPage: React.FC = () => {
   const [revenueTypeFormData, setRevenueTypeFormData] = useState({ id: '', code: '', name: '', description: '' });
 
   // ================= LOAD DỮ LIỆU =================
-  const loadData = async () => {
+  const loadData = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const [recRes, payRes, catRes, revRes, flowRes, cusRes] = await Promise.all([
         api.get('/receipt-vouchers'),
         api.get('/payment-vouchers'),
@@ -362,7 +363,7 @@ export const FinancesPage: React.FC = () => {
     } catch (err: any) {
       console.error('Lỗi tải dữ liệu tài chính:', err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -494,16 +495,20 @@ export const FinancesPage: React.FC = () => {
       action === 'PAID'
         ? 'Xác nhận ĐÃ THU TIỀN? Hệ thống sẽ TỰ ĐỘNG GẠCH NỢ đơn hàng liên kết và KHÓA SỬA chứng từ!'
         : action === 'APPROVE'
-        ? 'Xác nhận DUYỆT phiếu thu này?'
-        : 'Từ chối phiếu thu này?';
+          ? 'Xác nhận DUYỆT phiếu thu này?'
+          : 'Từ chối phiếu thu này?';
 
     if (!window.confirm(confirmMsg)) return;
 
     try {
+      const newStatus = action === 'PAID' ? 'PAID' : action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+      setReceipts((prev) => prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
       await api.patch(`/receipt-vouchers/${id}/approve`, { action });
-      loadData();
+      // Đồng bộ ngầm không tải lại toàn trang
+      loadData(true);
     } catch (err: any) {
       alert(err.message || 'Lỗi phê duyệt phiếu thu');
+      loadData(true);
     }
   };
 
@@ -568,16 +573,20 @@ export const FinancesPage: React.FC = () => {
       action === 'PAID'
         ? 'Xác nhận ĐÃ CHI TIỀN? Hệ thống sẽ ghi nhận chi quỹ và KHÓA SỬA chứng từ tuyệt đối!'
         : action === 'APPROVE'
-        ? 'Xác nhận DUYỆT CHI phiếu này?'
-        : 'Từ chối chi phiếu này?';
+          ? 'Xác nhận DUYỆT CHI phiếu này?'
+          : 'Từ chối chi phiếu này?';
 
     if (!window.confirm(confirmMsg)) return;
 
     try {
+      const newStatus = action === 'PAID' ? 'PAID' : action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+      setPayments((prev) => prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p)));
       await api.patch(`/payment-vouchers/${id}/approve`, { action });
-      loadData();
+      // Đồng bộ ngầm không tải lại toàn trang
+      loadData(true);
     } catch (err: any) {
       alert(err.message || 'Lỗi phê duyệt phiếu chi');
+      loadData(true);
     }
   };
 
@@ -622,15 +631,15 @@ export const FinancesPage: React.FC = () => {
       const payload =
         overrideVoucher.type === 'PAYMENT'
           ? {
-              recipient: overrideVoucher.person,
-              amount: overrideVoucher.amount,
-              reason: overrideVoucher.reason
-            }
+            recipient: overrideVoucher.person,
+            amount: overrideVoucher.amount,
+            reason: overrideVoucher.reason
+          }
           : {
-              payer: overrideVoucher.person,
-              amount: overrideVoucher.amount,
-              reason: overrideVoucher.reason
-            };
+            payer: overrideVoucher.person,
+            amount: overrideVoucher.amount,
+            reason: overrideVoucher.reason
+          };
 
       await api.post(endpoint, payload);
       alert('Đã cập nhật chứng từ và ghi vết thành công vào Audit Log!');
@@ -1557,11 +1566,10 @@ export const FinancesPage: React.FC = () => {
                   <button
                     key={p}
                     onClick={() => setReportPeriod(p)}
-                    className={`px-3 py-1.5 rounded-md transition-all ${
-                      reportPeriod === p
+                    className={`px-3 py-1.5 rounded-md transition-all ${reportPeriod === p
                         ? 'bg-white text-[#E53935] shadow-sm font-bold'
                         : 'text-gray-500 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
                     {p === 'month' ? 'Tháng này' : p === 'quarter' ? 'Quý này' : p === 'year' ? 'Năm nay' : 'Toàn bộ'}
                   </button>
@@ -2029,9 +2037,8 @@ export const FinancesPage: React.FC = () => {
                       const voucherAmt = Number(receiptFormData.amount) || 0;
                       const isOver = totalAlloc > voucherAmt;
                       return (
-                        <div className={`p-2 rounded-lg text-xs flex justify-between items-center ${
-                          isOver ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-purple-50/70 text-purple-900 border border-purple-100'
-                        }`}>
+                        <div className={`p-2 rounded-lg text-xs flex justify-between items-center ${isOver ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-purple-50/70 text-purple-900 border border-purple-100'
+                          }`}>
                           <div className="font-semibold">
                             Đã phân bổ: <span className="font-black">{totalAlloc.toLocaleString('vi-VN')}đ</span> / Phiếu thu: <span className="font-black">{voucherAmt.toLocaleString('vi-VN')}đ</span>
                           </div>

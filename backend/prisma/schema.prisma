@@ -301,6 +301,7 @@ model Customer {
   customerType    String                    @default("ENTERPRISE") @map("customer_type") // ENTERPRISE, HOUSEHOLD, ORGANIZATION, SCHOOL, INDIVIDUAL
   source          String                    @default("SELF_FOUND") // SELF_FOUND, REFERRAL, SOCIAL, EXHIBITION, OTHER
   contactPerson   String?                   @map("contact_person")
+  contactPhone    String?                   @map("contact_phone") // SĐT người liên hệ
   email           String?
   notes           String?                   @db.Text
   managerId       String?                   @map("manager_id")

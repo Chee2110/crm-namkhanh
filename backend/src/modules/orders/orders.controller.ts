@@ -114,16 +114,18 @@ export class OrdersController {
     try {
       const { id } = req.params;
       const user = (req as any).user;
-      const { refundMethod, refundReason } = req.body;
+      const { refundMethod, refundOption, refundReason, reason } = req.body;
+      const selectedRefundMethod = refundMethod || refundOption || 'CREDIT_BALANCE';
+      const selectedReason = refundReason || reason || 'Khách hủy đơn';
 
-      if (refundMethod && !['CASH_REFUND', 'CREDIT_BALANCE'].includes(refundMethod)) {
+      if (!['CASH_REFUND', 'CREDIT_BALANCE'].includes(selectedRefundMethod)) {
         return errorResponse(res, 'Phương thức hoàn tiền không hợp lệ (CASH_REFUND, CREDIT_BALANCE)', 400);
       }
 
       const result = await ordersService.cancelOrderWithRefund(
         id,
-        refundMethod || 'CREDIT_BALANCE',
-        refundReason,
+        selectedRefundMethod,
+        selectedReason,
         user?.id
       );
 
@@ -155,12 +157,13 @@ export class OrdersController {
     try {
       const { id } = req.params;
       const user = (req as any).user;
-      const { returnDate, reason, refundMethod, items } = req.body;
+      const { returnDate, reason, returnReason, refundMethod, refundOption, items } = req.body;
 
       if (!items || !Array.isArray(items) || items.length === 0) {
         return errorResponse(res, 'Danh sách sản phẩm hoàn trả không được để trống', 400);
       }
-      if (!reason) {
+      const finalReason = (reason || returnReason || '').trim();
+      if (!finalReason) {
         return errorResponse(res, 'Lý do trả hàng là bắt buộc', 400);
       }
 
@@ -168,8 +171,8 @@ export class OrdersController {
         id,
         {
           returnDate,
-          reason,
-          refundMethod: refundMethod || 'DEDUCT_DEBT',
+          reason: finalReason,
+          refundMethod: refundMethod || refundOption || 'DEDUCT_DEBT',
           items
         },
         user?.id

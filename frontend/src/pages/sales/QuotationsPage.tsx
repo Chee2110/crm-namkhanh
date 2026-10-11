@@ -34,6 +34,7 @@ import { Toast } from '../../components/common/Toast';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
 import { withActionsLast } from '../../utils/columnOrder';
+import { formatVND } from '../../utils/formatCurrency';
 
 const QUOTATION_STATUS_OPTIONS: StatusOption[] = [
   { value: 'DRAFT', label: 'Bản thảo', colorClass: 'bg-gray-100 text-gray-700 border-gray-300' },
@@ -105,11 +106,11 @@ export const QuotationsPage: React.FC = () => {
     manager: 160,
     totalAmount: 170,
     status: 140,
-    actions: 220
+    actions: 145
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'quotations_v3',
+    tableKey: 'quotations_v4',
     defaultWidths: defaultQuotationWidths,
     minWidth: 60,
     minWidths: {
@@ -121,7 +122,7 @@ export const QuotationsPage: React.FC = () => {
       manager: 140,
       totalAmount: 150,
       status: 120,
-      actions: 180
+      actions: 120
     }
   });
 
@@ -403,9 +404,10 @@ export const QuotationsPage: React.FC = () => {
     );
   };
 
-  const loadData = async () => {
+  const loadData = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const query = new URLSearchParams();
       if (search) query.append('search', search);
       if (statusFilter) query.append('status', statusFilter);
@@ -422,7 +424,7 @@ export const QuotationsPage: React.FC = () => {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -466,14 +468,14 @@ export const QuotationsPage: React.FC = () => {
       notes: q.notes || '',
       items: (q.items && q.items.length > 0)
         ? q.items.map((it) => ({
-            productId: it.productId || '',
-            productCode: it.productCode,
-            productName: it.productName,
-            unit: it.unit,
-            quantity: Number(it.quantity) || 1,
-            unitPrice: Number(it.unitPrice) || 0,
-            vatRate: it.vatRate !== undefined ? Number(it.vatRate) : (q.vatRate ?? 8)
-          }))
+          productId: it.productId || '',
+          productCode: it.productCode,
+          productName: it.productName,
+          unit: it.unit,
+          quantity: Number(it.quantity) || 1,
+          unitPrice: Number(it.unitPrice) || 0,
+          vatRate: it.vatRate !== undefined ? Number(it.vatRate) : (q.vatRate ?? 8)
+        }))
         : []
     });
     setFormError(null);
@@ -502,18 +504,17 @@ export const QuotationsPage: React.FC = () => {
   };
 
   const handleAddItem = () => {
-    const defaultProd = products[0];
     setFormData((prev) => ({
       ...prev,
       items: [
         ...prev.items,
         {
-          productId: defaultProd?.id || '',
-          productCode: defaultProd?.code || '',
-          productName: defaultProd?.name || '',
-          unit: defaultProd?.unit || 'Cái',
+          productId: '',
+          productCode: '',
+          productName: '',
+          unit: 'Cái',
           quantity: 1,
-          unitPrice: defaultProd?.sellingPrice || 0,
+          unitPrice: 0,
           vatRate: prev.vatRate
         }
       ]
@@ -542,6 +543,58 @@ export const QuotationsPage: React.FC = () => {
         unit: product.unit || 'Cái',
         unitPrice: Number(product.sellingPrice) || 0
       };
+      return { ...prev, items: updated };
+    });
+  };
+
+  const handleItemProductCodeChange = (index: number, codeVal: string) => {
+    setFormData((prev) => {
+      const updated = [...prev.items];
+      const trimmed = codeVal.trim().toLowerCase();
+      const matched = products.find(
+        (p) => p.code.toLowerCase() === trimmed
+      );
+      if (matched) {
+        updated[index] = {
+          ...updated[index],
+          productId: matched.id,
+          productCode: matched.code,
+          productName: matched.name,
+          unit: matched.unit || updated[index].unit || 'Cái',
+          unitPrice: Number(matched.sellingPrice) || 0
+        };
+      } else {
+        updated[index] = {
+          ...updated[index],
+          productCode: codeVal
+        };
+      }
+      return { ...prev, items: updated };
+    });
+  };
+
+  const handleItemProductNameChange = (index: number, nameVal: string) => {
+    setFormData((prev) => {
+      const updated = [...prev.items];
+      const trimmed = nameVal.trim().toLowerCase();
+      const matched = products.find(
+        (p) => p.name.toLowerCase() === trimmed || p.code.toLowerCase() === trimmed
+      );
+      if (matched) {
+        updated[index] = {
+          ...updated[index],
+          productId: matched.id,
+          productCode: matched.code,
+          productName: matched.name,
+          unit: matched.unit || updated[index].unit || 'Cái',
+          unitPrice: Number(matched.sellingPrice) || 0
+        };
+      } else {
+        updated[index] = {
+          ...updated[index],
+          productName: nameVal
+        };
+      }
       return { ...prev, items: updated };
     });
   };
@@ -598,7 +651,9 @@ export const QuotationsPage: React.FC = () => {
   };
 
   // Tính tổng
-  const subtotal = formData.items.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0);
+  const totalQuantity = formData.items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+  const totalUnitPrice = formData.items.reduce((sum, it) => sum + (Number(it.unitPrice) || 0), 0);
+  const subtotal = formData.items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
   const vatAmount = (subtotal * formData.vatRate) / 100;
   const totalAmount = subtotal + vatAmount;
 
@@ -655,20 +710,28 @@ export const QuotationsPage: React.FC = () => {
 
   const handleStatusChange = async (quoteId: string, newStatus: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
+    const oldQuote = quotations.find((q) => q.id === quoteId);
+    if (!oldQuote || oldQuote.status === newStatus) return;
+    const oldStatus = oldQuote.status;
+
     try {
       setQuotations((prev) =>
         prev.map((q) => (q.id === quoteId ? { ...q, status: newStatus as any } : q))
       );
       await api.put(`/quotations/${quoteId}`, { status: newStatus });
-      loadData();
+      // Đồng bộ ngầm không tải lại toàn trang
+      loadData(true);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi cập nhật trạng thái');
-      loadData();
+      setQuotations((prev) =>
+        prev.map((q) => (q.id === quoteId ? { ...q, status: oldStatus } : q))
+      );
+      alert(err.response?.data?.message || err.message || 'Lỗi cập nhật trạng thái');
+      loadData(true);
     }
   };
 
   const formatMoney = (val?: number) => {
-    return (val || 0).toLocaleString('vi-VN') + ' đ';
+    return formatVND(val);
   };
 
   const handleExportExcel = () => {
@@ -884,19 +947,27 @@ export const QuotationsPage: React.FC = () => {
         </div>
 
         {/* Card Form Nhập Liệu Báo Giá */}
-        <div className="card" style={{ padding: '1.5rem' }}>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div className="card" style={{ padding: '1.25rem' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             {formError && (
-              <div style={{ padding: '0.625rem 1rem', backgroundColor: '#FEE2E2', color: '#B91C1C', borderRadius: '0.375rem', fontSize: '14.3px' }}>
+              <div style={{ padding: '0.5rem 0.85rem', backgroundColor: '#FEE2E2', color: '#B91C1C', borderRadius: '0.375rem', fontSize: '13.5px' }}>
                 {formError}
               </div>
             )}
 
             {/* Thông tin khách hàng & ngày lập */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: editingQuotation
+                  ? 'minmax(280px, 2.2fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(140px, 1fr)'
+                  : 'minmax(320px, 2.5fr) minmax(140px, 1fr) minmax(140px, 1fr)',
+                gap: '0.75rem'
+              }}
+            >
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                  <label style={{ fontSize: '13.75px', fontWeight: '600', color: '#374151' }}>Khách hàng nhận báo giá *</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <label style={{ fontSize: '13.5px', fontWeight: '600', color: '#374151' }}>Khách hàng nhận báo giá *</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -912,6 +983,7 @@ export const QuotationsPage: React.FC = () => {
                 </div>
                 <select
                   className="input"
+                  style={{ padding: '0.38rem 0.65rem' }}
                   value={formData.customerId}
                   onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
                   required
@@ -926,20 +998,22 @@ export const QuotationsPage: React.FC = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13.75px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Ngày báo giá</label>
+                <label style={{ display: 'block', fontSize: '13.5px', fontWeight: '600', color: '#374151', marginBottom: '0.25rem' }}>Ngày báo giá</label>
                 <input
                   type="date"
                   className="input"
+                  style={{ padding: '0.38rem 0.65rem' }}
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13.75px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Hiệu lực đến ngày</label>
+                <label style={{ display: 'block', fontSize: '13.5px', fontWeight: '600', color: '#374151', marginBottom: '0.25rem' }}>Hiệu lực đến ngày</label>
                 <input
                   type="date"
                   className="input"
+                  style={{ padding: '0.38rem 0.65rem' }}
                   value={formData.validUntil}
                   onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
                 />
@@ -947,9 +1021,10 @@ export const QuotationsPage: React.FC = () => {
 
               {editingQuotation && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '13.75px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>Trạng thái báo giá</label>
+                  <label style={{ display: 'block', fontSize: '13.5px', fontWeight: '600', color: '#374151', marginBottom: '0.25rem' }}>Trạng thái báo giá</label>
                   <select
                     className="input"
+                    style={{ padding: '0.38rem 0.65rem' }}
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   >
@@ -965,9 +1040,9 @@ export const QuotationsPage: React.FC = () => {
             </div>
 
             {/* BẢNG DANH SÁCH MẶT HÀNG VĂN PHÒNG PHẨM */}
-            <div style={{ border: '1px solid #E5E7EB', borderRadius: '0.75rem', padding: '1rem', backgroundColor: '#F9FAFB' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <span style={{ fontWeight: '700', fontSize: '14.85px', color: '#1F2937' }}>
+            <div style={{ border: '1px solid #E5E7EB', borderRadius: '0.75rem', padding: '0.85rem', backgroundColor: '#F9FAFB' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <span style={{ fontWeight: '700', fontSize: '14.5px', color: '#1F2937' }}>
                   Danh mục hàng hóa báo giá ({formData.items.length})
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, maxWidth: '480px', justifyContent: 'flex-end' }}>
@@ -976,7 +1051,7 @@ export const QuotationsPage: React.FC = () => {
                     onSelect={handleQuickAddProduct}
                     placeholder="+ Tìm kiếm & thêm nhanh sản phẩm..."
                     clearOnSelect={true}
-                    minWidth={360}
+                    minWidth={340}
                   />
                   <button
                     type="button"
@@ -990,74 +1065,103 @@ export const QuotationsPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Datalists cho autocomplete mã và tên sản phẩm */}
+              <datalist id="quotation-product-codes">
+                {products.map((p) => (
+                  <option key={p.id} value={p.code}>
+                    {p.name}
+                  </option>
+                ))}
+              </datalist>
+              <datalist id="quotation-product-names">
+                {products.map((p) => (
+                  <option key={p.id} value={p.name}>
+                    Mã: {p.code} - {formatVND(p.sellingPrice)}
+                  </option>
+                ))}
+              </datalist>
+
               <div style={{ overflowX: 'auto', backgroundColor: '#FFFFFF', borderRadius: '0.5rem', border: '1px solid #E5E7EB' }}>
                 <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ backgroundColor: '#F9FAFB' }}>
-                      <th style={{ width: '50px', textAlign: 'center' }}>STT</th>
-                      <th style={{ minWidth: '300px', textAlign: 'center' }}>Tên sản phẩm VPP (Nhập tìm kiếm)</th>
-                      <th style={{ width: '90px', textAlign: 'center' }}>ĐVT</th>
-                      <th style={{ width: '110px', textAlign: 'center' }}>Số lượng</th>
-                      <th style={{ width: '140px', textAlign: 'center' }}>Đơn giá (VNĐ)</th>
-                      <th style={{ width: '150px', textAlign: 'center' }}>Thành tiền</th>
-                      <th style={{ width: '50px', textAlign: 'center' }}></th>
+                    <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
+                      <th style={{ width: '45px', textAlign: 'center', fontSize: '13px', padding: '0.5rem 0.25rem' }}>STT</th>
+                      <th style={{ width: '160px', minWidth: '150px', textAlign: 'center', fontSize: '13px', padding: '0.5rem' }}>Mã sản phẩm</th>
+                      <th style={{ minWidth: '260px', textAlign: 'center', fontSize: '13px', padding: '0.5rem' }}>Tên sản phẩm</th>
+                      <th style={{ width: '85px', textAlign: 'center', fontSize: '13px', padding: '0.5rem' }}>ĐVT</th>
+                      <th style={{ width: '100px', textAlign: 'center', fontSize: '13px', padding: '0.5rem' }}>Số lượng</th>
+                      <th style={{ width: '140px', textAlign: 'center', fontSize: '13px', padding: '0.5rem' }}>Đơn giá (VNĐ)</th>
+                      <th style={{ width: '150px', textAlign: 'center', fontSize: '13px', padding: '0.5rem' }}>Thành tiền</th>
+                      <th style={{ width: '45px', textAlign: 'center', padding: '0.5rem 0.25rem' }}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {formData.items.map((it, idx) => {
-                      const itemAmount = it.quantity * it.unitPrice;
+                      const itemAmount = (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0);
                       return (
                         <tr key={idx} style={{ borderTop: '1px solid #F3F4F6' }}>
-                          <td style={{ textAlign: 'center', color: '#6B7280' }}>{idx + 1}</td>
-                          <td style={{ padding: '0.35rem 0.5rem', minWidth: '300px' }}>
-                            <ProductSearchSelect
-                              products={products}
-                              selectedProductId={it.productId}
-                              valueDisplay={it.productName ? `[${it.productCode}] ${it.productName}` : ''}
-                              onSelect={(product) => handleProductSelect(idx, product)}
-                              placeholder="Nhập tên hoặc mã sản phẩm..."
-                              minWidth={320}
+                          <td style={{ textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>{idx + 1}</td>
+                          <td style={{ padding: '0.35rem 0.4rem' }}>
+                            <input
+                              type="text"
+                              list="quotation-product-codes"
+                              className="input font-mono font-semibold"
+                              style={{ padding: '0.35rem 0.5rem', fontSize: '13px' }}
+                              placeholder="Mã SP..."
+                              value={it.productCode || ''}
+                              onChange={(e) => handleItemProductCodeChange(idx, e.target.value)}
                             />
                           </td>
-                          <td>
+                          <td style={{ padding: '0.35rem 0.4rem' }}>
+                            <input
+                              type="text"
+                              list="quotation-product-names"
+                              className="input"
+                              style={{ padding: '0.35rem 0.6rem', fontSize: '13px' }}
+                              placeholder="Nhập hoặc chọn tên sản phẩm..."
+                              value={it.productName || ''}
+                              onChange={(e) => handleItemProductNameChange(idx, e.target.value)}
+                            />
+                          </td>
+                          <td style={{ padding: '0.35rem 0.3rem' }}>
                             <input
                               type="text"
                               className="input"
-                              style={{ padding: '0.4rem 0.5rem', fontSize: '13.75px', textAlign: 'center' }}
-                              value={it.unit}
+                              style={{ padding: '0.35rem 0.4rem', fontSize: '13px', textAlign: 'center' }}
+                              value={it.unit || ''}
                               onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
                             />
                           </td>
-                          <td>
+                          <td style={{ padding: '0.35rem 0.3rem' }}>
                             <input
                               type="number"
                               min="1"
                               className="input"
-                              style={{ padding: '0.4rem 0.5rem', fontSize: '13.75px', textAlign: 'center' }}
+                              style={{ padding: '0.35rem 0.4rem', fontSize: '13px', textAlign: 'center' }}
                               value={it.quantity}
                               onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                             />
                           </td>
-                          <td>
+                          <td style={{ padding: '0.35rem 0.3rem' }}>
                             <input
                               type="number"
                               min="0"
                               step="1000"
-                              className="input"
-                              style={{ padding: '0.4rem 0.5rem', fontSize: '13.75px', textAlign: 'center' }}
+                              className="input font-medium"
+                              style={{ padding: '0.35rem 0.5rem', fontSize: '13px', textAlign: 'center' }}
                               value={it.unitPrice}
                               onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                             />
                           </td>
-                          <td style={{ textAlign: 'center', fontWeight: '600', color: '#111827' }}>
+                          <td style={{ textAlign: 'center', fontWeight: '700', color: '#111827', fontSize: '13px', padding: '0.35rem 0.5rem' }}>
                             {formatMoney(itemAmount)}
                           </td>
-                          <td style={{ textAlign: 'center' }}>
+                          <td style={{ textAlign: 'center', padding: '0.35rem 0.25rem' }}>
                             {formData.items.length > 1 && (
                               <button
                                 type="button"
                                 onClick={() => handleRemoveItem(idx)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444' }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '4px' }}
                                 title="Xóa dòng"
                               >
                                 <Trash2 size={15} />
@@ -1068,16 +1172,36 @@ export const QuotationsPage: React.FC = () => {
                       );
                     })}
                   </tbody>
+                  <tfoot>
+                    <tr style={{ backgroundColor: '#F8FAFC', borderTop: '2px solid #E2E8F0' }}>
+                      <td colSpan={3} style={{ padding: '0.55rem 0.75rem', textAlign: 'right', color: '#334155', fontSize: '13px', fontWeight: '700' }}>
+                        Tổng cộng:
+                      </td>
+                      <td style={{ padding: '0.55rem 0.5rem', textAlign: 'center', color: '#64748B', fontSize: '12px' }}>
+                        —
+                      </td>
+                      <td style={{ padding: '0.55rem 0.5rem', textAlign: 'center', color: '#0F172A', fontSize: '13px', fontWeight: '700' }}>
+                        {totalQuantity.toLocaleString('vi-VN')}
+                      </td>
+                      <td style={{ padding: '0.55rem 0.5rem', textAlign: 'center', color: '#0F172A', fontSize: '13px', fontWeight: '700' }}>
+                        {formatMoney(totalUnitPrice)}
+                      </td>
+                      <td style={{ padding: '0.55rem 0.75rem', textAlign: 'center', color: '#E53935', fontSize: '13.5px', fontWeight: '800' }}>
+                        {formatMoney(subtotal)}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
 
-              {/* Nút Thêm dòng được chuyển xuống dưới bảng */}
-              <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+              {/* Nút Thêm dòng */}
+              <div style={{ marginTop: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                 <button
                   type="button"
                   onClick={handleAddItem}
                   className="btn btn-secondary btn-sm flex items-center gap-1.5 shrink-0"
-                  title="Thêm dòng sản phẩm"
+                  title="Thêm dòng sản phẩm mới"
                 >
                   <Plus size={14} />
                   <span>Thêm dòng</span>
@@ -1086,14 +1210,22 @@ export const QuotationsPage: React.FC = () => {
             </div>
 
             {/* Tổng kết tiền & Ghi chú */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(320px, 2fr) minmax(320px, 1fr)',
+                gap: '1rem',
+                alignItems: 'start'
+              }}
+            >
               <div>
-                <label style={{ display: 'block', fontSize: '13.75px', fontWeight: '600', color: '#374151', marginBottom: '0.35rem' }}>
+                <label style={{ display: 'block', fontSize: '13.5px', fontWeight: '600', color: '#374151', marginBottom: '0.25rem' }}>
                   Ghi chú / Điều khoản giao hàng
                 </label>
                 <textarea
                   className="input"
-                  rows={4}
+                  style={{ width: '100%', minHeight: '130px', resize: 'vertical' }}
+                  rows={5}
                   placeholder="Ví dụ: Báo giá đã bao gồm chi phí vận chuyển tận nơi trong nội thành Hà Nội..."
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -1101,16 +1233,16 @@ export const QuotationsPage: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{ width: '100%', maxWidth: '360px', backgroundColor: '#FAFAFA', padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14.3px' }}>
+                <div style={{ width: '100%', maxWidth: '380px', backgroundColor: '#FAFAFA', padding: '0.85rem 1rem', borderRadius: '0.75rem', border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px' }}>
                     <span style={{ color: '#4B5563' }}>Cộng tiền hàng:</span>
                     <strong style={{ color: '#111827' }}>{formatMoney(subtotal)}</strong>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14.3px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13.5px' }}>
                     <span style={{ color: '#4B5563' }}>Thuế suất VAT:</span>
                     <select
                       className="input"
-                      style={{ width: '85px', padding: '0.25rem 0.5rem' }}
+                      style={{ width: '85px', padding: '0.2rem 0.5rem' }}
                       value={formData.vatRate}
                       onChange={(e) => setFormData({ ...formData, vatRate: Number(e.target.value) })}
                     >
@@ -1119,11 +1251,11 @@ export const QuotationsPage: React.FC = () => {
                       <option value="0">0%</option>
                     </select>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14.3px', color: '#6B7280' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', color: '#6B7280' }}>
                     <span>Tiền thuế VAT:</span>
                     <span>{formatMoney(vatAmount)}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '17.6px', fontWeight: '700', color: '#E53935', paddingTop: '0.75rem', borderTop: '1px solid #E5E7EB' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16.5px', fontWeight: '700', color: '#E53935', paddingTop: '0.55rem', borderTop: '1px solid #E5E7EB' }}>
                     <span>TỔNG CỘNG:</span>
                     <span>{formatMoney(totalAmount)}</span>
                   </div>
@@ -1154,26 +1286,26 @@ export const QuotationsPage: React.FC = () => {
                 >
                   Hủy
                 </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="btn btn-primary flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Đang lưu báo giá...</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus size={16} />
-                    <span>{editingQuotation ? 'Cập nhật Báo Giá' : 'Lưu & Tạo Báo Giá'}</span>
-                  </>
-                )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn btn-primary flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Đang lưu báo giá...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} />
+                      <span>{editingQuotation ? 'Cập nhật Báo Giá' : 'Lưu & Tạo Báo Giá'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
         </div>
 
         {/* Quick Customer Modal */}
@@ -1281,14 +1413,23 @@ export const QuotationsPage: React.FC = () => {
             disabledKeys={['code', 'customer']}
           />
 
-          <button onClick={handleExportExcel} className="btn btn-secondary" title="Xuất danh sách báo giá ra file Excel">
-            <FileSpreadsheet size={16} />
+          <button
+            onClick={handleExportExcel}
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: '13px', gap: '0.35rem' }}
+            title="Xuất danh sách báo giá ra file Excel"
+          >
+            <FileSpreadsheet size={14} />
             <span>Xuất Excel</span>
           </button>
 
           {hasPermission('B_QUOTATIONS', 'create') && (
-            <button onClick={openAddModal} className="btn btn-primary">
-              <Plus size={16} />
+            <button
+              onClick={openAddModal}
+              className="btn btn-primary btn-sm"
+              style={{ fontSize: '13px', gap: '0.35rem' }}
+            >
+              <Plus size={14} />
               <span>Lập báo giá mới</span>
             </button>
           )}
@@ -1315,9 +1456,8 @@ export const QuotationsPage: React.FC = () => {
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${
-                        colKey === 'actions' ? 'sticky-action-th' : ''
-                      }`}
+                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${colKey === 'actions' ? 'sticky-action-th' : ''
+                        }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 120}px`,
                         position: colKey === 'actions' ? 'sticky' : 'relative'
@@ -1384,24 +1524,13 @@ export const QuotationsPage: React.FC = () => {
                               </td>
                             );
                           case 'customer': {
-                            const fullCust = `${q.customer.name} - SĐT: ${q.customer.phone || 'N/A'}${q.customer.taxCode ? ` • MST: ${q.customer.taxCode}` : ''}`;
+                            const fullCust = `${q.customer.name}${q.customer.phone ? ` - SĐT: ${q.customer.phone}` : ''}${q.customer.taxCode ? ` • MST: ${q.customer.taxCode}` : ''}`;
                             return (
                               <td key={colKey} className="py-2.5 px-3.5 overflow-hidden">
                                 <div className="min-w-0" title={fullCust}>
                                   <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
                                     {q.customer.name}
                                   </div>
-                                  {(q.customer.phone || q.customer.taxCode) && (
-                                    <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5 truncate">
-                                      {q.customer.phone && (
-                                        <span className="font-mono text-gray-600 shrink-0">📞 {q.customer.phone}</span>
-                                      )}
-                                      {q.customer.phone && q.customer.taxCode && <span className="text-gray-300">•</span>}
-                                      {q.customer.taxCode && (
-                                        <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-1 py-0.2 rounded shrink-0">MST: {q.customer.taxCode}</span>
-                                      )}
-                                    </div>
-                                  )}
                                 </div>
                               </td>
                             );
@@ -1458,101 +1587,99 @@ export const QuotationsPage: React.FC = () => {
                                 onClick={(e) => e.stopPropagation()}
                                 className="py-2.5 px-2 text-center sticky-action-td whitespace-nowrap bg-white overflow-hidden"
                                 style={{
-                                  width: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 220}px`,
-                                  minWidth: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 220}px`,
-                                  maxWidth: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 220}px`
+                                  width: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 145}px`,
+                                  minWidth: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 145}px`,
+                                  maxWidth: `${columnWidths[colKey] || defaultQuotationWidths[colKey] || 145}px`
                                 }}
                               >
-                              <div className="flex items-center justify-center gap-1 w-full">
-                                <button
-                                  onClick={() => {
-                                    setSelectedQuotation(q);
-                                    setIsPrintModalOpen(true);
-                                  }}
-                                  className="p-1 text-gray-500 hover:text-[#E53935] hover:bg-red-50 rounded-md transition-colors cursor-pointer"
-                                  title="Xem chi tiết & Mẫu in A4"
-                                >
-                                  <Printer className="w-4 h-4 text-[#E53935]" />
-                                </button>
-                                {hasPermission('B_QUOTATIONS', 'update') && (
+                                <div className="flex items-center justify-center gap-1 w-full">
                                   <button
-                                    onClick={() => openEditModal(q)}
-                                    className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                                    title="Chỉnh sửa báo giá"
+                                    onClick={() => {
+                                      setSelectedQuotation(q);
+                                      setIsPrintModalOpen(true);
+                                    }}
+                                    className="p-1 text-gray-500 hover:text-[#E53935] hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                    title="Xem chi tiết & Mẫu in A4"
                                   >
-                                    <Edit2 className="w-4 h-4" />
+                                    <Printer className="w-4 h-4 text-[#E53935]" />
                                   </button>
-                                )}
-                                {hasPermission('B_QUOTATIONS', 'delete') && (
+                                  {hasPermission('B_QUOTATIONS', 'update') && (
+                                    <button
+                                      onClick={() => openEditModal(q)}
+                                      className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                                      title="Chỉnh sửa báo giá"
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasPermission('B_QUOTATIONS', 'delete') && (
+                                    <button
+                                      onClick={() => handleDelete(q.id, q.code)}
+                                      className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                      title="Xóa báo giá"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
                                   <button
-                                    onClick={() => handleDelete(q.id, q.code)}
-                                    className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
-                                    title="Xóa báo giá"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleExportSingleQuotationExcel(q)}
-                                  className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
-                                  title="Xuất file Excel báo giá này"
-                                >
-                                  <FileSpreadsheet className="w-4 h-4" />
-                                </button>
-                                {q.status === 'CONFIRMED' && (
-                                  <button
-                                    onClick={() => handleConvertToOrder(q)}
-                                    disabled={convertingQuoteId === q.id}
-                                    className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                                    title="Tạo Đơn hàng từ Báo giá này"
-                                  >
-                                    {convertingQuoteId === q.id ? (
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                      <ShoppingBag className="w-4 h-4" />
-                                    )}
-                                  </button>
-                                )}
-                                {q.status === 'ORDERED' && (
-                                  <span
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium"
-                                    style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE' }}
-                                    title="Báo giá đã được lên đơn hàng thành công"
-                                  >
-                                    <CheckCircle2 size={13} />
-                                    Đã lên đơn
-                                  </span>
-                                )}
-                                {q.status === 'DRAFT' && (
-                                  <button
-                                    onClick={() => handleStatusChange(q.id, 'SENT')}
-                                    className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                                    title="Đánh dấu đã gửi khách"
-                                  >
-                                    <Send className="w-4 h-4" />
-                                  </button>
-                                )}
-                                {q.status === 'SENT' && (
-                                  <button
-                                    onClick={() => handleStatusChange(q.id, 'CONFIRMED')}
+                                    onClick={() => handleExportSingleQuotationExcel(q)}
                                     className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
-                                    title="Chốt báo giá thành công"
+                                    title="Xuất file Excel báo giá này"
                                   >
-                                    <CheckCircle2 className="w-4 h-4" />
+                                    <FileSpreadsheet className="w-4 h-4" />
                                   </button>
-                                )}
-                              </div>
-                            </td>
-                          );
-                        default:
-                          return null;
-                      }
-                    })}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                                  {q.status === 'CONFIRMED' && (
+                                    <button
+                                      onClick={() => handleConvertToOrder(q)}
+                                      disabled={convertingQuoteId === q.id}
+                                      className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                      title="Tạo Đơn hàng từ Báo giá này"
+                                    >
+                                      {convertingQuoteId === q.id ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <ShoppingBag className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                  )}
+                                  {q.status === 'ORDERED' && (
+                                    <span
+                                      className="p-1 text-indigo-600 rounded-md cursor-default inline-flex items-center justify-center"
+                                      title="Báo giá đã được lên đơn hàng thành công"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4" />
+                                    </span>
+                                  )}
+                                  {q.status === 'DRAFT' && (
+                                    <button
+                                      onClick={() => handleStatusChange(q.id, 'SENT')}
+                                      className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                                      title="Đánh dấu đã gửi khách"
+                                    >
+                                      <Send className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {q.status === 'SENT' && (
+                                    <button
+                                      onClick={() => handleStatusChange(q.id, 'CONFIRMED')}
+                                      className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
+                                      title="Chốt báo giá thành công"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          default:
+                            return null;
+                        }
+                      })}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

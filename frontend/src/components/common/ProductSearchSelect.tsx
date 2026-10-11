@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, X, ChevronDown, Check, Package } from 'lucide-react';
 import { Product } from '../../types';
+import { formatVND } from '../../utils/formatCurrency';
 
 interface ProductSearchSelectProps {
   products: Product[];
@@ -197,10 +198,6 @@ export const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({
     onSelect(product);
     setIsOpen(false);
     setSearchQuery('');
-  };
-
-  const formatVND = (amount: number) => {
-    return amount.toLocaleString('vi-VN') + ' đ';
   };
 
   return (

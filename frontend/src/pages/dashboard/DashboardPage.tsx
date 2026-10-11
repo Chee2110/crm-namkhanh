@@ -170,11 +170,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
               id="period-btn-all"
               type="button"
               onClick={() => setPeriod('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                period === 'all'
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'all'
                   ? 'bg-white text-slate-900 font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               Lũy kế toàn bộ
             </button>
@@ -182,11 +181,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
               id="period-btn-year"
               type="button"
               onClick={() => setPeriod('year')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                period === 'year'
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'year'
                   ? 'bg-white text-slate-900 font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               Năm nay ({currentYearNum})
             </button>
@@ -194,11 +192,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
               id="period-btn-month"
               type="button"
               onClick={() => setPeriod('month')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                period === 'month'
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'month'
                   ? 'bg-white text-slate-900 font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               Tháng này
             </button>
@@ -324,11 +321,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
             id="tab-btn-revenue"
             type="button"
             onClick={() => setActiveSubTab('revenue')}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              activeSubTab === 'revenue'
+            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${activeSubTab === 'revenue'
                 ? 'border-[#EA332A] text-[#EA332A]'
                 : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
+              }`}
           >
             <BarChart3 className="w-4 h-4" />
             Doanh Thu & Sản Lượng
@@ -337,11 +333,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
             id="tab-btn-profit"
             type="button"
             onClick={() => setActiveSubTab('profit')}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              activeSubTab === 'profit'
+            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${activeSubTab === 'profit'
                 ? 'border-[#EA332A] text-[#EA332A]'
                 : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
+              }`}
           >
             <PieIcon className="w-4 h-4" />
             Lợi Nhuận Gộp & Phân Tích Biên Lãi
@@ -383,9 +378,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                           <div className="w-full bg-slate-200 rounded-t h-32 flex items-end overflow-hidden">
                             <div
                               style={{ height: `${Math.max(heightPercent, m.revenue > 0 ? 8 : 2)}%` }}
-                              className={`w-full transition-all rounded-t cursor-pointer ${
-                                isPeak ? 'bg-[#EA332A] hover:bg-[#D32F2F]' : m.revenue > 0 ? 'bg-[#EA332A]/80 hover:bg-[#EA332A]' : 'bg-slate-200'
-                              }`}
+                              className={`w-full transition-all rounded-t cursor-pointer ${isPeak ? 'bg-[#EA332A] hover:bg-[#D32F2F]' : m.revenue > 0 ? 'bg-[#EA332A]/80 hover:bg-[#EA332A]' : 'bg-slate-200'
+                                }`}
                             ></div>
                           </div>
                           <span className={`text-[11px] font-semibold mt-1 ${isPeak ? 'text-[#EA332A]' : 'text-slate-500'}`}>
@@ -632,11 +626,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                               key={pageNum}
                               type="button"
                               onClick={() => setCategoryPage(pageNum)}
-                              className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${
-                                categoryPage === pageNum
+                              className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${categoryPage === pageNum
                                   ? 'bg-[#EA332A] text-white shadow-xs'
                                   : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
-                              }`}
+                                }`}
                             >
                               {pageNum}
                             </button>
@@ -672,11 +665,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                       {revenueVolume?.topProducts.map((p, idx) => (
                         <div key={p.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 border border-slate-100 transition-colors">
                           <div className="flex items-center gap-3">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                              idx === 0 ? 'bg-amber-100 text-amber-800' :
-                              idx === 1 ? 'bg-slate-200 text-slate-800' :
-                              idx === 2 ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-600'
-                            }`}>
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-100 text-amber-800' :
+                                idx === 1 ? 'bg-slate-200 text-slate-800' :
+                                  idx === 2 ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-600'
+                              }`}>
                               {idx + 1}
                             </span>
                             <div>
@@ -792,9 +784,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                       {profitData?.categoryProfits.map((cat, idx) => (
                         <tr
                           key={cat.id}
-                          className={`hover:bg-slate-50/80 transition-colors ${
-                            cat.isLoss ? 'bg-red-50/50' : ''
-                          }`}
+                          className={`hover:bg-slate-50/80 transition-colors ${cat.isLoss ? 'bg-red-50/50' : ''
+                            }`}
                         >
                           <td className="py-3 px-4 text-center font-medium text-slate-500">{idx + 1}</td>
                           <td className="py-3 px-4 font-mono font-bold text-[#EA332A] text-center">{cat.code}</td>
@@ -814,21 +805,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                             {formatVND(cat.cogs)}
                           </td>
                           <td
-                            className={`py-3 px-4 text-center font-bold ${
-                              cat.isLoss ? 'text-red-600' : 'text-emerald-700'
-                            }`}
+                            className={`py-3 px-4 text-center font-bold ${cat.isLoss ? 'text-red-600' : 'text-emerald-700'
+                              }`}
                           >
                             {formatVND(cat.profit)}
                           </td>
                           <td className="py-3 px-4 text-right font-bold text-slate-900">
                             <span
-                              className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                cat.margin >= 20
+                              className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${cat.margin >= 20
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : cat.margin >= 0
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}
                             >
                               {cat.margin}%
                             </span>

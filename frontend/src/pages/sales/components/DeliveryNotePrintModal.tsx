@@ -3,6 +3,7 @@ import { Printer, X, FileSpreadsheet, Truck } from 'lucide-react';
 import { Order } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
 import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
+import { formatVND, formatNumber } from '../../../utils/formatCurrency';
 
 interface DeliveryNotePrintModalProps {
   isOpen: boolean;
@@ -16,10 +17,6 @@ export const DeliveryNotePrintModal: React.FC<DeliveryNotePrintModalProps> = ({
   order
 }) => {
   if (!isOpen || !order) return null;
-
-  const formatVND = (num: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
-  };
 
   const handlePrint = () => {
     window.print();
@@ -66,11 +63,11 @@ export const DeliveryNotePrintModal: React.FC<DeliveryNotePrintModalProps> = ({
       headers.join(','),
       ...rows.map((r) => r.join(',')),
       '',
-      `Cộng tiền hàng: ${Number(order.subtotal).toLocaleString('vi-VN')} VNĐ`,
-      `Thuế GTGT (${order.vatRate}%): ${Number(order.vatAmount).toLocaleString('vi-VN')} VNĐ`,
-      `Tổng giá trị đơn hàng: ${Number(order.totalAmount).toLocaleString('vi-VN')} VNĐ`,
-      `Đã thanh toán: ${Number(order.paidAmount || 0).toLocaleString('vi-VN')} VNĐ`,
-      `Còn phải thu khi giao: ${Number(order.remainingAmount || 0).toLocaleString('vi-VN')} VNĐ`,
+      `Cộng tiền hàng: ${formatNumber(Number(order.subtotal))} VNĐ`,
+      `Thuế GTGT (${order.vatRate}%): ${formatNumber(Number(order.vatAmount))} VNĐ`,
+      `Tổng giá trị đơn hàng: ${formatNumber(Number(order.totalAmount))} VNĐ`,
+      `Đã thanh toán: ${formatNumber(Number(order.paidAmount || 0))} VNĐ`,
+      `Còn phải thu khi giao: ${formatNumber(Number(order.remainingAmount || 0))} VNĐ`,
       `Số tiền viết bằng chữ: ${numberToWords(Number(order.totalAmount))}`,
       `Ghi chú giao hàng: ${(order.notes || '').replace(/"/g, '""')}`
     ];
@@ -87,7 +84,7 @@ export const DeliveryNotePrintModal: React.FC<DeliveryNotePrintModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-1 sm:p-1.5 overflow-hidden">
       <style>{`
         @media print {
           body * {
@@ -113,9 +110,9 @@ export const DeliveryNotePrintModal: React.FC<DeliveryNotePrintModalProps> = ({
         }
       `}</style>
 
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col h-[calc(100%-12px)] max-h-[calc(100%-12px)] my-auto a4-modal print-modal-container">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50 no-print">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50 no-print flex-shrink-0">
           <div className="flex items-center gap-2 text-gray-800 font-semibold text-lg">
             <Truck className="w-5 h-5 text-red-600" />
             <span>In Phiếu Xuất Kho & Biên Bản Bàn Giao Hàng Hóa VPP</span>

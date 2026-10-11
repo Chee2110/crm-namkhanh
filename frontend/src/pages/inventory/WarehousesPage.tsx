@@ -203,11 +203,10 @@ export const WarehousesPage: React.FC = () => {
                   </div>
 
                   <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${
-                      wh.status === 'ACTIVE'
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${wh.status === 'ACTIVE'
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                         : 'bg-slate-100 text-slate-600'
-                    }`}
+                      }`}
                   >
                     {wh.status === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm ngừng'}
                   </span>

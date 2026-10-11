@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2, X, AlertTriangle } from 'lucide-react';
 import { Product } from '../../types';
+import { formatVND } from '../../utils/formatCurrency';
 
 export interface ParsedItemRow {
   productCode: string;
@@ -156,10 +157,6 @@ export const ImportItemsModal: React.FC<ImportItemsModalProps> = ({
     if (validRows.length === 0) return;
     onImport(validRows);
     onClose();
-  };
-
-  const formatVND = (num: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
   };
 
   return (

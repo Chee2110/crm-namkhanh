@@ -774,9 +774,10 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
-  const loadData = async () => {
+  const loadData = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const query = new URLSearchParams();
       if (search) query.append('search', search);
       if (warehouseFilter) query.append('warehouseId', warehouseFilter);
@@ -799,7 +800,7 @@ export const ProductsPage: React.FC = () => {
     } catch (err) {
       console.error('Lỗi khi tải sản phẩm VPP:', err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -838,15 +839,24 @@ export const ProductsPage: React.FC = () => {
 
   const handleQuickStatusChange = async (productId: string, newStatus: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
+    const oldProd = products.find((p) => p.id === productId);
+    if (!oldProd || oldProd.status === newStatus) return;
+    const oldStatus = oldProd.status;
+
     try {
       setProducts((prev) =>
         prev.map((p) => (p.id === productId ? { ...p, status: newStatus as any } : p))
       );
       await api.put(`/products/${productId}`, { status: newStatus });
-      loadData();
+      setToastMessage(newStatus === 'ACTIVE' ? 'Đã kích hoạt kinh doanh sản phẩm!' : 'Đã chuyển sang tạm dừng kinh doanh!');
+      // Đồng bộ ngầm không tải lại toàn trang
+      loadData(true);
     } catch (err: any) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? { ...p, status: oldStatus } : p))
+      );
       alert(err.response?.data?.message || err.message || 'Lỗi khi cập nhật trạng thái sản phẩm');
-      loadData();
+      loadData(true);
     }
   };
 
@@ -1150,7 +1160,7 @@ export const ProductsPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <button
             type="button"
-            onClick={loadData}
+            onClick={() => loadData()}
             className="btn btn-secondary btn-sm"
             style={{ fontSize: '13.2px', gap: '0.35rem' }}
             title="Tải lại danh sách"
@@ -1206,11 +1216,9 @@ export const ProductsPage: React.FC = () => {
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      className={`py-3 px-3 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${
-                        colKey === 'name' ? 'th-left text-left' : 'text-center'
-                      } ${
-                        colKey === 'actions' ? 'sticky-action-th' : ''
-                      }`}
+                      className={`py-3 px-3 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${colKey === 'name' ? 'th-left text-left' : 'text-center'
+                        } ${colKey === 'actions' ? 'sticky-action-th' : ''
+                        }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultProductWidths[colKey] || 110}px`,
                         position: colKey === 'actions' ? 'sticky' : 'relative',
@@ -1218,9 +1226,8 @@ export const ProductsPage: React.FC = () => {
                       }}
                     >
                       <div
-                        className={`inline-flex items-center gap-1 w-full ${
-                          colKey === 'name' ? 'justify-start' : 'justify-center'
-                        }`}
+                        className={`inline-flex items-center gap-1 w-full ${colKey === 'name' ? 'justify-start' : 'justify-center'
+                          }`}
                         style={{
                           justifyContent: colKey === 'name' ? 'flex-start' : 'center'
                         }}
@@ -1499,44 +1506,40 @@ export const ProductsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setFormTab('structure')}
-                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                  formTab === 'structure'
+                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${formTab === 'structure'
                     ? 'border-[#E53935] text-[#E53935] bg-white'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}
+                  }`}
               >
                 1. Kho & Phân loại
               </button>
               <button
                 type="button"
                 onClick={() => setFormTab('general')}
-                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                  formTab === 'general'
+                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${formTab === 'general'
                     ? 'border-[#E53935] text-[#E53935] bg-white'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}
+                  }`}
               >
                 2. Sản phẩm & Hình ảnh
               </button>
               <button
                 type="button"
                 onClick={() => setFormTab('price')}
-                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                  formTab === 'price'
+                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${formTab === 'price'
                     ? 'border-[#E53935] text-[#E53935] bg-white'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}
+                  }`}
               >
                 3. Giá & Tồn kho
               </button>
               <button
                 type="button"
                 onClick={() => setFormTab('supplier')}
-                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                  formTab === 'supplier'
+                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${formTab === 'supplier'
                     ? 'border-[#E53935] text-[#E53935] bg-white'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}
+                  }`}
               >
                 4. Nhà cung cấp & Khác
               </button>

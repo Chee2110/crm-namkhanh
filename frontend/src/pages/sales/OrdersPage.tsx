@@ -37,9 +37,12 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { Order, Customer, Product, User } from '../../types';
+import { Order, Customer, Product, User, OrderReturn } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { OrderPrintModal } from './components/OrderPrintModal';
+import { OrderReturnPrintModal } from './components/OrderReturnPrintModal';
+import { printA4 } from '../../utils/printA4';
+import '../../styles/print-a4.css';
 import { ImportItemsModal } from '../../components/common/ImportItemsModal';
 import { useTableResize } from '../../hooks/useTableResize';
 import { ProductSearchSelect } from '../../components/common/ProductSearchSelect';
@@ -47,6 +50,7 @@ import { Toast } from '../../components/common/Toast';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
 import { withActionsLast } from '../../utils/columnOrder';
+import { formatVND, formatNumber, parseNumberFromFormatted } from '../../utils/formatCurrency';
 
 const DELIVERY_STATUS_OPTIONS: StatusOption[] = [
   { value: 'PENDING', label: 'Chờ giao', colorClass: 'bg-amber-50 text-amber-700 border-amber-300' },
@@ -245,8 +249,13 @@ export const OrdersPage: React.FC = () => {
       orderQuantity: number;
       returnQuantity: number;
       unitPrice: number;
+      condition?: 'GOOD' | 'DEFECTIVE';
     }>
   });
+
+  // In ấn Phiếu Trả Hàng A4
+  const [selectedPrintReturn, setSelectedPrintReturn] = useState<{ returnData: OrderReturn; order: Order } | null>(null);
+  const [isReturnPrintModalOpen, setIsReturnPrintModalOpen] = useState(false);
 
   // Form states
   const [formError, setFormError] = useState<string | null>(null);
@@ -292,9 +301,10 @@ export const OrdersPage: React.FC = () => {
     reason: ''
   });
 
-  const loadData = async () => {
+  const loadData = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const query = new URLSearchParams();
       if (search) query.append('search', search);
       if (deliveryFilter) query.append('deliveryStatus', deliveryFilter);
@@ -315,7 +325,7 @@ export const OrdersPage: React.FC = () => {
     } catch (err: any) {
       console.error('Lỗi khi tải danh sách đơn hàng:', err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -379,6 +389,14 @@ export const OrdersPage: React.FC = () => {
   };
 
   const handleRemoveItem = (index: number) => {
+    if (editingOrder && editingOrder.deliveryStatus === 'DELIVERED') {
+      alert(
+        '⚠️ Đơn hàng đã ở trạng thái ĐÃ GIAO HÀNG (DELIVERED).\n' +
+        'Quy trình quản lý kho & kế toán không cho phép xóa trực tiếp sản phẩm khỏi đơn đã xuất giao!\n\n' +
+        'Vui lòng sử dụng tính năng [Lập Phiếu Đổi/Trả Hàng Hoàn Kho] để hoàn hàng về kho và giảm trừ công nợ theo đúng chuẩn.'
+      );
+      return;
+    }
     const updated = createData.items.filter((_, i) => i !== index);
     setCreateData({ ...createData, items: updated });
   };
@@ -478,20 +496,20 @@ export const OrdersPage: React.FC = () => {
       notes: order.notes || '',
       items: (order.items && order.items.length > 0)
         ? order.items.map((it) => {
-            const matchedProd = products.find(
-              (p) => (it.productId && p.id === it.productId) || (it.productCode && p.code === it.productCode)
-            );
-            return {
-              productId: it.productId || '',
-              productCode: it.productCode,
-              productName: it.productName,
-              unit: it.unit,
-              quantity: Number(it.quantity) || 1,
-              unitPrice: Number(it.unitPrice) || 0,
-              vatRate: it.vatRate !== undefined ? Number(it.vatRate) : (order.vatRate ?? 8),
-              imageUrl: (it as any).imageUrl || it.product?.imageUrl || matchedProd?.imageUrl || ''
-            };
-          })
+          const matchedProd = products.find(
+            (p) => (it.productId && p.id === it.productId) || (it.productCode && p.code === it.productCode)
+          );
+          return {
+            productId: it.productId || '',
+            productCode: it.productCode,
+            productName: it.productName,
+            unit: it.unit,
+            quantity: Number(it.quantity) || 1,
+            unitPrice: Number(it.unitPrice) || 0,
+            vatRate: it.vatRate !== undefined ? Number(it.vatRate) : (order.vatRate ?? 8),
+            imageUrl: (it as any).imageUrl || it.product?.imageUrl || matchedProd?.imageUrl || ''
+          };
+        })
         : []
     });
     setFormError(null);
@@ -630,29 +648,59 @@ export const OrdersPage: React.FC = () => {
 
   const handleQuickDeliveryStatusChange = async (orderId: string, newDeliveryStatus: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
+    const oldOrder = orders.find((o) => o.id === orderId);
+    if (!oldOrder || oldOrder.deliveryStatus === newDeliveryStatus) return;
+    const oldStatus = oldOrder.deliveryStatus;
+
     try {
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, deliveryStatus: newDeliveryStatus as any } : o))
       );
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder((prev) => (prev ? { ...prev, deliveryStatus: newDeliveryStatus as any } : null));
+      }
       await api.put(`/orders/${orderId}`, { deliveryStatus: newDeliveryStatus });
-      loadData();
+      setToastMessage(
+        `Đã chuyển trạng thái giao hàng sang: ${DELIVERY_STATUS_OPTIONS.find((opt) => opt.value === newDeliveryStatus)?.label || newDeliveryStatus
+        }`
+      );
+      // Đồng bộ ngầm không tải lại toàn trang
+      loadData(true);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Cập nhật trạng thái giao hàng thất bại');
-      loadData();
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, deliveryStatus: oldStatus } : o))
+      );
+      alert(err.response?.data?.message || err.message || 'Cập nhật trạng thái giao hàng thất bại');
+      loadData(true);
     }
   };
 
   const handleQuickInvoiceStatusChange = async (orderId: string, newInvoiceStatus: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
+    const oldOrder = orders.find((o) => o.id === orderId);
+    if (!oldOrder || oldOrder.invoiceStatus === newInvoiceStatus) return;
+    const oldStatus = oldOrder.invoiceStatus;
+
     try {
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, invoiceStatus: newInvoiceStatus as any } : o))
       );
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder((prev) => (prev ? { ...prev, invoiceStatus: newInvoiceStatus as any } : null));
+      }
       await api.put(`/orders/${orderId}`, { invoiceStatus: newInvoiceStatus });
-      loadData();
+      setToastMessage(
+        `Đã chuyển trạng thái hóa đơn sang: ${INVOICE_STATUS_OPTIONS.find((opt) => opt.value === newInvoiceStatus)?.label || newInvoiceStatus
+        }`
+      );
+      // Đồng bộ ngầm không tải lại toàn trang
+      loadData(true);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Cập nhật trạng thái hóa đơn thất bại');
-      loadData();
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, invoiceStatus: oldStatus } : o))
+      );
+      alert(err.response?.data?.message || err.message || 'Cập nhật trạng thái hóa đơn thất bại');
+      loadData(true);
     }
   };
 
@@ -856,7 +904,8 @@ export const OrdersPage: React.FC = () => {
         unit: it.unit,
         orderQuantity: it.quantity,
         returnQuantity: 0,
-        unitPrice: Number(it.unitPrice || 0)
+        unitPrice: Number(it.unitPrice || 0),
+        condition: 'GOOD' as 'GOOD' | 'DEFECTIVE'
       }))
     });
     setIsReturnModalOpen(true);
@@ -879,8 +928,10 @@ export const OrdersPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      await api.post(`/orders/${selectedOrder.id}/returns`, {
+      const res = await api.post(`/orders/${selectedOrder.id}/returns`, {
+        reason: returnData.returnReason,
         returnReason: returnData.returnReason,
+        refundMethod: returnData.refundOption,
         refundOption: returnData.refundOption,
         items: itemsToReturn.map((it) => ({
           productId: it.productId,
@@ -889,12 +940,20 @@ export const OrdersPage: React.FC = () => {
           unit: it.unit,
           quantity: it.returnQuantity,
           unitPrice: it.unitPrice,
-          amount: it.returnQuantity * it.unitPrice
+          amount: it.returnQuantity * it.unitPrice,
+          condition: it.condition || 'GOOD'
         }))
       });
 
-      alert('Lập phiếu trả hàng và hoàn kho thành công!');
+      const createdReturn = res.data?.data?.orderReturn || res.data?.orderReturn;
+      setToastMessage('Lập phiếu trả hàng và hoàn kho thành công!');
       setIsReturnModalOpen(false);
+
+      if (createdReturn) {
+        setSelectedPrintReturn({ returnData: createdReturn, order: selectedOrder });
+        setIsReturnPrintModalOpen(true);
+      }
+
       setSelectedOrder(null);
       loadData();
     } catch (err: any) {
@@ -909,10 +968,6 @@ export const OrdersPage: React.FC = () => {
   const totalPaid = orders.reduce((sum, o) => sum + Number(o.paidAmount), 0);
   const totalRemaining = orders.reduce((sum, o) => sum + Number(o.remainingAmount), 0);
   const pendingDeliveryCount = orders.filter((o) => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'DELIVERING').length;
-
-  const formatVND = (num: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
-  };
 
   const renderDeliveryBadge = (status: string) => {
     switch (status) {
@@ -1035,14 +1090,32 @@ export const OrdersPage: React.FC = () => {
               </div>
             )}
 
+            {/* Thông báo nghiệp vụ khi sửa Đơn hàng ĐÃ GIAO (DELIVERED) */}
+            {editingOrder && editingOrder.deliveryStatus === 'DELIVERED' && (
+              <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-start gap-3 shadow-xs">
+                <Truck className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-bold text-amber-950 flex items-center gap-1.5">
+                    <span>Lưu ý nghiệp vụ: Đơn hàng đã ở trạng thái ĐÃ GIAO HÀNG (DELIVERED)</span>
+                  </div>
+                  <p className="text-[11.5px] text-amber-800 leading-relaxed">
+                    Hệ thống tự động kích hoạt cơ chế <strong>Đồng bộ Kho theo độ lệch Delta (Δ)</strong>:
+                    Khi tăng số lượng, hệ thống kiểm tra tồn kho và trừ thêm lượng chênh lệch (Δ &gt; 0).
+                    Khi giảm số lượng, lượng dư được tự động hoàn trả vào kho (Δ &lt; 0).
+                    <br />
+                    <em>Quy tắc: Không xóa trực tiếp sản phẩm đã giao. Nếu khách trả lại hàng, hãy đóng form và sử dụng tính năng <strong>[Lập Phiếu Đổi/Trả Hàng Hoàn Kho]</strong>.</em>
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Cảnh báo Hạn mức tín dụng Khách hàng (Credit Limit Control) */}
             {selectedOrderCustomer && (
               <div
-                className={`p-3.5 rounded-xl border text-xs flex items-start gap-3 transition-colors ${
-                  isExceedingCreditLimit
+                className={`p-3.5 rounded-xl border text-xs flex items-start gap-3 transition-colors ${isExceedingCreditLimit
                     ? 'bg-red-50 border-red-300 text-red-900'
                     : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
-                }`}
+                  }`}
               >
                 {isExceedingCreditLimit ? (
                   <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
@@ -1057,23 +1130,23 @@ export const OrdersPage: React.FC = () => {
                         : 'Kiểm soát hạn mức tín dụng khách hàng: Hợp lệ'}
                     </span>
                     <span className="font-mono text-[11px] font-semibold">
-                      Hạn mức: {customerCreditLimit.toLocaleString('vi-VN')} VNĐ
+                      Hạn mức: {formatVND(customerCreditLimit)}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-0.5 text-gray-700">
                     <p>
-                      Nợ cũ hiện tại: <strong className="text-gray-900">{customerOldDebt.toLocaleString('vi-VN')} đ</strong>
+                      Nợ cũ hiện tại: <strong className="text-gray-900">{formatVND(customerOldDebt)}</strong>
                     </p>
                     <p>
-                      Đơn hàng này: <strong className="text-gray-900">{totalAmount.toLocaleString('vi-VN')} đ</strong>
+                      Đơn hàng này: <strong className="text-gray-900">{formatVND(totalAmount)}</strong>
                     </p>
                     <p>
-                      Dự kiến tổng nợ: <strong className={isExceedingCreditLimit ? 'text-red-600 font-bold' : 'text-emerald-700 font-bold'}>{projectedTotalDebt.toLocaleString('vi-VN')} đ</strong>
+                      Dự kiến tổng nợ: <strong className={isExceedingCreditLimit ? 'text-red-600 font-bold' : 'text-emerald-700 font-bold'}>{formatVND(projectedTotalDebt)}</strong>
                     </p>
                   </div>
                   {isExceedingCreditLimit && (
                     <p className="text-red-700 text-[11.5px] font-semibold pt-1 border-t border-red-200">
-                      Khách hàng sẽ vượt quá hạn mức tín dụng cho phép {(projectedTotalDebt - customerCreditLimit).toLocaleString('vi-VN')} VNĐ (Số ngày nợ tối đa: {selectedOrderCustomer.maxDebtDays || 30} ngày). Vui lòng yêu cầu thanh toán bớt nợ cũ hoặc xin phê duyệt cấp trên trước khi giao hàng!
+                      Khách hàng sẽ vượt quá hạn mức tín dụng cho phép {formatVND(projectedTotalDebt - customerCreditLimit)} (Số ngày nợ tối đa: {selectedOrderCustomer.maxDebtDays || 30} ngày). Vui lòng yêu cầu thanh toán bớt nợ cũ hoặc xin phê duyệt cấp trên trước khi giao hàng!
                     </p>
                   )}
                 </div>
@@ -1304,41 +1377,39 @@ export const OrdersPage: React.FC = () => {
                                 onChange={(e) =>
                                   handleItemChange(index, 'quantity', Math.max(1, parseInt(e.target.value) || 1))
                                 }
-                                className={`w-full p-1 border rounded text-center focus:outline-none ${
-                                  isExcessStock
+                                className={`w-full p-1 border rounded text-center focus:outline-none ${isExcessStock
                                     ? 'border-amber-400 bg-amber-50/40 text-amber-900 focus:border-amber-500'
                                     : 'border-gray-200 focus:border-[#E53935]'
-                                }`}
+                                  }`}
                               />
                             </td>
-                          <td className="p-2.5 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              step="1000"
-                              value={item.unitPrice}
-                              onChange={(e) =>
-                                handleItemChange(index, 'unitPrice', Math.max(0, parseInt(e.target.value) || 0))
-                              }
-                              className="w-full p-1 border border-gray-200 rounded text-center focus:outline-none focus:border-[#E53935]"
-                            />
-                          </td>
-                          <td className="p-2.5 text-center font-semibold text-gray-900">
-                            {formatVND(item.quantity * item.unitPrice)}
-                          </td>
-                          <td className="p-2.5 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveItem(index)}
-                              className="text-gray-400 hover:text-red-500 p-1 cursor-pointer"
-                              title="Xóa sản phẩm khỏi đơn"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            <td className="p-2.5 text-center">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={formatNumber(item.unitPrice)}
+                                onChange={(e) =>
+                                  handleItemChange(index, 'unitPrice', parseNumberFromFormatted(e.target.value))
+                                }
+                                className="w-full p-1 border border-gray-200 rounded text-center font-medium focus:outline-none focus:border-[#E53935]"
+                              />
+                            </td>
+                            <td className="p-2.5 text-center font-semibold text-gray-900">
+                              {formatVND(item.quantity * item.unitPrice)}
+                            </td>
+                            <td className="p-2.5 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(index)}
+                                className="text-gray-400 hover:text-red-500 p-1 cursor-pointer"
+                                title="Xóa sản phẩm khỏi đơn"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1435,12 +1506,13 @@ export const OrdersPage: React.FC = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-semibold text-gray-700">Khách trả trước / Thực thu:</span>
                     <input
-                      type="number"
-                      min="0"
-                      max={totalAmount}
-                      step="1000"
-                      value={createData.paidAmount}
-                      onChange={(e) => setCreateData({ ...createData, paidAmount: Math.max(0, parseInt(e.target.value) || 0) })}
+                      type="text"
+                      inputMode="numeric"
+                      value={formatNumber(createData.paidAmount)}
+                      onChange={(e) => {
+                        const parsed = parseNumberFromFormatted(e.target.value);
+                        setCreateData({ ...createData, paidAmount: Math.min(totalAmount, parsed) });
+                      }}
                       className="w-40 p-1.5 text-xs border border-emerald-300 rounded font-semibold text-emerald-700 text-right focus:outline-none focus:border-emerald-500"
                     />
                   </div>
@@ -1552,11 +1624,10 @@ export const OrdersPage: React.FC = () => {
               setDeliveryFilter('PENDING');
             }
           }}
-          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${
-            deliveryFilter === 'PENDING'
+          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${deliveryFilter === 'PENDING'
               ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-400'
               : 'bg-white border-gray-200 hover:border-amber-300'
-          }`}
+            }`}
           title="Nhấn để lọc nhanh các đơn hàng chờ xuất kho"
         >
           <div>
@@ -1600,11 +1671,10 @@ export const OrdersPage: React.FC = () => {
           onClick={() => {
             setPaymentFilter(paymentFilter === 'PAID' ? '' : 'PAID');
           }}
-          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${
-            paymentFilter === 'PAID'
+          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${paymentFilter === 'PAID'
               ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-400'
               : 'bg-white border-gray-200 hover:border-emerald-300'
-          }`}
+            }`}
           title="Nhấn để lọc các đơn hàng đã thanh toán đủ"
         >
           <div>
@@ -1628,11 +1698,10 @@ export const OrdersPage: React.FC = () => {
           onClick={() => {
             setPaymentFilter(paymentFilter === 'UNPAID' ? '' : 'UNPAID');
           }}
-          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${
-            paymentFilter === 'UNPAID'
+          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${paymentFilter === 'UNPAID'
               ? 'bg-red-100 border-red-500 ring-2 ring-red-400'
               : 'bg-red-50/20 border-red-200 hover:border-red-400'
-          }`}
+            }`}
           title="Nhấn để lọc các đơn hàng chưa thanh toán (còn nợ)"
         >
           <div>
@@ -1797,9 +1866,8 @@ export const OrdersPage: React.FC = () => {
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${
-                        colKey === 'actions' ? 'sticky-action-th' : ''
-                      }`}
+                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${colKey === 'actions' ? 'sticky-action-th' : ''
+                        }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 140}px`,
                         position: colKey === 'actions' ? 'sticky' : 'relative'
@@ -1962,7 +2030,7 @@ export const OrdersPage: React.FC = () => {
                                   </span>
                                 </td>
                               );
-                              case 'actions':
+                            case 'actions':
                               return (
                                 <td
                                   key={colKey}
@@ -2062,6 +2130,23 @@ export const OrdersPage: React.FC = () => {
                                       </button>
                                     )}
 
+                                    {/* In phiếu trả hàng đã lập */}
+                                    {order.returns && order.returns.length > 0 && (
+                                      <button
+                                        title={`Xem & In phiếu trả hàng A4 (${order.returns.length} phiếu đã lập)`}
+                                        onClick={() => {
+                                          setSelectedPrintReturn({ returnData: order.returns![0], order });
+                                          setIsReturnPrintModalOpen(true);
+                                        }}
+                                        className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-md transition-colors cursor-pointer relative"
+                                      >
+                                        <RotateCcw className="w-4 h-4 text-amber-600" />
+                                        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center">
+                                          {order.returns.length}
+                                        </span>
+                                      </button>
+                                    )}
+
                                     {/* Bàn giao đơn */}
                                     {hasPermission('B_ORDERS', 'update') && (
                                       <button
@@ -2132,17 +2217,17 @@ export const OrdersPage: React.FC = () => {
                 <div className="relative">
                   <DollarSign className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
-                    type="number"
-                    min="0"
-                    max={Number(selectedOrder.totalAmount)}
-                    step="1000"
-                    value={updatePaymentData.paidAmount}
-                    onChange={(e) =>
+                    type="text"
+                    inputMode="numeric"
+                    value={formatNumber(updatePaymentData.paidAmount)}
+                    onChange={(e) => {
+                      const maxVal = Number(selectedOrder.totalAmount);
+                      const parsed = parseNumberFromFormatted(e.target.value);
                       setUpdatePaymentData({
                         ...updatePaymentData,
-                        paidAmount: Number(e.target.value) || 0
-                      })
-                    }
+                        paidAmount: Math.min(maxVal, parsed)
+                      });
+                    }}
                     className="w-full pl-9 pr-3 py-2 text-sm font-bold border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
                   />
                 </div>
@@ -2358,9 +2443,8 @@ export const OrdersPage: React.FC = () => {
                     Chọn phương án hoàn trả tiền cọc ({formatVND(Number(selectedOrder.paidAmount))}):
                   </label>
                   <div className="space-y-2">
-                    <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                      cancelRefundData.refundOption === 'CREDIT_BALANCE' ? 'border-[#E53935] bg-red-50/30 ring-1 ring-[#E53935]' : 'border-gray-200 hover:bg-gray-50'
-                    }`}>
+                    <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${cancelRefundData.refundOption === 'CREDIT_BALANCE' ? 'border-[#E53935] bg-red-50/30 ring-1 ring-[#E53935]' : 'border-gray-200 hover:bg-gray-50'
+                      }`}>
                       <input
                         type="radio"
                         name="refundOption"
@@ -2377,9 +2461,8 @@ export const OrdersPage: React.FC = () => {
                       </div>
                     </label>
 
-                    <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                      cancelRefundData.refundOption === 'CASH_REFUND' ? 'border-[#E53935] bg-red-50/30 ring-1 ring-[#E53935]' : 'border-gray-200 hover:bg-gray-50'
-                    }`}>
+                    <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${cancelRefundData.refundOption === 'CASH_REFUND' ? 'border-[#E53935] bg-red-50/30 ring-1 ring-[#E53935]' : 'border-gray-200 hover:bg-gray-50'
+                      }`}>
                       <input
                         type="radio"
                         name="refundOption"
@@ -2481,11 +2564,18 @@ export const OrdersPage: React.FC = () => {
                   Số tiền điều chỉnh (+ tăng / - giảm) (VNĐ) <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="number"
-                  value={adjustData.adjustedAmount}
-                  onChange={(e) => setAdjustData({ ...adjustData, adjustedAmount: Number(e.target.value) })}
+                  type="text"
+                  value={(() => {
+                    const val = adjustData.adjustedAmount;
+                    if (val === 0 || !val) return '0';
+                    const isNeg = val < 0;
+                    return (isNeg ? '-' : '') + formatNumber(Math.abs(val));
+                  })()}
+                  onChange={(e) => {
+                    setAdjustData({ ...adjustData, adjustedAmount: parseNumberFromFormatted(e.target.value) });
+                  }}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg font-mono font-bold focus:outline-none focus:border-amber-500"
-                  placeholder="Ví dụ: -50000 hoặc 30000"
+                  placeholder="Ví dụ: -50.000 hoặc 30.000"
                 />
                 <div className="text-[11px] text-gray-500 mt-1 flex items-start gap-1.5">
                   <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
@@ -2588,6 +2678,7 @@ export const OrdersPage: React.FC = () => {
                       <th className="p-2.5 text-center w-16">ĐVT</th>
                       <th className="p-2.5 text-center w-20">Đã giao</th>
                       <th className="p-2.5 text-center w-24">SL Trả lại</th>
+                      <th className="p-2.5 text-center w-32">Tình trạng</th>
                       <th className="p-2.5 text-center w-24">Đơn giá</th>
                       <th className="p-2.5 text-center w-28">Thành tiền trả</th>
                     </tr>
@@ -2617,6 +2708,24 @@ export const OrdersPage: React.FC = () => {
                               }}
                               className="w-20 p-1 border border-orange-300 rounded text-center font-bold text-orange-700 focus:outline-none focus:ring-1 focus:ring-orange-500"
                             />
+                          </td>
+                          <td className="p-2.5 text-center">
+                            <select
+                              value={item.condition || 'GOOD'}
+                              disabled={item.returnQuantity === 0}
+                              onChange={(e) => {
+                                const updated = [...returnData.items];
+                                updated[idx].condition = e.target.value as 'GOOD' | 'DEFECTIVE';
+                                setReturnData({ ...returnData, items: updated });
+                              }}
+                              className={`text-[11px] p-1 rounded border font-semibold ${item.condition === 'DEFECTIVE'
+                                  ? 'bg-red-50 text-red-700 border-red-300'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                }`}
+                            >
+                              <option value="GOOD">Tốt (Nhập kho bán)</option>
+                              <option value="DEFECTIVE">Lỗi (Kho cách ly)</option>
+                            </select>
                           </td>
                           <td className="p-2.5 text-center text-gray-700">{formatVND(item.unitPrice)}</td>
                           <td className="p-2.5 text-center font-bold text-gray-900">
@@ -2658,9 +2767,8 @@ export const OrdersPage: React.FC = () => {
                   Phương án xử lý tiền trả hàng:
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${
-                    returnData.refundOption === 'DEDUCT_DEBT' ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'
-                  }`}>
+                  <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${returnData.refundOption === 'DEDUCT_DEBT' ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
                     <input
                       type="radio"
                       name="returnRefundOption"
@@ -2675,9 +2783,8 @@ export const OrdersPage: React.FC = () => {
                     </div>
                   </label>
 
-                  <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${
-                    returnData.refundOption === 'CREDIT_BALANCE' ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'
-                  }`}>
+                  <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${returnData.refundOption === 'CREDIT_BALANCE' ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
                     <input
                       type="radio"
                       name="returnRefundOption"
@@ -2692,9 +2799,8 @@ export const OrdersPage: React.FC = () => {
                     </div>
                   </label>
 
-                  <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${
-                    returnData.refundOption === 'CASH_REFUND' ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'
-                  }`}>
+                  <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${returnData.refundOption === 'CASH_REFUND' ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
                     <input
                       type="radio"
                       name="returnRefundOption"
@@ -2747,16 +2853,44 @@ export const OrdersPage: React.FC = () => {
 
       {/* MODAL XEM CHI TIẾT & IN PHIẾU GIAO HÀNG A4 */}
       {isDetailModalOpen && selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50 no-print">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-1 sm:p-1.5 overflow-hidden">
+          <div className="bg-white rounded-xl w-full max-w-6xl h-[calc(100%-12px)] max-h-[calc(100%-12px)] flex flex-col shadow-2xl overflow-hidden a4-modal print-modal-container">
+            <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between bg-gray-50 no-print flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Printer className="w-5 h-5 text-[#E53935]" />
-                <span className="font-bold text-gray-800">
+                <span className="font-bold text-gray-800 text-sm sm:text-base">
                   Phiếu Xuất Kho & Giao Hàng - {selectedOrder.code}
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                {selectedOrder.deliveryStatus === 'DELIVERED' && hasPermission('B_ORDERS', 'update') && (
+                  <button
+                    onClick={() => {
+                      const ord = selectedOrder;
+                      setIsDetailModalOpen(false);
+                      openReturnModal(ord);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    title="Lập phiếu đổi trả hàng hoàn kho"
+                  >
+                    <PackageMinus className="w-3.5 h-3.5" />
+                    Đổi / Trả hàng
+                  </button>
+                )}
+                {selectedOrder.returns && selectedOrder.returns.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const ret = selectedOrder.returns![0];
+                      setSelectedPrintReturn({ returnData: ret, order: selectedOrder });
+                      setIsReturnPrintModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    title="Xem & in phiếu trả hàng A4"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Phiếu trả ({selectedOrder.returns.length})
+                  </button>
+                )}
                 {hasPermission('B_ORDERS', 'update') && (
                   <button
                     onClick={() => {
@@ -2782,7 +2916,7 @@ export const OrdersPage: React.FC = () => {
                   </button>
                 )}
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => printA4('printable-order', `Phieu_giao_hang_${selectedOrder.code}`)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -2798,202 +2932,228 @@ export const OrdersPage: React.FC = () => {
             </div>
 
             {/* BẢN IN KHỔ A4 */}
-            <div className="flex-1 overflow-y-auto p-8 space-y-6 text-gray-800 bg-white" id="printable-order">
-              {/* Header thương hiệu Nam Khánh */}
-              <div className="flex justify-between items-start border-b-2 border-red-600 pb-4">
-                <div className="space-y-1">
-                  <h2 className="text-xl font-black text-[#E53935] tracking-tight">
-                    CÔNG TY TNHH NK NAM KHÁNH
-                  </h2>
-                  <p className="text-xs text-gray-600">
-                    Phân phối sỉ & lẻ Văn phòng phẩm, Thiết bị văn phòng chuyên nghiệp
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Địa chỉ: Số 32, Ngõ 111 Cầu Giấy, P. Dịch Vọng, Q. Cầu Giấy, Hà Nội
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Hotline: (024) 3768 9999 | Email: kinhdoanh@namkhanh.vn | MST: 0109876543
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-base font-black text-gray-900 uppercase">
-                    PHIẾU GIAO HÀNG & XUẤT KHO
+            <div className="a4-preview">
+              <div className="a4-sheet" id="printable-order">
+                {/* Header thương hiệu Nam Khánh */}
+                <div className="a4-header">
+                  <div className="a4-brand">
+                    <div>
+                      <h1 className="a4-company-name a4-lg">CÔNG TY TNHH NK NAM KHÁNH</h1>
+                      <p className="a4-company-slogan">
+                        Phân phối sỉ &amp; lẻ Văn phòng phẩm, Thiết bị văn phòng chuyên nghiệp
+                      </p>
+                      <p className="a4-company-line">
+                        Địa chỉ: Số 32, Ngõ 111 Cầu Giấy, P. Dịch Vọng, Q. Cầu Giấy, Hà Nội
+                      </p>
+                      <p className="a4-company-line">
+                        <span className="a4-nowrap">Hotline: (024) 3768 9999</span>
+                        <span className="a4-sep">|</span>
+                        <span className="a4-nowrap">Email: kinhdoanh@namkhanh.vn</span>
+                        <span className="a4-sep">|</span>
+                        <span className="a4-nowrap">MST: 0109876543</span>
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-xs font-bold text-[#E53935] mt-0.5">Số: {selectedOrder.code}</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Ngày:{' '}
-                    {new Date(selectedOrder.orderDate).toLocaleDateString('vi-VN', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    })}
+                  <div className="a4-docmeta">
+                    <div className="a4-doctype">PHIẾU GIAO HÀNG &amp; XUẤT KHO</div>
+                    <div className="a4-doccode">Số: {selectedOrder.code}</div>
+                    <div>
+                      Ngày:{' '}
+                      {new Date(selectedOrder.orderDate).toLocaleDateString('vi-VN', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Thông tin Khách hàng */}
-              <div className="grid grid-cols-2 gap-4 text-xs bg-gray-50 p-4 rounded-xl border border-gray-200">
-                <div className="space-y-1">
-                  <p className="font-semibold text-gray-900">
-                    Khách hàng: <span className="font-bold text-[#E53935]">{selectedOrder.customer?.name}</span>
-                  </p>
-                  <p>Mã khách: {selectedOrder.customer?.code} | MST: {selectedOrder.customer?.taxCode || 'N/A'}</p>
-                  <p>Người nhận: {selectedOrder.contactPerson || selectedOrder.customer?.contactPerson || 'Bộ phận tiếp nhận'}</p>
-                  <p>Số điện thoại: {selectedOrder.phone || selectedOrder.customer?.phone}</p>
+                {/* Thông tin Khách hàng */}
+                <div className="a4-info" style={{ marginTop: 6 }}>
+                  <div className="a4-field a4-full">
+                    <b>Khách hàng:</b>
+                    <span className="a4-red" style={{ fontWeight: 700 }}>{selectedOrder.customer?.name}</span>
+                  </div>
+                  <div className="a4-field">
+                    <b>Mã khách:</b>
+                    <span>{selectedOrder.customer?.code} | MST: {selectedOrder.customer?.taxCode || 'N/A'}</span>
+                  </div>
+                  <div className="a4-field">
+                    <b>Ngày hẹn giao:</b>
+                    <span>
+                      {selectedOrder.deliveryDate
+                        ? new Date(selectedOrder.deliveryDate).toLocaleDateString('vi-VN')
+                        : 'Giao ngay trong ngày'}
+                    </span>
+                  </div>
+                  <div className="a4-field">
+                    <b>Người nhận:</b>
+                    <span>{selectedOrder.contactPerson || selectedOrder.customer?.contactPerson || 'Bộ phận tiếp nhận'}</span>
+                  </div>
+                  <div className="a4-field">
+                    <b>Nhân viên phụ trách:</b>
+                    <span>{selectedOrder.manager?.fullName || 'Bộ phận kinh doanh'}</span>
+                  </div>
+                  <div className="a4-field">
+                    <b>Số điện thoại:</b>
+                    <span>{selectedOrder.phone || selectedOrder.customer?.phone}</span>
+                  </div>
+                  <div className="a4-field">
+                    <b>Hóa đơn VAT:</b>
+                    <span>{selectedOrder.invoiceStatus === 'ISSUED' ? 'Đã xuất hóa đơn' : 'Chưa xuất hóa đơn'}</span>
+                  </div>
+                  <div className="a4-field a4-full">
+                    <b>Địa chỉ giao:</b>
+                    <span>{selectedOrder.deliveryAddress || selectedOrder.customer?.address}</span>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p>Địa chỉ giao: {selectedOrder.deliveryAddress || selectedOrder.customer?.address}</p>
-                  <p>
-                    Ngày hẹn giao:{' '}
-                    {selectedOrder.deliveryDate
-                      ? new Date(selectedOrder.deliveryDate).toLocaleDateString('vi-VN')
-                      : 'Giao ngay trong ngày'}
-                  </p>
-                  <p>Nhân viên phụ trách: {selectedOrder.manager?.fullName || 'Bộ phận kinh doanh'}</p>
-                  <p>
-                    Hóa đơn VAT: {selectedOrder.invoiceStatus === 'ISSUED' ? 'Đã xuất hóa đơn' : 'Chưa xuất hóa đơn'}
-                  </p>
-                </div>
-              </div>
 
-              {/* Bảng sản phẩm */}
-              <div className="border border-gray-300 rounded-lg overflow-hidden">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-gray-100 border-b border-gray-300 text-gray-800 font-bold uppercase text-[10px]">
+                {/* Bảng sản phẩm */}
+                <table className="a4-table">
+                  <thead>
                     <tr>
-                      <th className="p-2.5 text-center w-10">STT</th>
-                      <th className="p-2.5 text-center w-24">Mã SP</th>
-                      <th className="p-2.5 text-center">Tên sản phẩm văn phòng phẩm</th>
-                      <th className="p-2.5 text-center w-14">ĐVT</th>
-                      <th className="p-2.5 text-center w-16">SL</th>
-                      <th className="p-2.5 text-center w-24">Đơn giá</th>
-                      <th className="p-2.5 text-center w-28">Thành tiền (VNĐ)</th>
+                      <th className="a4-fit">STT</th>
+                      <th className="a4-fit">Mã SP</th>
+                      <th>Tên sản phẩm văn phòng phẩm</th>
+                      <th className="a4-fit">ĐVT</th>
+                      <th className="a4-fit">SL</th>
+                      <th className="a4-fit">Đơn giá</th>
+                      <th className="a4-fit">Thành tiền (VNĐ)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody>
                     {selectedOrder.items?.map((item, idx) => (
                       <tr key={idx}>
-                        <td className="p-2 text-center text-gray-500">{idx + 1}</td>
-                        <td className="p-2 text-center font-mono font-semibold text-gray-700">{item.productCode}</td>
-                        <td className="p-2 font-medium text-gray-900">{item.productName}</td>
-                        <td className="p-2 text-center text-gray-600">{item.unit}</td>
-                        <td className="p-2 text-center font-bold">{item.quantity}</td>
-                        <td className="p-2 text-center">{formatVND(Number(item.unitPrice))}</td>
-                        <td className="p-2 text-center font-bold text-gray-900">
-                          {formatVND(Number(item.total))}
-                        </td>
+                        <td className="a4-fit a4-c a4-muted">{idx + 1}</td>
+                        <td className="a4-fit a4-c a4-code">{item.productCode}</td>
+                        <td className="a4-name">{item.productName}</td>
+                        <td className="a4-fit a4-c">{item.unit}</td>
+                        <td className="a4-fit a4-c" style={{ fontWeight: 700 }}>{item.quantity}</td>
+                        <td className="a4-num">{formatVND(Number(item.unitPrice))}</td>
+                        <td className="a4-num" style={{ fontWeight: 700 }}>{formatVND(Number(item.total))}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
 
-              {/* Tổng cộng & Công nợ */}
-              <div className="flex justify-between items-start pt-2">
-                <div className="text-xs text-gray-500 max-w-xs space-y-1">
-                  <p className="font-semibold text-gray-700">Ghi chú đơn hàng:</p>
-                  <p className="italic">{selectedOrder.notes || 'Hàng mới 100%, đúng quy cách mẫu mã của Nam Khánh.'}</p>
-                </div>
-                <div className="w-72 space-y-1.5 text-xs text-right">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Cộng tiền hàng:</span>
-                    <span className="font-medium">{formatVND(Number(selectedOrder.subtotal))}</span>
+                {/* Tổng cộng & Công nợ */}
+                <div className="a4-summary">
+                  <div className="a4-summary-note">
+                    <b>Ghi chú đơn hàng:</b>
+                    <i>{selectedOrder.notes || 'Hàng mới 100%, đúng quy cách mẫu mã của Nam Khánh.'}</i>
                   </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Thuế VAT ({selectedOrder.vatRate}%):</span>
-                    <span className="font-medium">{formatVND(Number(selectedOrder.vatAmount))}</span>
-                  </div>
-                  {Number(selectedOrder.adjustedAmount || 0) !== 0 && (
-                    <div className="flex justify-between text-amber-700">
-                      <span>Điều chỉnh giá trị ({selectedOrder.adjustmentReason || 'Khác'}):</span>
-                      <span className="font-semibold">
-                        {Number(selectedOrder.adjustedAmount) > 0 ? '+' : ''}
-                        {formatVND(Number(selectedOrder.adjustedAmount))}
-                      </span>
+                  <div className="a4-summary-lines">
+                    <div>
+                      <span>Cộng tiền hàng:</span>
+                      <span>{formatVND(Number(selectedOrder.subtotal))}</span>
                     </div>
-                  )}
-                  {Number(selectedOrder.refundAmount || 0) > 0 && (
-                    <div className="flex justify-between text-red-600">
-                      <span>Tiền đã hoàn lại:</span>
-                      <span className="font-semibold">
-                        -{formatVND(Number(selectedOrder.refundAmount))}
-                      </span>
+                    <div>
+                      <span>Thuế VAT ({selectedOrder.vatRate}%):</span>
+                      <span>{formatVND(Number(selectedOrder.vatAmount))}</span>
                     </div>
-                  )}
-                  <div className="flex justify-between text-sm font-bold text-gray-900 pt-1 border-t border-gray-300">
-                    <span>Tổng thanh toán:</span>
-                    <span className="text-[#E53935]">{formatVND(Number(selectedOrder.totalAmount))}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-700">
-                    <span>Đã thanh toán (Thực thu):</span>
-                    <span className="font-bold text-emerald-600">{formatVND(Number(selectedOrder.paidAmount))}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-[#E53935] pt-1 border-t border-dashed border-red-300">
-                    <span>CÒN PHẢI THU (NỢ):</span>
-                    <span>{formatVND(Number(selectedOrder.remainingAmount))}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Lịch sử Đổi / Trả hàng hoàn kho */}
-              {selectedOrder.returns && selectedOrder.returns.length > 0 && (
-                <div className="border border-orange-200 bg-orange-50/40 rounded-xl p-4 space-y-3 no-print">
-                  <div className="flex items-center gap-2 text-xs font-bold text-orange-950 uppercase tracking-wide">
-                    <PackageMinus className="w-4 h-4 text-orange-600" />
-                    <span>Lịch sử đổi / trả hàng hoàn kho ({selectedOrder.returns.length} đợt trả)</span>
-                  </div>
-                  <div className="space-y-2">
-                    {selectedOrder.returns.map((ret, rIdx) => (
-                      <div key={rIdx} className="bg-white p-3 rounded-lg border border-orange-200 text-xs space-y-1.5 shadow-sm">
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-gray-900">{ret.code} - Ngày {new Date(ret.returnDate).toLocaleDateString('vi-VN')}</span>
-                          <span className="font-bold text-orange-700">Tổng hoàn trả: {formatVND(Number(ret.totalRefundAmount))}</span>
-                        </div>
-                        <p className="text-gray-600 italic">Lý do: {ret.reason}</p>
-                        <div className="text-[11px] text-gray-500">
-                          Phương án: {ret.refundMethod === 'DEDUCT_DEBT' ? 'Trừ trực tiếp công nợ' : ret.refundMethod === 'CREDIT_BALANCE' ? 'Cộng vào số dư trả trước của khách' : 'Tạo phiếu chi hoàn tiền'}
-                        </div>
-                        {ret.items && ret.items.length > 0 && (
-                          <div className="mt-1 border-t border-gray-100 pt-1 text-[11px] text-gray-600 space-y-0.5">
-                            {ret.items.map((it, itIdx) => (
-                              <div key={itIdx} className="flex justify-between">
-                                <span>• {it.productName} ({it.productCode})</span>
-                                <span>SL: {it.quantity} {it.unit} x {formatVND(Number(it.unitPrice))}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                    {Number(selectedOrder.adjustedAmount || 0) !== 0 && (
+                      <div style={{ color: '#b45309' }}>
+                        <span>Điều chỉnh giá trị ({selectedOrder.adjustmentReason || 'Khác'}):</span>
+                        <span>
+                          {Number(selectedOrder.adjustedAmount) > 0 ? '+' : ''}
+                          {formatVND(Number(selectedOrder.adjustedAmount))}
+                        </span>
                       </div>
-                    ))}
+                    )}
+                    {Number(selectedOrder.refundAmount || 0) > 0 && (
+                      <div style={{ color: '#dc2626' }}>
+                        <span>Tiền đã hoàn lại:</span>
+                        <span>-{formatVND(Number(selectedOrder.refundAmount))}</span>
+                      </div>
+                    )}
+                    <div className="a4-line-total">
+                      <span>Tổng thanh toán:</span>
+                      <span className="a4-red">{formatVND(Number(selectedOrder.totalAmount))}</span>
+                    </div>
+                    <div>
+                      <span>Đã thanh toán (Thực thu):</span>
+                      <span style={{ color: '#059669', fontWeight: 700 }}>{formatVND(Number(selectedOrder.paidAmount))}</span>
+                    </div>
+                    <div className="a4-line-debt">
+                      <span>CÒN PHẢI THU (NỢ):</span>
+                      <span>{formatVND(Number(selectedOrder.remainingAmount))}</span>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Chữ ký xác nhận */}
-              <div className="grid grid-cols-4 gap-4 text-center text-xs pt-8 border-t border-gray-200">
-                <div>
-                  <p className="font-bold text-gray-800">Người lập phiếu</p>
-                  <p className="text-[10px] text-gray-400 italic">(Ký, ghi rõ họ tên)</p>
-                  <div className="h-16"></div>
-                  <p className="font-medium text-gray-700">{selectedOrder.manager?.fullName || 'Thủ kho'}</p>
-                </div>
-                <div>
-                  <p className="font-bold text-gray-800">Thủ kho xuất</p>
-                  <p className="text-[10px] text-gray-400 italic">(Ký, ghi rõ họ tên)</p>
-                  <div className="h-16"></div>
-                  <p className="font-medium text-gray-700">Kho VPP Nam Khánh</p>
-                </div>
-                <div>
-                  <p className="font-bold text-gray-800">Nhân viên giao nhận</p>
-                  <p className="text-[10px] text-gray-400 italic">(Ký, ghi rõ họ tên)</p>
-                  <div className="h-16"></div>
-                  <p className="font-medium text-gray-700">Đội xe giao hàng</p>
-                </div>
-                <div>
-                  <p className="font-bold text-gray-800">Người nhận hàng</p>
-                  <p className="text-[10px] text-gray-400 italic">(Ký, ghi rõ họ tên)</p>
-                  <div className="h-16"></div>
-                  <p className="font-medium text-gray-700">{selectedOrder.contactPerson || 'Đại diện bên nhận'}</p>
+                {/* Lịch sử Đổi / Trả hàng hoàn kho */}
+                {selectedOrder.returns && selectedOrder.returns.length > 0 && (
+                  <div className="border border-orange-200 bg-orange-50/40 rounded-xl p-4 space-y-3 mb-3 no-print">
+                    <div className="flex items-center gap-2 text-xs font-bold text-orange-950 uppercase tracking-wide">
+                      <PackageMinus className="w-4 h-4 text-orange-600" />
+                      <span>Lịch sử đổi / trả hàng hoàn kho ({selectedOrder.returns.length} đợt trả)</span>
+                    </div>
+                    <div className="space-y-2">
+                      {selectedOrder.returns.map((ret, rIdx) => (
+                        <div key={rIdx} className="bg-white p-3 rounded-lg border border-orange-200 text-xs space-y-1.5 shadow-sm">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-gray-900">{ret.code} - Ngày {new Date(ret.returnDate).toLocaleDateString('vi-VN')}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-orange-700">Tổng hoàn trả: {formatVND(Number(ret.totalRefundAmount))}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedPrintReturn({ returnData: ret, order: selectedOrder });
+                                  setIsReturnPrintModalOpen(true);
+                                }}
+                                className="px-2 py-0.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-[10.5px] font-semibold flex items-center gap-1 shadow-xs cursor-pointer"
+                              >
+                                <Printer className="w-3 h-3" />
+                                <span>In phiếu A4</span>
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-gray-600 italic">Lý do: {ret.reason}</p>
+                          <div className="text-[11px] text-gray-500">
+                            Phương án: {ret.refundMethod === 'DEDUCT_DEBT' ? 'Trừ trực tiếp công nợ' : ret.refundMethod === 'CREDIT_BALANCE' ? 'Cộng vào số dư trả trước của khách' : 'Tạo phiếu chi hoàn tiền'}
+                          </div>
+                          {ret.items && ret.items.length > 0 && (
+                            <div className="mt-1 border-t border-gray-100 pt-1 text-[11px] text-gray-600 space-y-0.5">
+                              {ret.items.map((it, itIdx) => (
+                                <div key={itIdx} className="flex justify-between">
+                                  <span>• {it.productName} ({it.productCode})</span>
+                                  <span>SL: {it.quantity} {it.unit} x {formatVND(Number(it.unitPrice))}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Chữ ký xác nhận */}
+                <div className="a4-signs" style={{ marginTop: 14 }}>
+                  <div>
+                    <p className="a4-sign-title">Người lập phiếu</p>
+                    <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
+                    <div className="a4-sign-space"></div>
+                    <p className="a4-sign-name">{selectedOrder.manager?.fullName || 'Thủ kho'}</p>
+                  </div>
+                  <div>
+                    <p className="a4-sign-title">Thủ kho xuất</p>
+                    <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
+                    <div className="a4-sign-space"></div>
+                    <p className="a4-sign-name">Kho VPP Nam Khánh</p>
+                  </div>
+                  <div>
+                    <p className="a4-sign-title">Nhân viên giao nhận</p>
+                    <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
+                    <div className="a4-sign-space"></div>
+                    <p className="a4-sign-name">Đội xe giao hàng</p>
+                  </div>
+                  <div>
+                    <p className="a4-sign-title">Người nhận hàng</p>
+                    <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
+                    <div className="a4-sign-space"></div>
+                    <p className="a4-sign-name">{selectedOrder.contactPerson || 'Đại diện bên nhận'}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3008,6 +3168,17 @@ export const OrdersPage: React.FC = () => {
           setSelectedPrintOrder(null);
         }}
         order={selectedPrintOrder}
+      />
+
+      {/* MODAL IN PHIẾU NHẬP KHO TRẢ HÀNG A4 */}
+      <OrderReturnPrintModal
+        isOpen={isReturnPrintModalOpen}
+        onClose={() => {
+          setIsReturnPrintModalOpen(false);
+          setSelectedPrintReturn(null);
+        }}
+        orderReturn={selectedPrintReturn?.returnData || null}
+        order={selectedPrintReturn?.order || null}
       />
 
       {/* MODAL IMPORT HÀNG HÓA TỪ EXCEL/CSV */}

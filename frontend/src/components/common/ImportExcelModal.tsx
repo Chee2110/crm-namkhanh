@@ -54,10 +54,15 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
         let width = 16;
         if (lower.includes('stt')) width = 7;
         else if (lower.includes('tên sản phẩm') || lower.includes('tên sp')) width = 36;
+        else if (lower.includes('địa chỉ')) width = 38;
         else if (lower.includes('tên')) width = 24;
         else if (lower.includes('ảnh') || lower.includes('image')) width = 18;
         else if (lower.includes('giá') || lower.includes('tồn')) width = 15;
-        return { header: h, key: h, width };
+        width = Math.max(width, h.length + 4);
+        // SĐT / MST / Mã KH để dạng Text để Excel không tự cắt số 0 ở đầu
+        const isTextCol =
+          lower.includes('điện thoại') || lower.includes('sđt') || lower.includes('mã số thuế') || lower.includes('mã khách hàng');
+        return isTextCol ? { header: h, key: h, width, style: { numFmt: '@' } } : { header: h, key: h, width };
       });
 
       const headerRow = worksheet.getRow(1);
@@ -561,29 +566,6 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
             </div>
           </div>
 
-          {/* Danh sách các cột tiêu chuẩn */}
-          {sampleHeaders && sampleHeaders.length > 0 && (
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
-              <div className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-                <span>Cấu trúc danh sách cột ({sampleHeaders.length} cột):</span>
-                <span className="text-[11px] text-slate-400 font-normal">Thứ tự chuẩn theo file mẫu</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                {sampleHeaders.map((col, cIdx) => (
-                  <span
-                    key={cIdx}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-white border border-slate-200 text-slate-700"
-                  >
-                    <span className="text-gray-400 text-[10px]">{cIdx + 1}.</span>
-                    <span>{col}</span>
-                    {requiredFields.some((rf) => rf.toLowerCase() === col.toLowerCase()) && (
-                      <span className="text-red-500 font-bold">*</span>
-                    )}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
 
           {fieldMappingHelp && (
             <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-start gap-1.5">

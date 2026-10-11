@@ -1,5 +1,90 @@
 import { prisma } from '../../config/db';
 
+// Dòng dữ liệu nhập từ file Excel khách hàng (đã được frontend ánh xạ theo tiêu đề cột)
+export interface ImportCustomerRow {
+  rowNumber?: number;
+  code?: string;
+  name?: string;
+  taxCode?: string;
+  phone?: string;
+  address?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  deliveryAddress?: string;
+  manager?: string;
+  customerType?: string;
+  source?: string;
+}
+
+// Chuẩn hóa chuỗi để so khớp: bỏ dấu tiếng Việt, chữ thường, chỉ giữ chữ + số
+const normalizeKey = (value: unknown): string =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+const cleanText = (value: unknown): string => String(value ?? '').trim();
+
+// SĐT nhập từ Excel dạng số sẽ mất số 0 ở đầu (vd: 912345678) -> bổ sung lại
+const normalizePhone = (value: unknown): string => {
+  let s = cleanText(value).replace(/[\s.\-()]/g, '');
+  if (/^[1-9]\d{8}$/.test(s)) s = `0${s}`;
+  return s;
+};
+
+// MST 10 số bắt đầu bằng 0 bị Excel cắt mất số 0 -> bổ sung lại
+const normalizeTaxCode = (value: unknown): string => {
+  let s = cleanText(value).replace(/\s/g, '');
+  if (/^\d{9}$/.test(s)) s = `0${s}`;
+  return s;
+};
+
+const CUSTOMER_TYPE_ALIASES: Record<string, string> = {
+  enterprise: 'ENTERPRISE',
+  doanhnghiep: 'ENTERPRISE',
+  congty: 'ENTERPRISE',
+  dn: 'ENTERPRISE',
+  school: 'SCHOOL',
+  truonghoc: 'SCHOOL',
+  truong: 'SCHOOL',
+  organization: 'ORGANIZATION',
+  coquan: 'ORGANIZATION',
+  tochuc: 'ORGANIZATION',
+  coquantochuc: 'ORGANIZATION',
+  household: 'HOUSEHOLD',
+  hokinhdoanh: 'HOUSEHOLD',
+  hokd: 'HOUSEHOLD',
+  daily: 'HOUSEHOLD',
+  dailyhokd: 'HOUSEHOLD',
+  dailyhokinhdoanh: 'HOUSEHOLD',
+  individual: 'INDIVIDUAL',
+  canhan: 'INDIVIDUAL'
+};
+
+const SOURCE_ALIASES: Record<string, string> = {
+  selffound: 'SELF_FOUND',
+  tutimkiem: 'SELF_FOUND',
+  tutim: 'SELF_FOUND',
+  referral: 'REFERRAL',
+  duocgioithieu: 'REFERRAL',
+  gioithieu: 'REFERRAL',
+  social: 'SOCIAL',
+  mangxahoi: 'SOCIAL',
+  mangxahoiweb: 'SOCIAL',
+  web: 'SOCIAL',
+  website: 'SOCIAL',
+  facebook: 'SOCIAL',
+  exhibition: 'EXHIBITION',
+  hoithao: 'EXHIBITION',
+  trienlam: 'EXHIBITION',
+  hoithaotrienlam: 'EXHIBITION',
+  other: 'OTHER',
+  khac: 'OTHER'
+};
+
 export class CustomersService {
   async getCustomers(params: {
     search?: string;
@@ -155,6 +240,7 @@ export class CustomersService {
       customerType?: string;
       source?: string;
       contactPerson?: string;
+      contactPhone?: string;
       email?: string;
       notes?: string;
       managerId?: string;
@@ -196,6 +282,7 @@ export class CustomersService {
         customerType: data.customerType || 'ENTERPRISE',
         source: data.source || 'SELF_FOUND',
         contactPerson: data.contactPerson,
+        contactPhone: data.contactPhone || null,
         email: data.email,
         notes: data.notes,
         managerId: data.managerId || creatorId,
@@ -231,7 +318,17 @@ export class CustomersService {
       }
     }
 
-    const updateData: any = { ...data };
+    // Chỉ cập nhật các trường có trong bảng customers (bỏ qua trường phụ trợ của form như contactPosition)
+    const allowedFields = [
+      'code', 'name', 'phone', 'taxCode', 'address', 'deliveryAddress', 'customerType', 'source',
+      'contactPerson', 'contactPhone', 'email', 'notes', 'managerId', 'status', 'creditLimit', 'maxDebtDays'
+    ];
+    const updateData: any = {};
+    for (const key of allowedFields) {
+      if (data[key] !== undefined) updateData[key] = data[key];
+    }
+    if (updateData.taxCode === '') updateData.taxCode = null;
+    if (updateData.managerId === '') updateData.managerId = null;
     if (data.creditLimit !== undefined) {
       updateData.creditLimit = Number(data.creditLimit);
     }
@@ -248,6 +345,156 @@ export class CustomersService {
         }
       }
     });
+  }
+
+  /**
+   * Nhập khách hàng hàng loạt từ file Excel.
+   * - Mã KH trống -> tự sinh theo định dạng KH00001, KH00002, ...
+   * - Loại KH / Nguồn gốc chấp nhận mã (ENTERPRISE...) hoặc nhãn tiếng Việt (Doanh nghiệp...)
+   * - Người phụ trách: so khớp theo Họ tên / Mã NV / Email; trống -> người đang nhập
+   * - Lỗi được ghi nhận theo từng dòng, các dòng hợp lệ vẫn được lưu
+   */
+  async importCustomers(rows: ImportCustomerRow[], creatorId: string) {
+    const [existingCustomers, users] = await Promise.all([
+      prisma.customer.findMany({ select: { code: true, phone: true, taxCode: true, name: true } }),
+      prisma.user.findMany({ select: { id: true, fullName: true, code: true, email: true } })
+    ]);
+
+    const usedCodes = new Set(existingCustomers.map((c: any) => String(c.code).toUpperCase()));
+    const phoneOwner = new Map<string, string>();
+    const taxOwner = new Map<string, string>();
+    existingCustomers.forEach((c: any) => {
+      if (c.phone) phoneOwner.set(c.phone, `${c.name} (${c.code})`);
+      if (c.taxCode) taxOwner.set(c.taxCode, `${c.name} (${c.code})`);
+    });
+
+    // Số thứ tự tự sinh nối tiếp mã KH lớn nhất đang có trong hệ thống
+    let maxSeq = 0;
+    usedCodes.forEach((code) => {
+      const m = /^KH(\d+)$/.exec(code);
+      if (m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10));
+    });
+
+    // Mã do người dùng tự điền trong file cũng phải được giữ chỗ để mã tự sinh không bị trùng
+    rows.forEach((r) => {
+      const code = cleanText(r.code).toUpperCase();
+      if (code) usedCodes.add(code);
+    });
+    const nextCode = () => {
+      let code = '';
+      do {
+        maxSeq += 1;
+        code = `KH${String(maxSeq).padStart(5, '0')}`;
+      } while (usedCodes.has(code));
+      usedCodes.add(code);
+      return code;
+    };
+
+    const userLookup = new Map<string, string>();
+    users.forEach((u: any) => {
+      if (u.fullName) userLookup.set(normalizeKey(u.fullName), u.id);
+      if (u.code) userLookup.set(normalizeKey(u.code), u.id);
+      if (u.email) userLookup.set(normalizeKey(u.email), u.id);
+    });
+
+    const fileCodes = new Set<string>();
+    const created: { rowNumber: number; code: string; name: string }[] = [];
+    const failed: { rowNumber: number; name: string; message: string }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i] || {};
+      const rowNumber = Number(r.rowNumber) || i + 2;
+      const name = cleanText(r.name);
+      try {
+        if (!name) throw new Error('Thiếu Tên khách hàng');
+
+        const contactPhone = normalizePhone(r.contactPhone);
+        const phone = normalizePhone(r.phone) || contactPhone;
+        if (!phone) throw new Error('Thiếu Số điện thoại');
+        if (phoneOwner.has(phone)) {
+          throw new Error(`SĐT [${phone}] đã tồn tại cho khách hàng "${phoneOwner.get(phone)}"`);
+        }
+
+        const taxCode = normalizeTaxCode(r.taxCode);
+        if (taxCode && taxOwner.has(taxCode)) {
+          throw new Error(`MST [${taxCode}] đã tồn tại cho khách hàng "${taxOwner.get(taxCode)}"`);
+        }
+
+        let customerType = 'ENTERPRISE';
+        if (cleanText(r.customerType)) {
+          const mapped = CUSTOMER_TYPE_ALIASES[normalizeKey(r.customerType)];
+          if (!mapped) {
+            throw new Error(
+              `Loại khách hàng "${cleanText(r.customerType)}" không hợp lệ (Doanh nghiệp / Trường học / Cơ quan - Tổ chức / Hộ kinh doanh / Cá nhân)`
+            );
+          }
+          customerType = mapped;
+        }
+
+        let source = 'SELF_FOUND';
+        if (cleanText(r.source)) {
+          const mapped = SOURCE_ALIASES[normalizeKey(r.source)];
+          if (!mapped) {
+            throw new Error(
+              `Nguồn gốc "${cleanText(r.source)}" không hợp lệ (Tự tìm kiếm / Được giới thiệu / Mạng xã hội - Web / Hội thảo - Triển lãm / Khác)`
+            );
+          }
+          source = mapped;
+        }
+
+        let managerId = creatorId;
+        if (cleanText(r.manager)) {
+          const found = userLookup.get(normalizeKey(r.manager));
+          if (!found) throw new Error(`Không tìm thấy nhân viên phụ trách "${cleanText(r.manager)}"`);
+          managerId = found;
+        }
+
+        let code = cleanText(r.code).toUpperCase();
+        if (code) {
+          if (fileCodes.has(code)) throw new Error(`Mã KH [${code}] bị trùng trong file`);
+          if (existingCustomers.some((c: any) => String(c.code).toUpperCase() === code)) {
+            throw new Error(`Mã KH [${code}] đã tồn tại trong hệ thống`);
+          }
+          fileCodes.add(code);
+        } else {
+          code = nextCode();
+        }
+
+        const address = cleanText(r.address);
+        const deliveryAddress = cleanText(r.deliveryAddress) || address;
+
+        await prisma.customer.create({
+          data: {
+            code,
+            name,
+            phone,
+            taxCode: taxCode || null,
+            address: address || null,
+            deliveryAddress: deliveryAddress || null,
+            customerType,
+            source,
+            contactPerson: cleanText(r.contactPerson) || null,
+            contactPhone: contactPhone || null,
+            managerId,
+            status: 'ACTIVE'
+          }
+        });
+
+        phoneOwner.set(phone, `${name} (${code})`);
+        if (taxCode) taxOwner.set(taxCode, `${name} (${code})`);
+        created.push({ rowNumber, code, name });
+      } catch (err: any) {
+        failed.push({ rowNumber, name, message: err?.message || 'Lỗi lưu khách hàng' });
+      }
+    }
+
+    return {
+      total: rows.length,
+      successCount: created.length,
+      failedCount: failed.length,
+      created,
+      failed
+    };
   }
 
   async getCustomerDebtStatement(id: string) {

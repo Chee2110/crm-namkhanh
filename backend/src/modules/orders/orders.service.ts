@@ -47,6 +47,13 @@ export class OrdersService {
           select: { id: true, code: true }
         },
         items: true,
+        returns: {
+          include: {
+            items: true,
+            createdBy: { select: { fullName: true, code: true } }
+          },
+          orderBy: { createdAt: 'desc' }
+        },
         handovers: {
           include: {
             fromUser: { select: { fullName: true } },
@@ -234,10 +241,16 @@ export class OrdersService {
         }
       });
 
-      // Nếu đơn hàng tạo mới đã ở trạng thái ĐÃ GIAO HÀNG (DELIVERED) -> Trừ tồn kho tức thời
+      // Nếu đơn hàng tạo mới đã ở trạng thái ĐÃ GIAO HÀNG (DELIVERED) -> Kiểm tra và trừ tồn kho tức thời
       if (data.deliveryStatus === 'DELIVERED') {
         for (const item of computedItems) {
           if (item.productId) {
+            const product = await tx.product.findUnique({ where: { id: item.productId } });
+            if (!product || product.stockQuantity < item.quantity) {
+              throw new Error(
+                `Sản phẩm "${item.productName}" không đủ tồn kho để xuất giao (Tồn kho hiện tại: ${product?.stockQuantity || 0}, yêu cầu xuất: ${item.quantity})`
+              );
+            }
             await tx.product.update({
               where: { id: item.productId },
               data: {
@@ -347,26 +360,79 @@ export class OrdersService {
     }
 
     return prisma.$transaction(async (tx: any) => {
-      // Quản lý tồn kho
+      // ==============================================================
+      // QUẢN LÝ ĐỒNG BỘ KHO VÀ ĐỘ LỆCH TỒN KHO DELTA (Δ)
+      // ==============================================================
       if (hasItemsUpdate) {
-        // Nếu đơn hàng trước đó đã giao hàng, hoàn trả tồn kho cũ
-        if (order.deliveryStatus === 'DELIVERED') {
-          for (const item of order.items) {
-            if (item.productId) {
-              await tx.product.update({
-                where: { id: item.productId },
-                data: { stockQuantity: { increment: item.quantity } }
-              });
+        if (order.deliveryStatus === 'DELIVERED' && targetDeliveryStatus === 'DELIVERED') {
+          // Trường hợp 1: Đơn hàng ĐÃ GIAO và tiếp tục giữ trạng thái ĐÃ GIAO khi sửa items
+          // Quy trình 4: Kiểm tra xóa sản phẩm khỏi đơn đã xuất/giao
+          for (const oldItem of order.items) {
+            const stillExists = computedItems.some(
+              (ci) => (oldItem.productId && ci.productId === oldItem.productId) || ci.productCode === oldItem.productCode
+            );
+            if (!stillExists) {
+              throw new Error(
+                `Sản phẩm "${oldItem.productName}" đã xuất giao hàng. Quy trình hệ thống không cho phép xóa trực tiếp mặt hàng khỏi đơn đã giao. Vui lòng lập Phiếu đổi trả hàng (OrderReturn) để thu hồi hàng và ghi nhận hoàn kho.`
+              );
             }
           }
-        }
-        // Nếu trạng thái mới là DELIVERED, trừ tồn kho danh sách mới
-        if (targetDeliveryStatus === 'DELIVERED') {
+
+          // Quy trình 3: Tính toán độ lệch Delta (Δ = newQuantity - oldQuantity)
+          for (const newItem of computedItems) {
+            if (newItem.productId) {
+              const matchedOld = order.items.find(
+                (oi) => (oi.productId && oi.productId === newItem.productId) || oi.productCode === newItem.productCode
+              );
+              const oldQty = matchedOld ? Number(matchedOld.quantity) : 0;
+              const newQty = Number(newItem.quantity);
+              const delta = newQty - oldQty;
+
+              if (delta > 0) {
+                // Tăng số lượng (Δ > 0): Kiểm tra tồn kho trước khi xuất thêm
+                const prod = await tx.product.findUnique({ where: { id: newItem.productId } });
+                if (!prod || prod.stockQuantity < delta) {
+                  throw new Error(
+                    `Sản phẩm "${newItem.productName}" không đủ tồn kho để xuất thêm ${delta} ${newItem.unit} (Tồn kho hiện tại: ${prod?.stockQuantity || 0}, cần thêm: ${delta})`
+                  );
+                }
+                await tx.product.update({
+                  where: { id: newItem.productId },
+                  data: { stockQuantity: { decrement: delta } }
+                });
+              } else if (delta < 0) {
+                // Giảm số lượng (Δ < 0): Hoàn trả lại số lượng thừa vào tồn kho
+                await tx.product.update({
+                  where: { id: newItem.productId },
+                  data: { stockQuantity: { increment: Math.abs(delta) } }
+                });
+              }
+            }
+          }
+        } else if (order.deliveryStatus !== 'DELIVERED' && targetDeliveryStatus === 'DELIVERED') {
+          // Trường hợp 2: Chuyển từ CHƯA GIAO (PENDING) sang ĐÃ GIAO (DELIVERED)
+          // Kiểm tra đủ tồn kho toàn bộ mặt hàng trước khi xuất
           for (const item of computedItems) {
             if (item.productId) {
+              const prod = await tx.product.findUnique({ where: { id: item.productId } });
+              if (!prod || prod.stockQuantity < item.quantity) {
+                throw new Error(
+                  `Sản phẩm "${item.productName}" không đủ tồn kho để xuất giao (Hiện có: ${prod?.stockQuantity || 0}, yêu cầu xuất: ${item.quantity})`
+                );
+              }
               await tx.product.update({
                 where: { id: item.productId },
                 data: { stockQuantity: { decrement: item.quantity } }
+              });
+            }
+          }
+        } else if (order.deliveryStatus === 'DELIVERED' && targetDeliveryStatus !== 'DELIVERED') {
+          // Trường hợp 3: Hủy hoặc thu hồi giao hàng (từ DELIVERED về PENDING/CANCELLED) -> Hoàn lại toàn bộ tồn kho cũ
+          for (const oldItem of order.items) {
+            if (oldItem.productId) {
+              await tx.product.update({
+                where: { id: oldItem.productId },
+                data: { stockQuantity: { increment: oldItem.quantity } }
               });
             }
           }
@@ -376,11 +442,17 @@ export class OrdersService {
         await tx.orderItem.deleteMany({ where: { orderId: id } });
         updateData.items = { create: computedItems };
       } else {
-        // RÀNG BUỘC KHO TỰ ĐỘNG khi không đổi items (chỉ đổi trạng thái)
+        // RÀNG BUỘC KHO TỰ ĐỘNG khi không đổi items (chỉ đổi trạng thái giao hàng)
         if (data.deliveryStatus && data.deliveryStatus !== order.deliveryStatus) {
           if (data.deliveryStatus === 'DELIVERED' && order.deliveryStatus !== 'DELIVERED') {
             for (const item of order.items) {
               if (item.productId) {
+                const prod = await tx.product.findUnique({ where: { id: item.productId } });
+                if (!prod || prod.stockQuantity < item.quantity) {
+                  throw new Error(
+                    `Sản phẩm "${item.productName}" không đủ tồn kho để xuất giao (Tồn kho: ${prod?.stockQuantity || 0}, yêu cầu: ${item.quantity})`
+                  );
+                }
                 await tx.product.update({
                   where: { id: item.productId },
                   data: { stockQuantity: { decrement: item.quantity } }
@@ -609,8 +681,10 @@ export class OrdersService {
     orderId: string,
     data: {
       returnDate?: Date | string;
-      reason: string;
-      refundMethod: 'DEDUCT_DEBT' | 'CASH_REFUND' | 'CREDIT_BALANCE';
+      reason?: string;
+      returnReason?: string;
+      refundMethod?: 'DEDUCT_DEBT' | 'CASH_REFUND' | 'CREDIT_BALANCE';
+      refundOption?: 'DEDUCT_DEBT' | 'CASH_REFUND' | 'CREDIT_BALANCE';
       items: Array<{
         productId?: string;
         productCode: string;
@@ -618,15 +692,19 @@ export class OrdersService {
         unit: string;
         quantity: number;
         unitPrice: number;
+        condition?: 'GOOD' | 'DEFECTIVE';
       }>;
     },
     userId?: string
   ) {
+    const reasonText = (data.reason || data.returnReason || '').trim();
+    if (!reasonText) {
+      throw new Error('Vui lòng nhập lý do trả hàng');
+    }
+    const refundMethod = data.refundMethod || data.refundOption || 'DEDUCT_DEBT';
+
     if (!data.items || data.items.length === 0) {
       throw new Error('Phiếu trả hàng phải có ít nhất 1 sản phẩm hoàn trả');
-    }
-    if (!data.reason || !data.reason.trim()) {
-      throw new Error('Vui lòng nhập lý do trả hàng');
     }
 
     const order = await prisma.order.findUnique({
@@ -635,7 +713,24 @@ export class OrdersService {
     });
     if (!order) throw new Error('Không tìm thấy đơn hàng');
 
-    const totalReturnAmount = data.items.reduce((sum, it) => sum + (Number(it.quantity) * Number(it.unitPrice)), 0);
+    // 1. Kiểm tra điều kiện hoàn: Số lượng trả không được vượt quá số lượng trong đơn
+    for (const it of data.items) {
+      const matchingOrderItem = order.items.find(
+        (oi) => (it.productId && oi.productId === it.productId) || oi.productCode === it.productCode
+      );
+      if (matchingOrderItem && Number(it.quantity) > Number(matchingOrderItem.quantity)) {
+        throw new Error(
+          `Số lượng trả lại của "${it.productName}" (${it.quantity}) vượt quá số lượng trong đơn hàng (${matchingOrderItem.quantity})`
+        );
+      }
+    }
+
+    // 2. Tính toán tiền hoàn hàng: Subtotal + VAT tương ứng thuế suất của đơn hàng
+    const vatRate = Number(order.vatRate ?? 8);
+    const returnSubtotal = data.items.reduce((sum, it) => sum + Number(it.quantity) * Number(it.unitPrice), 0);
+    const returnVat = (returnSubtotal * vatRate) / 100;
+    const totalReturnAmount = returnSubtotal + returnVat;
+
     if (totalReturnAmount <= 0) {
       throw new Error('Tổng giá trị hàng trả phải lớn hơn 0');
     }
@@ -650,9 +745,9 @@ export class OrdersService {
           code: returnCode,
           orderId,
           returnDate: data.returnDate ? new Date(data.returnDate) : new Date(),
-          reason: data.reason.trim(),
+          reason: reasonText,
           totalRefundAmount: totalReturnAmount,
-          refundMethod: data.refundMethod,
+          refundMethod,
           status: 'COMPLETED',
           createdById: userId || null,
           items: {
@@ -673,21 +768,31 @@ export class OrdersService {
         }
       });
 
-      // 2. Cộng lại tồn kho sản phẩm (Hoàn kho)
+      // 2. Nhận hàng & cập nhật kho:
+      // - Hàng tốt (GOOD): Hoàn lại vào tồn kho bán (increment)
+      // - Hàng lỗi/hỏng (DEFECTIVE): Nhập kho cách ly (không cộng tồn kho bán)
+      let returnedGoodCount = 0;
+      let returnedDefectiveCount = 0;
       for (const it of data.items) {
-        if (it.productId) {
-          await tx.product.update({
-            where: { id: it.productId },
-            data: {
-              stockQuantity: {
-                increment: Number(it.quantity)
+        const isDefective = it.condition === 'DEFECTIVE';
+        if (isDefective) {
+          returnedDefectiveCount += Number(it.quantity);
+        } else {
+          returnedGoodCount += Number(it.quantity);
+          if (it.productId) {
+            await tx.product.update({
+              where: { id: it.productId },
+              data: {
+                stockQuantity: {
+                  increment: Number(it.quantity)
+                }
               }
-            }
-          });
+            });
+          }
         }
       }
 
-      // 3. Xử lý giá trị đơn hàng và công nợ
+      // 3. Xử lý giá trị đơn hàng và công nợ (Đồng bộ Tài chính & Kế toán)
       const currentAdj = Number(order.adjustedAmount) || 0;
       const newAdj = currentAdj - totalReturnAmount; // Ghi nhận giảm trừ
       const baseAmount = Number(order.subtotal) + Number(order.vatAmount);
@@ -698,7 +803,7 @@ export class OrdersService {
 
       let createdPaymentVoucher = null;
 
-      if (data.refundMethod === 'CREDIT_BALANCE') {
+      if (refundMethod === 'CREDIT_BALANCE') {
         // Hoàn tiền vào số dư trả trước của khách hàng -> Giảm Thực thu ròng trên đơn
         newPaid = Math.max(0, paid - totalReturnAmount);
         newRefund += totalReturnAmount;
@@ -706,7 +811,7 @@ export class OrdersService {
           where: { id: order.customerId },
           data: { creditBalance: { increment: totalReturnAmount } }
         });
-      } else if (data.refundMethod === 'CASH_REFUND') {
+      } else if (refundMethod === 'CASH_REFUND') {
         // Tự động lập phiếu chi hoàn tiền -> Giảm Thực thu ròng trên đơn
         newPaid = Math.max(0, paid - totalReturnAmount);
         newRefund += totalReturnAmount;
@@ -719,7 +824,7 @@ export class OrdersService {
             recipient: order.customer.name,
             phone: order.phone || order.customer.phone,
             address: order.deliveryAddress || order.customer.address,
-            reason: `Chi hoàn tiền trả hàng cho đơn ${order.code} (Phiếu ${returnCode}): ${data.reason}`,
+            reason: `Chi hoàn tiền trả hàng cho đơn ${order.code} (Phiếu ${returnCode}): ${reasonText}`,
             amount: totalReturnAmount,
             paymentMethod: 'BANK_TRANSFER',
             status: 'APPROVED',
@@ -740,6 +845,10 @@ export class OrdersService {
         paymentStatus = 'PARTIAL_PAID';
       }
 
+      const conditionNote = returnedDefectiveCount > 0
+        ? ` (Tái nhập: ${returnedGoodCount}, Lỗi cách ly: ${returnedDefectiveCount})`
+        : ` (Tái nhập kho: ${returnedGoodCount})`;
+
       const updatedOrder = await tx.order.update({
         where: { id: orderId },
         data: {
@@ -750,7 +859,7 @@ export class OrdersService {
           remainingAmount: newRemaining,
           refundAmount: newRefund,
           paymentStatus,
-          notes: `${order.notes || ''}\n[TRẢ HÀNG ${returnCode}]: Đã hoàn kho và trừ ${totalReturnAmount.toLocaleString('vi-VN')} đ (${data.refundMethod === 'DEDUCT_DEBT' ? 'Trừ công nợ' : data.refundMethod === 'CREDIT_BALANCE' ? 'Cộng tiền ký quỹ' : 'Chi hoàn tiền'}).`.trim()
+          notes: `${order.notes || ''}\n[TRẢ HÀNG ${returnCode}]: Đã hoàn kho${conditionNote} và trừ ${totalReturnAmount.toLocaleString('vi-VN')} đ (${refundMethod === 'DEDUCT_DEBT' ? 'Trừ công nợ' : refundMethod === 'CREDIT_BALANCE' ? 'Cộng tiền ký quỹ' : 'Chi hoàn tiền'}).`.trim()
         },
         include: {
           customer: true,

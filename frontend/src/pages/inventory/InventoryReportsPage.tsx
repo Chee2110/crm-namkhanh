@@ -241,11 +241,10 @@ export const InventoryReportsPage: React.FC = () => {
           <div className="flex space-x-8">
             <button
               onClick={() => setActiveTab('category')}
-              className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-all ${
-                activeTab === 'category'
+              className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-all ${activeTab === 'category'
                   ? 'border-[#E53935] text-[#E53935]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               <Layers className="w-4 h-4" />
               <span>Theo Danh Mục (Cấp 1)</span>
@@ -253,11 +252,10 @@ export const InventoryReportsPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('type')}
-              className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-all ${
-                activeTab === 'type'
+              className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-all ${activeTab === 'type'
                   ? 'border-[#E53935] text-[#E53935]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               <Package className="w-4 h-4" />
               <span>Theo Loại Hàng (Cấp 2)</span>
@@ -265,11 +263,10 @@ export const InventoryReportsPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('product')}
-              className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-all ${
-                activeTab === 'product'
+              className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-all ${activeTab === 'product'
                   ? 'border-[#E53935] text-[#E53935]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               <Barcode className="w-4 h-4" />
               <span>Chi Tiết Từng Sản Phẩm SKU</span>
@@ -563,9 +560,8 @@ export const InventoryReportsPage: React.FC = () => {
                     {filteredItems.map((item, idx) => (
                       <tr
                         key={idx}
-                        className={`hover:bg-red-50/30 transition-colors ${
-                          item.status === 'LOW_STOCK' ? 'bg-amber-50/30' : ''
-                        }`}
+                        className={`hover:bg-red-50/30 transition-colors ${item.status === 'LOW_STOCK' ? 'bg-amber-50/30' : ''
+                          }`}
                       >
                         <td className="py-3 px-3 text-center text-gray-400">{idx + 1}</td>
                         <td className="py-3 px-3 font-mono font-bold text-gray-800 text-center">{item.code}</td>

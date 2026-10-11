@@ -230,13 +230,12 @@ export const SalesOverviewPage: React.FC = () => {
                         {/* Cột hiển thị Capsule */}
                         <div
                           style={{ height: `${Math.max(heightPercent, 6)}%` }}
-                          className={`w-full max-w-[24px] capsule-bar transition-all duration-300 ${
-                            isPeak
+                          className={`w-full max-w-[24px] capsule-bar transition-all duration-300 ${isPeak
                               ? 'bg-[#EA332A] shadow-md shadow-red-200'
                               : item.revenue > 0
-                              ? 'bg-red-400/80 hover:bg-red-500'
-                              : 'bg-slate-100'
-                          }`}
+                                ? 'bg-red-400/80 hover:bg-red-500'
+                                : 'bg-slate-100'
+                            }`}
                         ></div>
                       </div>
                     );
@@ -335,15 +334,14 @@ export const SalesOverviewPage: React.FC = () => {
                     <div key={idx} className="py-3 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <span
-                          className={`w-7 h-7 rounded-2xl flex items-center justify-center text-xs font-black shadow-xs ${
-                            idx === 0
+                          className={`w-7 h-7 rounded-2xl flex items-center justify-center text-xs font-black shadow-xs ${idx === 0
                               ? 'bg-amber-100 text-amber-800'
                               : idx === 1
-                              ? 'bg-slate-200 text-slate-700'
-                              : idx === 2
-                              ? 'bg-orange-100 text-orange-800'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}
+                                ? 'bg-slate-200 text-slate-700'
+                                : idx === 2
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : 'bg-slate-100 text-slate-600'
+                            }`}
                         >
                           {idx + 1}
                         </span>
@@ -401,19 +399,18 @@ export const SalesOverviewPage: React.FC = () => {
                       <div className="text-right">
                         <p className="font-extrabold text-slate-900">{formatVND(Number(o.totalAmount))}</p>
                         <span
-                          className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            o.paymentStatus === 'PAID'
+                          className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${o.paymentStatus === 'PAID'
                               ? 'bg-emerald-100 text-emerald-800'
                               : o.paymentStatus === 'PARTIAL_PAID'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-rose-100 text-rose-800'
-                          }`}
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
                         >
                           {o.paymentStatus === 'PAID'
                             ? 'Đã TT'
                             : o.paymentStatus === 'PARTIAL_PAID'
-                            ? 'Nợ 1 phần'
-                            : 'Chưa TT'}
+                              ? 'Nợ 1 phần'
+                              : 'Chưa TT'}
                         </span>
                       </div>
                     </div>

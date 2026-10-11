@@ -18,6 +18,7 @@ router.get('/:id', requirePermission('B_CUSTOMERS', 'read'), customersController
 router.get('/:id/timeline', requirePermission('B_CUSTOMERS', 'read'), customersController.getCustomerTimeline);
 router.get('/:id/debt-statement', requirePermission('B_CUSTOMERS', 'read'), customersController.getCustomerDebtStatement);
 router.post('/', requirePermission('B_CUSTOMERS', 'create'), customersController.createCustomer);
+router.post('/import', requirePermission('B_CUSTOMERS', 'create'), customersController.importCustomers);
 router.put('/:id', requirePermission('B_CUSTOMERS', 'update'), customersController.updateCustomer);
 router.delete('/:id', requirePermission('B_CUSTOMERS', 'delete'), customersController.deleteCustomer);
 router.post('/:id/handover', requirePermission('B_CUSTOMERS', 'update'), customersController.handoverCustomer);

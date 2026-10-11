@@ -41,7 +41,7 @@ export class CustomersController {
   async createCustomer(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      const { name, phone, taxCode, address, deliveryAddress, customerType, source, contactPerson, email, notes, managerId, code, status, creditLimit, maxDebtDays } = req.body;
+      const { name, phone, taxCode, address, deliveryAddress, customerType, source, contactPerson, contactPhone, email, notes, managerId, code, status, creditLimit, maxDebtDays } = req.body;
 
       if (!name || !phone) {
         return errorResponse(res, 'Tên khách hàng và Số điện thoại là bắt buộc', 400);
@@ -57,6 +57,7 @@ export class CustomersController {
           customerType,
           source,
           contactPerson,
+          contactPhone,
           email,
           notes,
           managerId,
@@ -71,6 +72,29 @@ export class CustomersController {
       return successResponse(res, result, 'Tạo khách hàng mới thành công', 201);
     } catch (error: any) {
       return errorResponse(res, error.message || 'Lỗi tạo khách hàng', 400);
+    }
+  }
+
+  async importCustomers(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const { rows } = req.body || {};
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return errorResponse(res, 'Không có dữ liệu khách hàng để nhập', 400);
+      }
+      if (rows.length > 1000) {
+        return errorResponse(res, 'Mỗi lần gửi tối đa 1000 dòng', 400);
+      }
+
+      const result = await customersService.importCustomers(rows, user?.id);
+      return successResponse(
+        res,
+        result,
+        `Đã nhập ${result.successCount}/${result.total} khách hàng`
+      );
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Lỗi nhập danh sách khách hàng', 400);
     }
   }
 

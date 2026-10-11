@@ -318,9 +318,8 @@ export const SuppliersPage: React.FC = () => {
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      className={`py-3 px-3.5 select-none overflow-hidden ${
-                        colKey === 'actions' ? 'sticky-action-th text-center' : colKey === 'stt' || colKey === 'products' ? 'text-center' : ''
-                      }`}
+                      className={`py-3 px-3.5 select-none overflow-hidden ${colKey === 'actions' ? 'sticky-action-th text-center' : colKey === 'stt' || colKey === 'products' ? 'text-center' : ''
+                        }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultSupplierWidths[colKey]}px`,
                         position: colKey === 'actions' ? 'sticky' : 'relative'

@@ -3,6 +3,9 @@ import { Printer, X, FileSpreadsheet, Edit2, Trash2 } from 'lucide-react';
 import { Quotation } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
 import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
+import { printA4 } from '../../../utils/printA4';
+import { formatVND, formatNumber } from '../../../utils/formatCurrency';
+import '../../../styles/print-a4.css';
 
 interface QuotationPrintModalProps {
   isOpen: boolean;
@@ -25,12 +28,8 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
 }) => {
   if (!isOpen || !quotation) return null;
 
-  const formatVND = (num: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
-  };
-
   const handlePrint = () => {
-    window.print();
+    printA4('printable-quotation', `Bao_gia_${quotation.code}`);
   };
 
   const quotationDate = new Date(quotation.date);
@@ -76,9 +75,9 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
       headers.join(','),
       ...rows.map((r) => r.join(',')),
       '',
-      `Cộng tiền hàng: ${Number(quotation.subtotal).toLocaleString('vi-VN')} VNĐ`,
-      `Thuế GTGT (${quotation.vatRate}%): ${Number(quotation.vatAmount).toLocaleString('vi-VN')} VNĐ`,
-      `Tổng cộng thanh toán: ${Number(quotation.totalAmount).toLocaleString('vi-VN')} VNĐ`,
+      `Cộng tiền hàng: ${formatNumber(Number(quotation.subtotal))} VNĐ`,
+      `Thuế GTGT (${quotation.vatRate}%): ${formatNumber(Number(quotation.vatAmount))} VNĐ`,
+      `Tổng cộng thanh toán: ${formatNumber(Number(quotation.totalAmount))} VNĐ`,
       `Số tiền viết bằng chữ: ${numberToWords(Number(quotation.totalAmount))}`,
       `Ghi chú: ${(quotation.notes || '').replace(/"/g, '""')}`
     ];
@@ -95,13 +94,13 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden my-8 max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-1 sm:p-1.5 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl overflow-hidden my-auto h-[calc(100%-12px)] max-h-[calc(100%-12px)] flex flex-col a4-modal print-modal-container">
         {/* Header điều khiển (Không in) */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50 no-print flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50 no-print flex-shrink-0">
           <div className="flex items-center gap-2">
             <Printer className="w-5 h-5 text-[#E53935]" />
-            <h3 className="font-bold text-gray-900 text-base">
+            <h3 className="font-bold text-gray-900 text-sm sm:text-base">
               Bản In Báo Giá A4 - {quotation.code}
             </h3>
           </div>
@@ -158,192 +157,172 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
         </div>
 
         {/* ================= KHUNG IN A4 CHUẨN KẾ TOÁN ================= */}
-        <div className="p-8 md:p-12 overflow-y-auto flex-1 font-sans text-gray-900 bg-white" id="printable-quotation">
-          {/* Header công ty */}
-          <div className="flex flex-col sm:flex-row items-start justify-between border-b-2 border-[#E53935] pb-4 gap-4">
-            <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-xl bg-white border border-gray-200 p-1 flex-shrink-0 flex items-center justify-center shadow-sm">
-                <img src="/logo.png" alt="Nam Khánh Logo" className="w-full h-full object-contain" />
+        <div className="a4-preview">
+          <div className="a4-sheet" id="printable-quotation">
+            {/* Header công ty */}
+            <div className="a4-header">
+              <div className="a4-brand">
+                <img src="/logo.png" alt="Nam Khánh Logo" className="a4-logo" />
+                <div>
+                  <h1 className="a4-company-name">CÔNG TY TNHH THƯƠNG MẠI &amp; DỊCH VỤ NAM KHÁNH</h1>
+                  <p className="a4-company-slogan">
+                    Nhà cung ứng Văn phòng phẩm &amp; Thiết bị văn phòng chuyên nghiệp
+                  </p>
+                  <p className="a4-company-line">
+                    Địa chỉ: Số 32, Ngõ 111 Cầu Giấy, P. Dịch Vọng, Q. Cầu Giấy, TP. Hà Nội
+                  </p>
+                  <p className="a4-company-line">
+                    <span className="a4-nowrap">Hotline: (024) 3768 9999</span>
+                    <span className="a4-sep">|</span>
+                    <span className="a4-nowrap">Email: kinhdoanh@namkhanh.vn</span>
+                    <span className="a4-sep">|</span>
+                    <span className="a4-nowrap">MST: 0109876543</span>
+                  </p>
+                </div>
               </div>
-              <div className="space-y-0.5">
-                <h1 className="text-lg font-black tracking-tight text-[#E53935] uppercase font-sans">
-                  CÔNG TY TNHH THƯƠNG MẠI & DỊCH VỤ NAM KHÁNH
-                </h1>
-                <p className="text-xs text-gray-700 font-sans font-medium">
-                  Nhà cung ứng Văn phòng phẩm & Thiết bị văn phòng chuyên nghiệp
-                </p>
-                <p className="text-[11px] text-gray-500 font-sans">
-                  Địa chỉ: Số 32, Ngõ 111 Cầu Giấy, P. Dịch Vọng, Q. Cầu Giấy, TP. Hà Nội
-                </p>
-                <p className="text-[11px] text-gray-500 font-sans">
-                  Hotline: (024) 3768 9999 | Email: kinhdoanh@namkhanh.vn | MST: 0109876543
-                </p>
+
+              <div className="a4-docmeta">
+                <div className="a4-doccode">MÃ BÁO GIÁ: {quotation.code}</div>
+                <div>Ngày lập: {quotationDate.toLocaleDateString('vi-VN')}</div>
+                <div>Hiệu lực đến: {validUntilDate.toLocaleDateString('vi-VN')}</div>
               </div>
             </div>
 
-            <div className="text-left sm:text-right font-sans flex-shrink-0">
-              <div className="text-xs font-bold text-[#E53935]">MÃ BÁO GIÁ: {quotation.code}</div>
-              <div className="text-xs text-gray-600 mt-1">
-                Ngày lập: {quotationDate.toLocaleDateString('vi-VN')}
-              </div>
-              <div className="text-xs text-gray-500">
-                Hiệu lực đến: {validUntilDate.toLocaleDateString('vi-VN')}
-              </div>
+            {/* Tiêu đề Báo giá */}
+            <div className="a4-title">
+              <h2>BẢNG BÁO GIÁ VĂN PHÒNG PHẨM &amp; THIẾT BỊ VĂN PHÒNG</h2>
+              <p>(Áp dụng cho hợp đồng cung ứng định kỳ &amp; đơn hàng bán buôn)</p>
             </div>
-          </div>
 
-          {/* Tiêu đề Báo giá */}
-          <div className="text-center my-6">
-            <h2 className="text-xl font-bold uppercase tracking-wider text-gray-900 font-sans">
-              BẢNG BÁO GIÁ VĂN PHÒNG PHẨM & THIẾT BỊ VĂN PHÒNG
-            </h2>
-            <p className="text-xs italic text-gray-500 mt-1">
-              (Áp dụng cho hợp đồng cung ứng định kỳ & đơn hàng bán buôn)
-            </p>
-          </div>
+            {/* Thông tin Đối tác / Khách hàng */}
+            <div className="a4-info">
+              <div className="a4-field a4-full">
+                <b>Kính gửi (Đơn vị):</b>
+                <span>{quotation.customer?.name || 'Quý khách hàng'}</span>
+              </div>
+              <div className="a4-field">
+                <b>Mã số thuế:</b>
+                <span>{quotation.customer?.taxCode || 'Theo thông báo đơn hàng'}</span>
+              </div>
+              <div className="a4-field">
+                <b>Số điện thoại:</b>
+                <span>{quotation.customer?.phone || 'Chưa cập nhật'}</span>
+              </div>
+              <div className="a4-field a4-full">
+                <b>Người liên hệ:</b>
+                <span>{quotation.customer?.contactPerson || 'Bộ phận Mua sắm'}</span>
+              </div>
+              <div className="a4-field a4-full">
+                <b>Địa chỉ giao hàng dự kiến:</b>
+                <span>{quotation.customer?.deliveryAddress || quotation.customer?.address || 'Tại trụ sở Quý đơn vị'}</span>
+              </div>
+              <div className="a4-field a4-full">
+                <b>Chuyên viên phụ trách:</b>
+                <span>
+                  {quotation.manager?.fullName || 'Phòng Kinh Doanh Nam Khánh'} ({quotation.manager?.phone || '024.3768.9999'})
+                </span>
+              </div>
+            </div>
 
-          {/* Thông tin Đối tác / Khách hàng */}
-          <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-200 text-xs font-sans space-y-1.5 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div>
-                <strong>Kính gửi (Đơn vị):</strong> {quotation.customer?.name || 'Quý khách hàng'}
-              </div>
-              <div>
-                <strong>Mã số thuế:</strong> {quotation.customer?.taxCode || 'Theo thông báo đơn hàng'}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div>
-                <strong>Người liên hệ:</strong> {quotation.customer?.contactPerson || 'Bộ phận Mua sắm'}
-              </div>
-              <div>
-                <strong>Số điện thoại:</strong> {quotation.customer?.phone || 'Chưa cập nhật'}
-              </div>
-            </div>
-            <div>
-              <strong>Địa chỉ giao hàng dự kiến:</strong>{' '}
-              {quotation.customer?.deliveryAddress || quotation.customer?.address || 'Tại trụ sở Quý đơn vị'}
-            </div>
-            <div>
-              <strong>Chuyên viên phụ trách:</strong>{' '}
-              {quotation.manager?.fullName || 'Phòng Kinh Doanh Nam Khánh'} ({quotation.manager?.phone || '024.3768.9999'})
-            </div>
-          </div>
-
-          {/* Bảng Chi tiết Báo giá 8 Cột */}
-          <div className="overflow-x-auto mb-6">
-            <table className="w-full border-collapse border border-gray-300 text-xs font-sans">
+            {/* Bảng Chi tiết Báo giá 8 Cột */}
+            <table className="a4-table">
               <thead>
-                <tr className="bg-gray-100 text-gray-800 font-bold uppercase text-center">
-                  <th className="border border-gray-300 py-2.5 px-2 w-10">STT</th>
-                  <th className="border border-gray-300 py-2.5 px-2 w-24">Mã SKU</th>
-                  <th className="border border-gray-300 py-2.5 px-3 text-left">Tên Hàng Hóa & Quy Cách</th>
-                  <th className="border border-gray-300 py-2.5 px-2 w-16">ĐVT</th>
-                  <th className="border border-gray-300 py-2.5 px-2 w-16">Số Lượng</th>
-                  <th className="border border-gray-300 py-2.5 px-3 text-right w-28">Đơn Giá (VNĐ)</th>
-                  <th className="border border-gray-300 py-2.5 px-2 w-16">Thuế (%)</th>
-                  <th className="border border-gray-300 py-2.5 px-3 text-right w-32">Thành Tiền (VNĐ)</th>
+                <tr>
+                  <th className="a4-fit">STT</th>
+                  <th className="a4-fit">Mã SKU</th>
+                  <th className="a4-l">Tên Hàng Hóa &amp; Quy Cách</th>
+                  <th className="a4-fit">ĐVT</th>
+                  <th className="a4-fit">Số Lượng</th>
+                  <th className="a4-fit">Đơn Giá (VNĐ)</th>
+                  <th className="a4-fit">Thuế (%)</th>
+                  <th className="a4-fit">Thành Tiền (VNĐ)</th>
                 </tr>
               </thead>
               <tbody>
                 {quotation.items?.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50/50">
-                    <td className="border border-gray-300 py-2 px-2 text-center">{idx + 1}</td>
-                    <td className="border border-gray-300 py-2 px-2 font-mono font-semibold text-gray-700">
-                      {item.productCode}
-                    </td>
-                    <td className="border border-gray-300 py-2 px-3 font-medium text-gray-900">
-                      {item.productName}
-                    </td>
-                    <td className="border border-gray-300 py-2 px-2 text-center">{item.unit}</td>
-                    <td className="border border-gray-300 py-2 px-2 text-center font-bold">{item.quantity}</td>
-                    <td className="border border-gray-300 py-2 px-3 text-right">{formatVND(item.unitPrice)}</td>
-                    <td className="border border-gray-300 py-2 px-2 text-center">{item.vatRate}%</td>
-                    <td className="border border-gray-300 py-2 px-3 text-right font-semibold">
-                      {formatVND(item.amount)}
-                    </td>
+                  <tr key={idx}>
+                    <td className="a4-fit a4-c">{idx + 1}</td>
+                    <td className="a4-fit a4-code">{item.productCode}</td>
+                    <td className="a4-name">{item.productName}</td>
+                    <td className="a4-fit a4-c">{item.unit}</td>
+                    <td className="a4-fit a4-c" style={{ fontWeight: 700 }}>{item.quantity}</td>
+                    <td className="a4-num">{formatVND(item.unitPrice)}</td>
+                    <td className="a4-fit a4-c">{item.vatRate}%</td>
+                    <td className="a4-num" style={{ fontWeight: 600 }}>{formatVND(item.amount)}</td>
                   </tr>
                 ))}
-
+              </tbody>
+              <tbody className="a4-keep">
                 {/* Dòng tổng cộng tiền hàng */}
-                <tr className="bg-gray-50/60 font-semibold">
-                  <td colSpan={7} className="border border-gray-300 py-2 px-3 text-right uppercase">
+                <tr className="a4-sum">
+                  <td colSpan={7} className="a4-r" style={{ textTransform: 'uppercase' }}>
                     Cộng tiền hàng (Chưa thuế):
                   </td>
-                  <td className="border border-gray-300 py-2 px-3 text-right">
-                    {formatVND(quotation.subtotal)}
-                  </td>
+                  <td className="a4-num">{formatVND(quotation.subtotal)}</td>
                 </tr>
 
                 {/* Dòng thuế VAT */}
-                <tr className="bg-gray-50/60 font-semibold">
-                  <td colSpan={7} className="border border-gray-300 py-2 px-3 text-right uppercase">
+                <tr className="a4-sum">
+                  <td colSpan={7} className="a4-r" style={{ textTransform: 'uppercase' }}>
                     Tiền thuế GTGT ({quotation.vatRate}%):
                   </td>
-                  <td className="border border-gray-300 py-2 px-3 text-right">
-                    {formatVND(quotation.vatAmount)}
-                  </td>
+                  <td className="a4-num">{formatVND(quotation.vatAmount)}</td>
                 </tr>
 
                 {/* Dòng Tổng cộng thanh toán */}
-                <tr className="bg-red-50/80 font-bold text-[#E53935] text-sm">
-                  <td colSpan={7} className="border border-gray-300 py-2.5 px-3 text-right uppercase tracking-wider">
-                    TỔNG CỘNG THANH TOÁN (ĐÃ BAO GỒM VAT):
-                  </td>
-                  <td className="border border-gray-300 py-2.5 px-3 text-right font-black">
-                    {formatVND(quotation.totalAmount)}
-                  </td>
+                <tr className="a4-total">
+                  <td colSpan={7} className="a4-r">TỔNG CỘNG THANH TOÁN (ĐÃ BAO GỒM VAT):</td>
+                  <td className="a4-num">{formatVND(quotation.totalAmount)}</td>
                 </tr>
               </tbody>
             </table>
-          </div>
 
-          {/* Số tiền viết bằng chữ */}
-          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs font-sans mb-6">
-            <strong>Số tiền viết bằng chữ:</strong>{' '}
-            <span className="italic font-bold text-gray-800">
-              {numberToWords(quotation.totalAmount)}
-            </span>
-          </div>
+            {/* Số tiền viết bằng chữ */}
+            <div className="a4-words">
+              <b>Số tiền viết bằng chữ:</b> <i>{numberToWords(quotation.totalAmount)}</i>
+            </div>
 
-          {/* Điều khoản thương mại & Thông tin thanh toán VietQR */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="col-span-2 text-xs font-sans text-gray-700 space-y-1.5 border-l-2 border-[#E53935] pl-3 py-1">
-              <p><strong>1. Thời hạn hiệu lực:</strong> Báo giá có giá trị trong vòng 15 ngày kể từ ngày lập.</p>
-              <p><strong>2. Giao hàng:</strong> Miễn phí vận chuyển tận nơi trong phạm vi nội thành Hà Nội.</p>
-              <p><strong>3. Thanh toán:</strong> Chuyển khoản hoặc tiền mặt theo thỏa thuận hợp đồng.</p>
-              <p>
-                <strong>4. Tài khoản thụ hưởng:</strong> {NAMKHANH_BANK_INFO.accountName}
-                <br />• {NAMKHANH_BANK_INFO.bankName} ({NAMKHANH_BANK_INFO.bankId}) - STK: <strong className="font-mono text-gray-900">{NAMKHANH_BANK_INFO.accountNo}</strong>
-                <br />• Nội dung CK: <strong className="font-mono text-[#E53935]">{quotation.code}</strong>
-              </p>
+            {/* Điều khoản thương mại & Thông tin thanh toán VietQR */}
+            <div className="a4-pay">
+              <div className="a4-terms">
+                <p><b>1. Thời hạn hiệu lực:</b> Báo giá có giá trị trong vòng 15 ngày kể từ ngày lập.</p>
+                <p><b>2. Giao hàng:</b> Miễn phí vận chuyển tận nơi trong phạm vi nội thành Hà Nội.</p>
+                <p><b>3. Thanh toán:</b> Chuyển khoản hoặc tiền mặt theo thỏa thuận hợp đồng.</p>
+                <p>
+                  <b>4. Tài khoản thụ hưởng:</b> {NAMKHANH_BANK_INFO.accountName}
+                  <br />• {NAMKHANH_BANK_INFO.bankName} ({NAMKHANH_BANK_INFO.bankId}) - STK:{' '}
+                  <b className="a4-mono">{NAMKHANH_BANK_INFO.accountNo}</b>
+                  <br />• Nội dung CK: <b className="a4-mono a4-red">{quotation.code}</b>
+                </p>
+              </div>
+              <div className="a4-qr">
+                <img
+                  src={generateVietQRUrl(Number(quotation.totalAmount) || 0, quotation.code)}
+                  alt="VietQR Payment"
+                  crossOrigin="anonymous"
+                />
+                <span style={{ fontWeight: 600, color: '#374151' }}>Quét mã tạm ứng / thanh toán</span>
+                <span className="a4-mono">VietQR NAPAS 247</span>
+              </div>
             </div>
-            <div className="flex flex-col items-center justify-center p-2.5 bg-gray-50 rounded-xl border border-gray-200">
-              <img
-                src={generateVietQRUrl(Number(quotation.totalAmount) || 0, quotation.code)}
-                alt="VietQR Payment"
-                className="w-24 h-24 object-contain bg-white p-1 rounded-md border border-gray-100 shadow-xs"
-                crossOrigin="anonymous"
-              />
-              <span className="text-[10px] font-semibold text-gray-700 mt-1">Quét mã tạm ứng / thanh toán</span>
-              <span className="text-[9px] text-gray-400 font-mono">VietQR NAPAS 247</span>
-            </div>
-          </div>
 
-          {/* Chữ ký 2 bên */}
-          <div className="grid grid-cols-2 text-center font-sans text-xs pt-4">
-            <div>
-              <div className="font-bold uppercase text-gray-700">ĐẠI DIỆN KHÁCH HÀNG</div>
-              <div className="text-gray-400 italic text-[11px] mt-0.5">(Ký, ghi rõ họ tên và đóng dấu)</div>
-              <div className="h-24"></div>
-              <div className="font-bold text-gray-800">{quotation.customer?.contactPerson || '................................'}</div>
-            </div>
-            <div>
-              <div className="font-bold uppercase text-[#E53935]">ĐẠI DIỆN CÔNG TY TNHH NK NAM KHÁNH</div>
-              <div className="text-gray-400 italic text-[11px] mt-0.5">(Ký, ghi rõ họ tên và đóng dấu)</div>
-              <div className="h-24"></div>
-              <div className="font-bold text-gray-900">
-                {quotation.manager?.fullName || 'Nguyễn Nam Khánh'}
+            {/* Chữ ký 2 bên */}
+            <div className="a4-signs a4-signs-2">
+              <div>
+                <div className="a4-sign-title">ĐẠI DIỆN KHÁCH HÀNG</div>
+                <div className="a4-sign-hint">(Ký, ghi rõ họ tên và đóng dấu)</div>
+                <div className="a4-sign-space" style={{ height: 86 }}></div>
+                <div className="a4-sign-name" style={{ fontWeight: 700 }}>
+                  {quotation.customer?.contactPerson || '................................'}
+                </div>
+              </div>
+              <div>
+                <div className="a4-sign-title a4-red">ĐẠI DIỆN CÔNG TY TNHH NK NAM KHÁNH</div>
+                <div className="a4-sign-hint">(Ký, ghi rõ họ tên và đóng dấu)</div>
+                <div className="a4-sign-space" style={{ height: 86 }}></div>
+                <div className="a4-sign-name" style={{ fontWeight: 700, color: '#111827' }}>
+                  {quotation.manager?.fullName || 'Nguyễn Nam Khánh'}
+                </div>
               </div>
             </div>
           </div>

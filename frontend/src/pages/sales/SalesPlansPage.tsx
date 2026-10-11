@@ -217,8 +217,8 @@ export const SalesPlansPage: React.FC = () => {
                       {plan.periodType === 'MONTH'
                         ? 'Tháng'
                         : plan.periodType === 'QUARTER'
-                        ? 'Quý'
-                        : 'Năm'}{' '}
+                          ? 'Quý'
+                          : 'Năm'}{' '}
                       {plan.periodValue} - {plan.year}
                     </span>
                     <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
@@ -253,11 +253,10 @@ export const SalesPlansPage: React.FC = () => {
                       <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                         <div
                           style={{ width: `${Math.min(completionRate, 100)}%` }}
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            completionRate >= 100
+                          className={`h-full rounded-full transition-all duration-500 ${completionRate >= 100
                               ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
                               : 'bg-gradient-to-r from-namkhanh-600 to-rose-400'
-                          }`}
+                            }`}
                         ></div>
                       </div>
                     </div>
@@ -552,9 +551,8 @@ export const SalesPlansPage: React.FC = () => {
                         </td>
                         <td className="p-3 text-center">
                           <span
-                            className={`font-black ${
-                              item.revenuePercent >= 100 ? 'text-emerald-600' : 'text-[#E53935]'
-                            }`}
+                            className={`font-black ${item.revenuePercent >= 100 ? 'text-emerald-600' : 'text-[#E53935]'
+                              }`}
                           >
                             {item.revenuePercent}%
                           </span>

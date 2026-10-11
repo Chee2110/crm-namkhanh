@@ -271,6 +271,7 @@ export interface Customer {
   customerType: 'ENTERPRISE' | 'HOUSEHOLD' | 'ORGANIZATION' | 'SCHOOL' | 'INDIVIDUAL';
   source: string;
   contactPerson?: string | null;
+  contactPhone?: string | null;
   email?: string | null;
   notes?: string | null;
   managerId?: string | null;
@@ -639,6 +640,7 @@ export interface OrderReturnItem {
   quantity: number;
   unitPrice: number;
   amount: number;
+  condition?: 'GOOD' | 'DEFECTIVE';
 }
 
 export interface OrderReturn {

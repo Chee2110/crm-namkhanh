@@ -311,8 +311,8 @@ export const SalesReportsPage: React.FC = () => {
                       {revenueView === 'category'
                         ? 'Nhóm sản phẩm VPP'
                         : revenueView === 'product'
-                        ? 'Tên sản phẩm VPP'
-                        : 'Họ tên nhân viên kinh doanh'}
+                          ? 'Tên sản phẩm VPP'
+                          : 'Họ tên nhân viên kinh doanh'}
                     </th>
                     {revenueView === 'product' && (
                       <th className="py-3 px-4 w-20 text-center">ĐVT</th>
@@ -517,9 +517,8 @@ export const SalesReportsPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span
-                            className={`font-bold ${
-                              c.totalDebt > 0 ? 'text-[#E53935]' : 'text-gray-400'
-                            }`}
+                            className={`font-bold ${c.totalDebt > 0 ? 'text-[#E53935]' : 'text-gray-400'
+                              }`}
                           >
                             {formatVND(c.totalDebt)}
                           </span>

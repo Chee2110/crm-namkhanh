@@ -3,6 +3,9 @@ import { Printer, X } from 'lucide-react';
 import { Order } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
 import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
+import { printA4 } from '../../../utils/printA4';
+import { formatVND, formatNumber } from '../../../utils/formatCurrency';
+import '../../../styles/print-a4.css';
 
 interface OrderPrintModalProps {
   isOpen: boolean;
@@ -17,25 +20,21 @@ export const OrderPrintModal: React.FC<OrderPrintModalProps> = ({
 }) => {
   if (!isOpen || !order) return null;
 
-  const formatVND = (num: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
-  };
-
   const handlePrint = () => {
-    window.print();
+    printA4('printable-invoice', `Phieu_xuat_kho_${order.code}`);
   };
 
   const orderDate = new Date(order.orderDate || order.createdAt);
   const deliveryDate = order.deliveryDate ? new Date(order.deliveryDate) : orderDate;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden my-8 max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-1 sm:p-1.5 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl overflow-hidden my-auto h-[calc(100%-12px)] max-h-[calc(100%-12px)] flex flex-col a4-modal print-modal-container">
         {/* Header điều khiển (Không in) */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50 no-print flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50 no-print flex-shrink-0">
           <div className="flex items-center gap-2">
             <Printer className="w-5 h-5 text-[#E53935]" />
-            <h3 className="font-bold text-gray-900 text-base">
+            <h3 className="font-bold text-gray-900 text-sm sm:text-base">
               Bản In Phiếu Xuất Kho Kiêm Giao Hàng A4 - {order.code}
             </h3>
           </div>
@@ -57,99 +56,93 @@ export const OrderPrintModal: React.FC<OrderPrintModalProps> = ({
         </div>
 
         {/* ================= KHUNG IN A4 CHUẨN KẾ TOÁN (SECTION XI.6) ================= */}
-        <div className="p-8 md:p-12 overflow-y-auto flex-1 font-sans text-gray-900 bg-white" id="printable-invoice">
-          {/* Header thông tin công ty Nam Khánh */}
-          <div className="flex flex-col sm:flex-row items-start justify-between border-b-2 border-[#E53935] pb-4 gap-4">
-            <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-xl bg-white border border-gray-200 p-1 flex-shrink-0 flex items-center justify-center shadow-sm">
-                <img src="/logo.png" alt="Nam Khánh Logo" className="w-full h-full object-contain" />
+        <div className="a4-preview">
+          <div className="a4-sheet" id="printable-invoice">
+            {/* Header thông tin công ty Nam Khánh */}
+            <div className="a4-header">
+              <div className="a4-brand">
+                <img src="/logo.png" alt="Nam Khánh Logo" className="a4-logo" />
+                <div>
+                  <h1 className="a4-company-name">CÔNG TY TNHH THƯƠNG MẠI &amp; DỊCH VỤ NAM KHÁNH</h1>
+                  <p className="a4-company-slogan">
+                    Chuyên cung cấp Văn phòng phẩm &amp; Thiết bị văn phòng uy tín, chuyên nghiệp
+                  </p>
+                  <p className="a4-company-line">
+                    Địa chỉ: Số 32, Ngõ 111 Cầu Giấy, P. Dịch Vọng, Q. Cầu Giấy, TP. Hà Nội
+                  </p>
+                  <p className="a4-company-line">
+                    <span className="a4-nowrap">Hotline: (024) 3768 9999</span>
+                    <span className="a4-sep">|</span>
+                    <span className="a4-nowrap">Email: kinhdoanh@namkhanh.vn</span>
+                    <span className="a4-sep">|</span>
+                    <span className="a4-nowrap">MST: 0109876543</span>
+                  </p>
+                  <p className="a4-company-line strong">
+                    <span className="a4-nowrap">TK 1: 19035678901234 - Techcombank (CN Hà Tây)</span>
+                    <span className="a4-sep">|</span>
+                    <span className="a4-nowrap">TK 2: 0451000345678 - Vietcombank (CN Thành Công)</span>
+                  </p>
+                </div>
               </div>
-              <div className="space-y-0.5">
-                <h1 className="text-lg font-black tracking-tight text-[#E53935] uppercase font-sans">
-                  CÔNG TY TNHH THƯƠNG MẠI & DỊCH VỤ NAM KHÁNH
-                </h1>
-                <p className="text-xs text-gray-700 font-sans font-medium">
-                  Chuyên cung cấp Văn phòng phẩm & Thiết bị văn phòng uy tín, chuyên nghiệp
-                </p>
-                <p className="text-[11px] text-gray-500 font-sans">
-                  Địa chỉ: Số 32, Ngõ 111 Cầu Giấy, P. Dịch Vọng, Q. Cầu Giấy, TP. Hà Nội
-                </p>
-                <p className="text-[11px] text-gray-500 font-sans">
-                  Hotline: (024) 3768 9999 | Email: kinhdoanh@namkhanh.vn | MST: 0109876543
-                </p>
-                <p className="text-[11px] text-gray-600 font-sans font-semibold">
-                  TK 1: 19035678901234 - Techcombank (CN Hà Tây) | TK 2: 0451000345678 - Vietcombank (CN Thành Công)
-                </p>
+
+              <div className="a4-docmeta">
+                <div className="a4-doccode">MÃ ĐƠN HÀNG: {order.code}</div>
+                <div>Ngày đặt: {orderDate.toLocaleDateString('vi-VN')}</div>
+                <div>Ngày giao: {deliveryDate.toLocaleDateString('vi-VN')}</div>
               </div>
             </div>
 
-            <div className="text-left sm:text-right font-sans flex-shrink-0">
-              <div className="text-xs font-bold text-[#E53935]">MÃ ĐƠN HÀNG: {order.code}</div>
-              <div className="text-xs text-gray-600 mt-1">
-                Ngày đặt: {orderDate.toLocaleDateString('vi-VN')}
-              </div>
-              <div className="text-xs text-gray-600">
-                Ngày giao: {deliveryDate.toLocaleDateString('vi-VN')}
-              </div>
+            {/* Tiêu đề Phiếu xuất kho */}
+            <div className="a4-title">
+              <h2>PHIẾU XUẤT KHO KIÊM BIÊN BẢN GIAO HÀNG</h2>
+              <p>
+                Ngày {deliveryDate.getDate()} tháng {deliveryDate.getMonth() + 1} năm {deliveryDate.getFullYear()}
+              </p>
             </div>
-          </div>
 
-          {/* Tiêu đề Phiếu xuất kho */}
-          <div className="text-center my-6">
-            <h2 className="text-xl font-bold uppercase tracking-wider text-gray-900 font-sans">
-              PHIẾU XUẤT KHO KIÊM BIÊN BẢN GIAO HÀNG
-            </h2>
-            <p className="text-xs italic text-gray-500 mt-1">
-              Ngày {deliveryDate.getDate()} tháng {deliveryDate.getMonth() + 1} năm {deliveryDate.getFullYear()}
-            </p>
-          </div>
+            {/* Thông tin Đối tác / Người nhận hàng */}
+            <div className="a4-info">
+              <div className="a4-field a4-full">
+                <b>Kính gửi (Đơn vị nhận hàng):</b>
+                <span>{order.customer?.name || 'Quý khách hàng'}</span>
+              </div>
+              <div className="a4-field">
+                <b>Mã số thuế:</b>
+                <span>{order.customer?.taxCode || 'Theo hồ sơ khách hàng'}</span>
+              </div>
+              <div className="a4-field">
+                <b>Số điện thoại:</b>
+                <span>{order.phone || order.customer?.phone || 'Chưa cập nhật'}</span>
+              </div>
+              <div className="a4-field">
+                <b>Người nhận hàng:</b>
+                <span>{order.contactPerson || order.customer?.contactPerson || 'Bộ phận tiếp nhận'}</span>
+              </div>
+              <div className="a4-field">
+                <b>Nhân viên phụ trách đơn:</b>
+                <span>{order.manager?.fullName || 'Đội ngũ Kinh doanh Nam Khánh'}</span>
+              </div>
+              <div className="a4-field a4-full">
+                <b>Địa chỉ giao hàng:</b>
+                <span>
+                  {order.deliveryAddress || order.customer?.deliveryAddress || order.customer?.address || 'Tại địa chỉ khách hàng'}
+                </span>
+              </div>
+              {order.notes && <div className="a4-info-note">Ghi chú giao hàng: {order.notes}</div>}
+            </div>
 
-          {/* Thông tin Đối tác / Người nhận hàng */}
-          <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-200 text-xs font-sans space-y-1.5 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div>
-                <strong>Kính gửi (Đơn vị nhận hàng):</strong> {order.customer?.name || 'Quý khách hàng'}
-              </div>
-              <div>
-                <strong>Mã số thuế:</strong> {order.customer?.taxCode || 'Theo hồ sơ khách hàng'}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div>
-                <strong>Người nhận hàng:</strong> {order.contactPerson || order.customer?.contactPerson || 'Bộ phận tiếp nhận'}
-              </div>
-              <div>
-                <strong>Số điện thoại:</strong> {order.phone || order.customer?.phone || 'Chưa cập nhật'}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div>
-                <strong>Địa chỉ giao hàng:</strong> {order.deliveryAddress || order.customer?.deliveryAddress || order.customer?.address || 'Tại địa chỉ khách hàng'}
-              </div>
-              <div>
-                <strong>Nhân viên phụ trách đơn:</strong> {order.manager?.fullName || 'Đội ngũ Kinh doanh Nam Khánh'}
-              </div>
-            </div>
-            {order.notes && (
-              <div className="text-gray-500 italic pt-1 border-t border-gray-200">
-                Ghi chú giao hàng: {order.notes}
-              </div>
-            )}
-          </div>
-
-          {/* Bảng chi tiết 8 cột chuẩn theo Quy chuẩn Section XI.6 */}
-          <div className="overflow-x-auto mb-6">
-            <table className="w-full text-xs border border-collapse border-gray-300 font-sans">
+            {/* Bảng chi tiết 8 cột chuẩn theo Quy chuẩn Section XI.6 */}
+            <table className="a4-table">
               <thead>
-                <tr className="bg-gray-100 text-gray-800 text-center font-bold">
-                  <th className="border border-gray-300 p-2 w-10">STT</th>
-                  <th className="border border-gray-300 p-2 w-24">Mã hàng</th>
-                  <th className="border border-gray-300 p-2 text-left">Tên sản phẩm, quy cách</th>
-                  <th className="border border-gray-300 p-2 w-16">ĐVT</th>
-                  <th className="border border-gray-300 p-2 w-16 text-right">Số lượng</th>
-                  <th className="border border-gray-300 p-2 w-28 text-right">Đơn giá</th>
-                  <th className="border border-gray-300 p-2 w-32 text-right">Thành tiền</th>
-                  <th className="border border-gray-300 p-2 w-28 text-left">Ghi chú</th>
+                <tr>
+                  <th className="a4-fit">STT</th>
+                  <th className="a4-fit">Mã hàng</th>
+                  <th className="a4-l">Tên sản phẩm, quy cách</th>
+                  <th className="a4-fit">ĐVT</th>
+                  <th className="a4-fit">Số lượng</th>
+                  <th className="a4-fit">Đơn giá</th>
+                  <th className="a4-fit">Thành tiền</th>
+                  <th className="a4-fit">Ghi chú</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,134 +152,109 @@ export const OrderPrintModal: React.FC<OrderPrintModalProps> = ({
                     const price = Number(item.unitPrice) || 0;
                     const amount = Number(item.amount) || qty * price;
                     return (
-                      <tr key={item.id || index} className="hover:bg-gray-50">
-                        <td className="border border-gray-300 p-2 text-center">{index + 1}</td>
-                        <td className="border border-gray-300 p-2 font-mono font-medium text-center">
-                          {item.productCode}
-                        </td>
-                        <td className="border border-gray-300 p-2 font-medium">{item.productName}</td>
-                        <td className="border border-gray-300 p-2 text-center">{item.unit}</td>
-                        <td className="border border-gray-300 p-2 text-right font-bold">{qty.toLocaleString('vi-VN')}</td>
-                        <td className="border border-gray-300 p-2 text-right">{formatVND(price)}</td>
-                        <td className="border border-gray-300 p-2 text-right font-bold text-gray-900">
-                          {formatVND(amount)}
-                        </td>
-                        <td className="border border-gray-300 p-2 text-gray-500 text-[11px]">
-                          Chuẩn mới 100%
-                        </td>
+                      <tr key={item.id || index}>
+                        <td className="a4-fit a4-c">{index + 1}</td>
+                        <td className="a4-fit a4-c a4-code">{item.productCode}</td>
+                        <td className="a4-name">{item.productName}</td>
+                        <td className="a4-fit a4-c">{item.unit}</td>
+                        <td className="a4-num" style={{ fontWeight: 700 }}>{formatNumber(qty)}</td>
+                        <td className="a4-num">{formatVND(price)}</td>
+                        <td className="a4-num" style={{ fontWeight: 700 }}>{formatVND(amount)}</td>
+                        <td className="a4-fit a4-muted">Chuẩn mới 100%</td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan={8} className="border border-gray-300 p-4 text-center text-gray-400">
+                    <td colSpan={8} className="a4-empty">
                       Chưa có chi tiết sản phẩm
                     </td>
                   </tr>
                 )}
               </tbody>
-              <tfoot className="bg-gray-50/50 font-sans">
-                <tr>
-                  <td colSpan={6} className="border border-gray-300 p-2 text-right font-semibold">
-                    Cộng tiền hàng (chưa bao gồm VAT):
-                  </td>
-                  <td className="border border-gray-300 p-2 text-right font-bold text-gray-800">
-                    {formatVND(Number(order.subtotal))}
-                  </td>
-                  <td className="border border-gray-300 p-2"></td>
+              <tbody className="a4-keep">
+                <tr className="a4-sum">
+                  <td colSpan={6} className="a4-r">Cộng tiền hàng (chưa bao gồm VAT):</td>
+                  <td className="a4-num">{formatVND(Number(order.subtotal))}</td>
+                  <td></td>
                 </tr>
-                <tr>
-                  <td colSpan={6} className="border border-gray-300 p-2 text-right font-semibold">
-                    Tiền thuế Giá trị gia tăng (VAT {order.vatRate || 8}%):
-                  </td>
-                  <td className="border border-gray-300 p-2 text-right font-bold text-gray-800">
-                    {formatVND(Number(order.vatAmount))}
-                  </td>
-                  <td className="border border-gray-300 p-2"></td>
+                <tr className="a4-sum">
+                  <td colSpan={6} className="a4-r">Tiền thuế Giá trị gia tăng (VAT {order.vatRate || 8}%):</td>
+                  <td className="a4-num">{formatVND(Number(order.vatAmount))}</td>
+                  <td></td>
                 </tr>
-                <tr className="bg-red-50/40 text-[#E53935] font-black text-sm">
-                  <td colSpan={6} className="border border-gray-300 p-2.5 text-right uppercase">
-                    Tổng cộng tiền thanh toán:
-                  </td>
-                  <td className="border border-gray-300 p-2.5 text-right font-black">
-                    {formatVND(Number(order.totalAmount))}
-                  </td>
-                  <td className="border border-gray-300 p-2.5"></td>
+                <tr className="a4-total">
+                  <td colSpan={6} className="a4-r">Tổng cộng tiền thanh toán:</td>
+                  <td className="a4-num">{formatVND(Number(order.totalAmount))}</td>
+                  <td></td>
                 </tr>
-              </tfoot>
+              </tbody>
             </table>
-          </div>
 
-          {/* Diễn giải số tiền viết bằng chữ (Chuẩn tiếng Việt) */}
-          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs font-sans mb-4">
-            <span className="font-semibold text-gray-700">Số tiền viết bằng chữ: </span>
-            <span className="font-bold italic text-[#E53935]">
-              {numberToWords(order.totalAmount)}
-            </span>
-          </div>
+            {/* Diễn giải số tiền viết bằng chữ (Chuẩn tiếng Việt) */}
+            <div className="a4-words">
+              <b>Số tiền viết bằng chữ: </b>
+              <i className="a4-red">{numberToWords(order.totalAmount)}</i>
+            </div>
 
-          {/* Thông tin thanh toán & VietQR Chuyển khoản nhanh NAPAS 247 */}
-          <div className="flex items-center justify-between p-3.5 bg-gray-50/80 rounded-xl border border-gray-200 text-xs font-sans mb-6">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-gray-800 uppercase tracking-wide">Thông tin chuyển khoản:</span>
-                <span className="text-[10px] bg-red-100 text-[#E53935] font-semibold px-2 py-0.5 rounded-full">NAPAS 247 VietQR</span>
+            {/* Thông tin thanh toán & VietQR Chuyển khoản nhanh NAPAS 247 */}
+            <div className="a4-pay">
+              <div className="a4-pay-info">
+                <div className="a4-pay-title">
+                  <span>Thông tin chuyển khoản:</span>
+                  <span className="a4-badge">NAPAS 247 VietQR</span>
+                </div>
+                <p>
+                  Ngân hàng: <b>{NAMKHANH_BANK_INFO.bankName} ({NAMKHANH_BANK_INFO.bankId})</b>
+                </p>
+                <p>
+                  Số tài khoản: <b className="a4-mono" style={{ letterSpacing: '0.05em' }}>{NAMKHANH_BANK_INFO.accountNo}</b>
+                </p>
+                <p>
+                  Chủ tài khoản: <b style={{ textTransform: 'uppercase' }}>{NAMKHANH_BANK_INFO.accountName}</b>
+                </p>
+                <p>
+                  Nội dung chuyển khoản: <b className="a4-mono a4-red">{order.code}</b>
+                </p>
               </div>
-              <p className="text-gray-600">
-                Ngân hàng: <span className="font-bold text-gray-900">{NAMKHANH_BANK_INFO.bankName} ({NAMKHANH_BANK_INFO.bankId})</span>
-              </p>
-              <p className="text-gray-600">
-                Số tài khoản: <span className="font-mono font-bold text-gray-900 text-sm tracking-wider">{NAMKHANH_BANK_INFO.accountNo}</span>
-              </p>
-              <p className="text-gray-600">
-                Chủ tài khoản: <span className="font-bold text-gray-900 uppercase">{NAMKHANH_BANK_INFO.accountName}</span>
-              </p>
-              <p className="text-gray-600">
-                Nội dung chuyển khoản: <span className="font-mono font-bold text-[#E53935]">{order.code}</span>
-              </p>
-            </div>
-            <div className="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-gray-200 shadow-xs">
-              <img
-                src={generateVietQRUrl(Number(order.totalAmount) || 0, order.code)}
-                alt="VietQR Payment"
-                className="w-24 h-24 object-contain"
-                crossOrigin="anonymous"
-              />
-              <span className="text-[9px] text-gray-400 font-medium mt-1">Quét mã để thanh toán</span>
-            </div>
-          </div>
-
-          {/* Chữ ký 4 bên chuẩn theo Section XI.6 */}
-          <div className="grid grid-cols-4 gap-4 text-center font-sans text-xs pt-4 border-t border-gray-200">
-            <div className="space-y-1">
-              <p className="font-bold uppercase text-gray-800">Người lập phiếu</p>
-              <p className="text-[10px] text-gray-400 italic">(Ký, ghi rõ họ tên)</p>
-              <div className="h-20 flex items-end justify-center pb-2 font-medium text-gray-700">
-                {order.manager?.fullName || ''}
+              <div className="a4-qr">
+                <img
+                  src={generateVietQRUrl(Number(order.totalAmount) || 0, order.code)}
+                  alt="VietQR Payment"
+                  crossOrigin="anonymous"
+                />
+                <span>Quét mã để thanh toán</span>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <p className="font-bold uppercase text-gray-800">Người nhận hàng</p>
-              <p className="text-[10px] text-gray-400 italic">(Ký, ghi rõ họ tên)</p>
-              <div className="h-20 flex items-end justify-center pb-2 font-medium text-gray-700">
-                {order.contactPerson || ''}
+            {/* Chữ ký 4 bên chuẩn theo Section XI.6 */}
+            <div className="a4-signs">
+              <div>
+                <p className="a4-sign-title">Người lập phiếu</p>
+                <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
+                <div className="a4-sign-space"></div>
+                <p className="a4-sign-name">{order.manager?.fullName || ''}</p>
               </div>
-            </div>
 
-            <div className="space-y-1">
-              <p className="font-bold uppercase text-gray-800">Thủ kho</p>
-              <p className="text-[10px] text-gray-400 italic">(Ký, ghi rõ họ tên)</p>
-              <div className="h-20 flex items-end justify-center pb-2 text-gray-400 italic">
-                (Đã kiểm đủ SL)
+              <div>
+                <p className="a4-sign-title">Người nhận hàng</p>
+                <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
+                <div className="a4-sign-space"></div>
+                <p className="a4-sign-name">{order.contactPerson || ''}</p>
               </div>
-            </div>
 
-            <div className="space-y-1">
-              <p className="font-bold uppercase text-gray-800">Giám đốc / Đại diện</p>
-              <p className="text-[10px] text-gray-400 italic">(Ký, đóng dấu)</p>
-              <div className="h-20 flex items-end justify-center pb-2 text-gray-400 italic">
-                (Đã duyệt)
+              <div>
+                <p className="a4-sign-title">Thủ kho</p>
+                <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
+                <div className="a4-sign-space"></div>
+                <p className="a4-sign-name a4-muted">(Đã kiểm đủ SL)</p>
+              </div>
+
+              <div>
+                <p className="a4-sign-title">Giám đốc / Đại diện</p>
+                <p className="a4-sign-hint">(Ký, đóng dấu)</p>
+                <div className="a4-sign-space"></div>
+                <p className="a4-sign-name a4-muted">(Đã duyệt)</p>
               </div>
             </div>
           </div>

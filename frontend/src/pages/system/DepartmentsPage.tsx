@@ -79,9 +79,10 @@ export const DepartmentsPage: React.FC = () => {
     status: 'ACTIVE'
   });
 
-  const loadData = async () => {
+  const loadData = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const [resTree, resFlat, resUsers] = await Promise.all([
         api.get<Department[]>(`/departments?format=tree&status=${statusFilter}&search=${search}`),
         api.get<Department[]>(`/departments?format=flat`),
@@ -93,7 +94,7 @@ export const DepartmentsPage: React.FC = () => {
     } catch (err: any) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -175,6 +176,7 @@ export const DepartmentsPage: React.FC = () => {
   const handleQuickStatusChange = async (dept: Department, newStatus: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
     if (dept.status === newStatus) return;
+    const oldStatus = dept.status;
     try {
       setDepartmentsFlat((prev) =>
         prev.map((d) => (d.id === dept.id ? { ...d, status: newStatus as any } : d))
@@ -188,10 +190,14 @@ export const DepartmentsPage: React.FC = () => {
         managerId: dept.managerId || null,
         status: newStatus
       });
-      loadData();
+      // Đồng bộ ngầm không tải lại toàn trang
+      loadData(true);
     } catch (err: any) {
+      setDepartmentsFlat((prev) =>
+        prev.map((d) => (d.id === dept.id ? { ...d, status: oldStatus } : d))
+      );
       alert(err.message || 'Lỗi khi cập nhật trạng thái đơn vị');
-      loadData();
+      loadData(true);
     }
   };
 
@@ -268,19 +274,18 @@ export const DepartmentsPage: React.FC = () => {
                   {dept.code}
                 </span>
                 <span
-                  className={`badge ${
-                    dept.status === 'ACTIVE'
+                  className={`badge ${dept.status === 'ACTIVE'
                       ? 'badge-green'
                       : dept.status === 'SUSPENDED'
-                      ? 'badge-yellow'
-                      : 'badge-red'
-                  }`}
+                        ? 'badge-yellow'
+                        : 'badge-red'
+                    }`}
                 >
                   {dept.status === 'ACTIVE'
                     ? 'Đang hoạt động'
                     : dept.status === 'SUSPENDED'
-                    ? 'Tạm ngừng'
-                    : 'Ngừng hoạt động'}
+                      ? 'Tạm ngừng'
+                      : 'Ngừng hoạt động'}
                 </span>
               </div>
 
