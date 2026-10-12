@@ -2000,7 +2000,7 @@ export const FinancesPage: React.FC = () => {
                                     type="number"
                                     min="0"
                                     max={a.remainingAmount}
-                                    step="1000"
+                                    step="any"
                                     value={a.allocatedAmount || ''}
                                     onChange={(e) => {
                                       const val = Math.max(0, parseInt(e.target.value) || 0);

@@ -169,8 +169,12 @@ export const CustomersPage: React.FC = () => {
   const [customDebtInputText, setCustomDebtInputText] = useState('');
   const [isCustomerTypeFilterOpen, setIsCustomerTypeFilterOpen] = useState(false);
   const [isSourceFilterOpen, setIsSourceFilterOpen] = useState(false);
+  const [customerTypePos, setCustomerTypePos] = useState<{ top: number; left: number } | null>(null);
+  const [sourcePos, setSourcePos] = useState<{ top: number; left: number } | null>(null);
   const customerTypeFilterRef = useRef<HTMLDivElement>(null);
   const sourceFilterRef = useRef<HTMLDivElement>(null);
+  const customerTypeDropdownRef = useRef<HTMLDivElement>(null);
+  const sourceDropdownRef = useRef<HTMLDivElement>(null);
 
   const getEffectiveMinDebt = (preset: string, customAmount?: number): number | undefined => {
     switch (preset) {
@@ -186,15 +190,36 @@ export const CustomersPage: React.FC = () => {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (customerTypeFilterRef.current && !customerTypeFilterRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        customerTypeFilterRef.current &&
+        !customerTypeFilterRef.current.contains(target) &&
+        (!customerTypeDropdownRef.current || !customerTypeDropdownRef.current.contains(target))
+      ) {
         setIsCustomerTypeFilterOpen(false);
       }
-      if (sourceFilterRef.current && !sourceFilterRef.current.contains(e.target as Node)) {
+      if (
+        sourceFilterRef.current &&
+        !sourceFilterRef.current.contains(target) &&
+        (!sourceDropdownRef.current || !sourceDropdownRef.current.contains(target))
+      ) {
         setIsSourceFilterOpen(false);
       }
     };
+
+    const handleScrollOrResize = () => {
+      setIsCustomerTypeFilterOpen(false);
+      setIsSourceFilterOpen(false);
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
   }, []);
 
   // Modal Xóa khách hàng
@@ -799,6 +824,58 @@ export const CustomersPage: React.FC = () => {
             <option value="">-- Trạng thái --</option>
             <option value="ACTIVE">Hoạt động</option>
             <option value="INACTIVE">Tạm dừng</option>
+          </select>
+
+          {/* Lọc Loại khách hàng */}
+          <select
+            className="input"
+            style={{
+              height: '34px',
+              paddingTop: 0,
+              paddingBottom: 0,
+              paddingLeft: '0.65rem',
+              paddingRight: '0.65rem',
+              fontSize: '13px',
+              borderRadius: '8px',
+              width: '155px',
+              borderColor: customerType ? '#EF4444' : undefined,
+              color: customerType ? '#DC2626' : undefined,
+              fontWeight: customerType ? 600 : 400
+            }}
+            value={customerType}
+            onChange={(e) => setCustomerType(e.target.value)}
+          >
+            {CUSTOMER_TYPE_FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.value === '' ? '-- Loại khách hàng --' : opt.label}
+              </option>
+            ))}
+          </select>
+
+          {/* Lọc Nguồn gốc */}
+          <select
+            className="input"
+            style={{
+              height: '34px',
+              paddingTop: 0,
+              paddingBottom: 0,
+              paddingLeft: '0.65rem',
+              paddingRight: '0.65rem',
+              fontSize: '13px',
+              borderRadius: '8px',
+              width: '155px',
+              borderColor: source ? '#EF4444' : undefined,
+              color: source ? '#DC2626' : undefined,
+              fontWeight: source ? 600 : 400
+            }}
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+          >
+            {SOURCE_FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.value === '' ? '-- Nguồn gốc --' : opt.label}
+              </option>
+            ))}
           </select>
 
           {/* Lọc Số nợ (có thể tùy chỉnh số nợ cần tìm) */}
@@ -1407,6 +1484,11 @@ export const CustomersPage: React.FC = () => {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setCustomerTypePos({
+                                      top: rect.bottom + 4,
+                                      left: Math.max(8, Math.min(window.innerWidth - 180, rect.left - 40))
+                                    });
                                     setIsCustomerTypeFilterOpen(!isCustomerTypeFilterOpen);
                                     setIsSourceFilterOpen(false);
                                   }}
@@ -1418,11 +1500,18 @@ export const CustomersPage: React.FC = () => {
                                 >
                                   <Filter size={11} className={customerType ? 'fill-red-600' : ''} />
                                 </button>
-                                {isCustomerTypeFilterOpen && (
+                                {isCustomerTypeFilterOpen && customerTypePos && createPortal(
                                   <div
-                                    className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1.5 min-w-[170px] normal-case font-normal text-left"
+                                    ref={customerTypeDropdownRef}
+                                    style={{
+                                      position: 'fixed',
+                                      top: customerTypePos.top,
+                                      left: customerTypePos.left,
+                                      zIndex: 99999,
+                                      filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.12))'
+                                    }}
+                                    className="bg-white border border-slate-200 rounded-lg shadow-xl py-1.5 min-w-[170px] normal-case font-normal text-left"
                                     onClick={(e) => e.stopPropagation()}
-                                    style={{ filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.12))' }}
                                   >
                                     <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
                                       Loại khách hàng
@@ -1435,7 +1524,7 @@ export const CustomersPage: React.FC = () => {
                                           setCustomerType(opt.value);
                                           setIsCustomerTypeFilterOpen(false);
                                         }}
-                                        className={`w-full px-3 py-1.5 text-[12.5px] flex items-center justify-between transition-colors text-left ${customerType === opt.value
+                                        className={`w-full px-3 py-1.5 text-[12.5px] flex items-center justify-between transition-colors text-left cursor-pointer ${customerType === opt.value
                                             ? 'bg-red-50 text-red-600 font-semibold'
                                             : 'text-slate-700 hover:bg-slate-50'
                                           }`}
@@ -1444,7 +1533,8 @@ export const CustomersPage: React.FC = () => {
                                         {customerType === opt.value && <Check size={13} className="text-red-600 ml-2 flex-shrink-0" />}
                                       </button>
                                     ))}
-                                  </div>
+                                  </div>,
+                                  document.body
                                 )}
                               </div>
                             )}
@@ -1455,6 +1545,11 @@ export const CustomersPage: React.FC = () => {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setSourcePos({
+                                      top: rect.bottom + 4,
+                                      left: Math.max(8, Math.min(window.innerWidth - 180, rect.left - 40))
+                                    });
                                     setIsSourceFilterOpen(!isSourceFilterOpen);
                                     setIsCustomerTypeFilterOpen(false);
                                   }}
@@ -1466,11 +1561,18 @@ export const CustomersPage: React.FC = () => {
                                 >
                                   <Filter size={11} className={source ? 'fill-red-600' : ''} />
                                 </button>
-                                {isSourceFilterOpen && (
+                                {isSourceFilterOpen && sourcePos && createPortal(
                                   <div
-                                    className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1.5 min-w-[170px] normal-case font-normal text-left"
+                                    ref={sourceDropdownRef}
+                                    style={{
+                                      position: 'fixed',
+                                      top: sourcePos.top,
+                                      left: sourcePos.left,
+                                      zIndex: 99999,
+                                      filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.12))'
+                                    }}
+                                    className="bg-white border border-slate-200 rounded-lg shadow-xl py-1.5 min-w-[170px] normal-case font-normal text-left"
                                     onClick={(e) => e.stopPropagation()}
-                                    style={{ filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.12))' }}
                                   >
                                     <div className="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
                                       Nguồn gốc
@@ -1483,7 +1585,7 @@ export const CustomersPage: React.FC = () => {
                                           setSource(opt.value);
                                           setIsSourceFilterOpen(false);
                                         }}
-                                        className={`w-full px-3 py-1.5 text-[12.5px] flex items-center justify-between transition-colors text-left ${source === opt.value
+                                        className={`w-full px-3 py-1.5 text-[12.5px] flex items-center justify-between transition-colors text-left cursor-pointer ${source === opt.value
                                             ? 'bg-red-50 text-red-600 font-semibold'
                                             : 'text-slate-700 hover:bg-slate-50'
                                           }`}
@@ -1492,7 +1594,8 @@ export const CustomersPage: React.FC = () => {
                                         {source === opt.value && <Check size={13} className="text-red-600 ml-2 flex-shrink-0" />}
                                       </button>
                                     ))}
-                                  </div>
+                                  </div>,
+                                  document.body
                                 )}
                               </div>
                             )}

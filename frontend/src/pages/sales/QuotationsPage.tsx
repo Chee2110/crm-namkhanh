@@ -1146,7 +1146,7 @@ export const QuotationsPage: React.FC = () => {
                             <input
                               type="number"
                               min="0"
-                              step="1000"
+                              step="any"
                               className="input font-medium"
                               style={{ padding: '0.35rem 0.5rem', fontSize: '13px', textAlign: 'center' }}
                               value={it.unitPrice}

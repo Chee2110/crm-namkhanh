@@ -794,8 +794,10 @@ tr[data-selected="true"] .sticky-action-td {
 .modal-content,
 .modal,
 [role="dialog"],
-.fixed.inset-0 .bg-white.rounded-xl:not(.customer-modal-container):not(.customer-modal-container *):not(.print-modal-container):not(.print-modal-container *):not(.a4-modal):not(.a4-modal *),
-.fixed.inset-0 .bg-white.rounded-2xl:not(.customer-modal-container):not(.customer-modal-container *):not(.print-modal-container):not(.print-modal-container *):not(.a4-modal):not(.a4-modal *) {
+.fixed.inset-0 > .bg-white.rounded-xl:not(.customer-modal-container):not(.print-modal-container):not(.a4-modal),
+.fixed.inset-0 > .bg-white.rounded-2xl:not(.customer-modal-container):not(.print-modal-container):not(.a4-modal),
+.fixed.inset-0 > div > .bg-white.rounded-xl:not(.customer-modal-container):not(.print-modal-container):not(.a4-modal),
+.fixed.inset-0 > div > .bg-white.rounded-2xl:not(.customer-modal-container):not(.print-modal-container):not(.a4-modal) {
   background: #FFFFFF !important;
   border-radius: 1.5rem !important;
   border: 1px solid #E2E8F0 !important;

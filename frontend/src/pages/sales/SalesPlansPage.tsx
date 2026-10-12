@@ -406,7 +406,7 @@ export const SalesPlansPage: React.FC = () => {
                           <input
                             type="number"
                             min="0"
-                            step="1000000"
+                            step="any"
                             value={it.targetRevenue}
                             onChange={(e) => {
                               const updated = [...formData.items];

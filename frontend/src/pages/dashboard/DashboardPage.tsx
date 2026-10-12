@@ -54,7 +54,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
   const [categorySortBy, setCategorySortBy] = useState<
     'revenue_desc' | 'revenue_asc' | 'volume_desc' | 'volume_asc' | 'name_asc'
   >('revenue_desc');
-  const CATEGORIES_PER_PAGE = 10;
+  const CATEGORIES_PER_PAGE = 15;
+
+  const [profitPage, setProfitPage] = useState(1);
+  const PROFIT_PER_PAGE = 15;
 
   const [overview, setOverview] = useState<DashboardExecutiveOverview | null>(null);
   const [revenueVolume, setRevenueVolume] = useState<DashboardRevenueVolume | null>(null);
@@ -85,6 +88,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
 
   useEffect(() => {
     setCategoryPage(1);
+    setProfitPage(1);
     loadDashboard();
   }, [period]);
 
@@ -143,6 +147,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
     (categoryPage - 1) * CATEGORIES_PER_PAGE,
     categoryPage * CATEGORIES_PER_PAGE
   );
+
+  const totalProfitPages = Math.max(
+    1,
+    Math.ceil((profitData?.categoryProfits?.length || 0) / PROFIT_PER_PAGE)
+  );
+  const paginatedProfits = React.useMemo(() => {
+    const list = profitData?.categoryProfits || [];
+    return list.slice((profitPage - 1) * PROFIT_PER_PAGE, profitPage * PROFIT_PER_PAGE);
+  }, [profitData?.categoryProfits, profitPage]);
 
   return (
     <div className="space-y-6 pb-12">
@@ -596,7 +609,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                     </div>
                   </div>
 
-                  {/* Phân trang: Giới hạn 10 dòng dữ liệu 1 trang */}
+                  {/* Phân trang: Giới hạn 15 dòng dữ liệu 1 trang */}
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-3 border-t border-slate-100 text-xs text-slate-500">
                     <div>
                       {sortedCategories.length > 0 ? (
@@ -781,52 +794,62 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
-                      {profitData?.categoryProfits.map((cat, idx) => (
-                        <tr
-                          key={cat.id}
-                          className={`hover:bg-slate-50/80 transition-colors ${cat.isLoss ? 'bg-red-50/50' : ''
-                            }`}
-                        >
-                          <td className="py-3 px-4 text-center font-medium text-slate-500">{idx + 1}</td>
-                          <td className="py-3 px-4 font-mono font-bold text-[#EA332A] text-center">{cat.code}</td>
-                          <td className="py-3 px-4 font-semibold text-slate-900 flex items-center gap-2">
-                            {cat.name}
-                            {/* CẢNH BÁO MÀU ĐỎ NỔI BẬT NẾU ÂM LỢI NHUẬN CHUẨN ĐẶC TẢ F-D2 */}
-                            {cat.isLoss && (
-                              <span className="badge-red text-[11px] font-bold">
-                                Cảnh báo: Âm lợi nhuận
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-center font-medium text-slate-800">
-                            {formatVND(cat.revenue)}
-                          </td>
-                          <td className="py-3 px-4 text-center font-medium text-amber-700">
-                            {formatVND(cat.cogs)}
-                          </td>
-                          <td
-                            className={`py-3 px-4 text-center font-bold ${cat.isLoss ? 'text-red-600' : 'text-emerald-700'
+                      {paginatedProfits.length > 0 ? (
+                        paginatedProfits.map((cat, idx) => (
+                          <tr
+                            key={cat.id}
+                            className={`hover:bg-slate-50/80 transition-colors ${cat.isLoss ? 'bg-red-50/50' : ''
                               }`}
                           >
-                            {formatVND(cat.profit)}
-                          </td>
-                          <td className="py-3 px-4 text-right font-bold text-slate-900">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${cat.margin >= 20
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : cat.margin >= 0
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-red-100 text-red-800'
+                            <td className="py-3 px-4 text-center font-medium text-slate-500">
+                              {(profitPage - 1) * PROFIT_PER_PAGE + idx + 1}
+                            </td>
+                            <td className="py-3 px-4 font-mono font-bold text-[#EA332A] text-center">{cat.code}</td>
+                            <td className="py-3 px-4 font-semibold text-slate-900 flex items-center gap-2">
+                              {cat.name}
+                              {/* CẢNH BÁO MÀU ĐỎ NỔI BẬT NẾU ÂM LỢI NHUẬN CHUẨN ĐẶC TẢ F-D2 */}
+                              {cat.isLoss && (
+                                <span className="badge-red text-[11px] font-bold">
+                                  Cảnh báo: Âm lợi nhuận
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-center font-medium text-slate-800">
+                              {formatVND(cat.revenue)}
+                            </td>
+                            <td className="py-3 px-4 text-center font-medium text-amber-700">
+                              {formatVND(cat.cogs)}
+                            </td>
+                            <td
+                              className={`py-3 px-4 text-center font-bold ${cat.isLoss ? 'text-red-600' : 'text-emerald-700'
                                 }`}
                             >
-                              {cat.margin}%
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right font-semibold text-slate-600">
-                            {cat.contribution}%
+                              {formatVND(cat.profit)}
+                            </td>
+                            <td className="py-3 px-4 text-right font-bold text-slate-900">
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${cat.margin >= 20
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : cat.margin >= 0
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}
+                              >
+                                {cat.margin}%
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right font-semibold text-slate-600">
+                              {cat.contribution}%
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={8} className="py-8 text-center text-slate-400">
+                            Không có dữ liệu lợi nhuận danh mục trong kỳ
                           </td>
                         </tr>
-                      ))}
+                      )}
 
                       {/* DÒNG TỔNG CỘNG CHỐT Ở CHÂN BẢNG CHUẨN ĐẶC TẢ F-D2 */}
                       <tr className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300">
@@ -851,6 +874,59 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                       </tr>
                     </tbody>
                   </table>
+                </div>
+
+                {/* Phân trang: Giới hạn 15 dòng dữ liệu 1 trang */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-3 border-t border-slate-100 text-xs text-slate-500">
+                  <div>
+                    {profitData?.categoryProfits && profitData.categoryProfits.length > 0 ? (
+                      <span>
+                        Hiển thị <span className="font-semibold text-slate-700">{(profitPage - 1) * PROFIT_PER_PAGE + 1}</span> - <span className="font-semibold text-slate-700">{Math.min(profitPage * PROFIT_PER_PAGE, profitData.categoryProfits.length)}</span> trên <span className="font-semibold text-slate-700">{profitData.categoryProfits.length}</span> danh mục
+                      </span>
+                    ) : (
+                      <span>0 danh mục</span>
+                    )}
+                  </div>
+
+                  {totalProfitPages > 1 && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setProfitPage((p) => Math.max(1, p - 1))}
+                        disabled={profitPage === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                        title="Trang trước"
+                      >
+                        <ChevronLeft className="w-4 h-4 text-slate-600" />
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalProfitPages }, (_, i) => i + 1).map((pageNum) => (
+                          <button
+                            key={pageNum}
+                            type="button"
+                            onClick={() => setProfitPage(pageNum)}
+                            className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${profitPage === pageNum
+                                ? 'bg-[#EA332A] text-white shadow-xs'
+                                : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
+                              }`}
+                          >
+                            {pageNum}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setProfitPage((p) => Math.min(totalProfitPages, p + 1))}
+                        disabled={profitPage === totalProfitPages}
+                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                        title="Trang sau"
+                      >
+                        <ChevronRight className="w-4 h-4 text-slate-600" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
