@@ -300,7 +300,7 @@ export class DashboardService {
           code: item.productCode,
           name: item.productName,
           unit: item.unit,
-          categoryName: item.product?.categoryRel?.name || 'VPP Khác',
+          categoryName: item.product?.categoryRel?.name || 'Khác',
           quantity: 0,
           revenue: 0
         };

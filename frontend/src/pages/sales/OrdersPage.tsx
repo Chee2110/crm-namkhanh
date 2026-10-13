@@ -1030,7 +1030,7 @@ export const OrdersPage: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-base font-bold text-gray-900 m-0">
-                  {editingOrder ? `Chỉnh Sửa Đơn Hàng [${editingOrder.code}]` : 'Lập Đơn Hàng Mới - VPP Nam Khánh'}
+                  {editingOrder ? `Chỉnh Sửa Đơn Hàng [${editingOrder.code}]` : 'Lập Đơn Hàng Mới - Nam Khánh'}
                 </h2>
                 <p className="text-xs text-gray-500 m-0 mt-0.5">
                   {editingOrder
@@ -1113,8 +1113,8 @@ export const OrdersPage: React.FC = () => {
             {selectedOrderCustomer && (
               <div
                 className={`p-3.5 rounded-xl border text-xs flex items-start gap-3 transition-colors ${isExceedingCreditLimit
-                    ? 'bg-red-50 border-red-300 text-red-900'
-                    : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                  ? 'bg-red-50 border-red-300 text-red-900'
+                  : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
                   }`}
               >
                 {isExceedingCreditLimit ? (
@@ -1262,12 +1262,12 @@ export const OrdersPage: React.FC = () => {
               );
             })()}
 
-            {/* Danh sách mặt hàng VPP trong đơn */}
+            {/* Danh sách mặt hàng trong đơn */}
             <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2 m-0">
                   <ShoppingBag className="w-4 h-4 text-[#E53935]" />
-                  Danh mục hàng hóa VPP xuất bán ({createData.items.length})
+                  Danh mục hàng hóa xuất bán ({createData.items.length})
                 </h4>
                 <div className="flex items-center gap-2 flex-1 max-w-md justify-end">
                   <ProductSearchSelect
@@ -1378,8 +1378,8 @@ export const OrdersPage: React.FC = () => {
                                   handleItemChange(index, 'quantity', Math.max(1, parseInt(e.target.value) || 1))
                                 }
                                 className={`w-full p-1 border rounded text-center focus:outline-none ${isExcessStock
-                                    ? 'border-amber-400 bg-amber-50/40 text-amber-900 focus:border-amber-500'
-                                    : 'border-gray-200 focus:border-[#E53935]'
+                                  ? 'border-amber-400 bg-amber-50/40 text-amber-900 focus:border-amber-500'
+                                  : 'border-gray-200 focus:border-[#E53935]'
                                   }`}
                               />
                             </td>
@@ -1625,8 +1625,8 @@ export const OrdersPage: React.FC = () => {
             }
           }}
           className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${deliveryFilter === 'PENDING'
-              ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-400'
-              : 'bg-white border-gray-200 hover:border-amber-300'
+            ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-400'
+            : 'bg-white border-gray-200 hover:border-amber-300'
             }`}
           title="Nhấn để lọc nhanh các đơn hàng chờ xuất kho"
         >
@@ -1660,7 +1660,7 @@ export const OrdersPage: React.FC = () => {
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng doanh số đơn</p>
             <p className="text-2xl font-bold text-gray-900 mt-1">{formatVND(totalRevenue)}</p>
-            <p className="text-xs text-gray-500 mt-1">Gồm VAT 8% VPP (Bấm xem tất cả)</p>
+            <p className="text-xs text-gray-500 mt-1">Gồm VAT 8% (Bấm xem tất cả)</p>
           </div>
           <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
             <DollarSign className="w-6 h-6" />
@@ -1672,8 +1672,8 @@ export const OrdersPage: React.FC = () => {
             setPaymentFilter(paymentFilter === 'PAID' ? '' : 'PAID');
           }}
           className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${paymentFilter === 'PAID'
-              ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-400'
-              : 'bg-white border-gray-200 hover:border-emerald-300'
+            ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-400'
+            : 'bg-white border-gray-200 hover:border-emerald-300'
             }`}
           title="Nhấn để lọc các đơn hàng đã thanh toán đủ"
         >
@@ -1699,8 +1699,8 @@ export const OrdersPage: React.FC = () => {
             setPaymentFilter(paymentFilter === 'UNPAID' ? '' : 'UNPAID');
           }}
           className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${paymentFilter === 'UNPAID'
-              ? 'bg-red-100 border-red-500 ring-2 ring-red-400'
-              : 'bg-red-50/20 border-red-200 hover:border-red-400'
+            ? 'bg-red-100 border-red-500 ring-2 ring-red-400'
+            : 'bg-red-50/20 border-red-200 hover:border-red-400'
             }`}
           title="Nhấn để lọc các đơn hàng chưa thanh toán (còn nợ)"
         >
@@ -2674,7 +2674,7 @@ export const OrdersPage: React.FC = () => {
                 <table className="w-full text-left">
                   <thead className="bg-gray-100/80 border-b border-gray-200 text-gray-700 font-bold uppercase text-[10px]">
                     <tr>
-                      <th className="p-2.5 text-center">Sản phẩm VPP</th>
+                      <th className="p-2.5 text-center">Sản phẩm</th>
                       <th className="p-2.5 text-center w-16">ĐVT</th>
                       <th className="p-2.5 text-center w-20">Đã giao</th>
                       <th className="p-2.5 text-center w-24">SL Trả lại</th>
@@ -2719,8 +2719,8 @@ export const OrdersPage: React.FC = () => {
                                 setReturnData({ ...returnData, items: updated });
                               }}
                               className={`text-[11px] p-1 rounded border font-semibold ${item.condition === 'DEFECTIVE'
-                                  ? 'bg-red-50 text-red-700 border-red-300'
-                                  : 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                ? 'bg-red-50 text-red-700 border-red-300'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-300'
                                 }`}
                             >
                               <option value="GOOD">Tốt (Nhập kho bán)</option>
@@ -3140,7 +3140,7 @@ export const OrdersPage: React.FC = () => {
                     <p className="a4-sign-title">Thủ kho xuất</p>
                     <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
                     <div className="a4-sign-space"></div>
-                    <p className="a4-sign-name">Kho VPP Nam Khánh</p>
+                    <p className="a4-sign-name">Kho Nam Khánh</p>
                   </div>
                   <div>
                     <p className="a4-sign-title">Nhân viên giao nhận</p>

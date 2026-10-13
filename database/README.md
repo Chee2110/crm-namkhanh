@@ -8,7 +8,7 @@ Thư mục này chứa toàn bộ các file SQL và bản sao lưu (backup) cơ 
 
 | Tên File | Định dạng | Dung lượng | Mô tả chi tiết |
 | :--- | :--- | :--- | :--- |
-| **`crm_namkhanh_full.sql`** | SQL Script (.sql) | ~110 KB | **Bản đầy đủ nhất (Khuyên dùng):** Chứa toàn bộ cấu trúc tạo bảng (DDL) + toàn bộ dữ liệu mẫu (Roles, 25 Modules phân quyền RBAC, Cơ cấu phòng ban, Tổng kho VPP, Tài khoản Admin `dinhhchi2110@gmail.com`, Khách hàng, Báo giá, Đơn hàng...). |
+| **`crm_namkhanh_full.sql`** | SQL Script (.sql) | ~110 KB | **Bản đầy đủ nhất (Khuyên dùng):** Chứa toàn bộ cấu trúc tạo bảng (DDL) + toàn bộ dữ liệu mẫu (Roles, 25 Modules phân quyền RBAC, Cơ cấu phòng ban, Tổng kho, Tài khoản Admin `dinhhchi2110@gmail.com`, Khách hàng, Báo giá, Đơn hàng...). |
 | **`crm_namkhanh.db`** | Binary Dump (.db) | ~96 KB | File backup dạng nhị phân chuẩn nén của PostgreSQL (`pg_dump -Fc`), có đuôi `.db` theo yêu cầu. Dùng để khôi phục nhanh qua `pg_restore` hoặc các công cụ giao diện như DBeaver, pgAdmin. |
 | **`schema.sql`** | SQL Script (.sql) | ~29 KB | Chỉ chứa định nghĩa cấu trúc bảng, khóa ngoại, chỉ mục (Index) thuần túy được trích xuất từ Prisma ORM (không kèm dữ liệu). |
 

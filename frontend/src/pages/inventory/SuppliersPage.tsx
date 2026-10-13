@@ -258,7 +258,7 @@ export const SuppliersPage: React.FC = () => {
         <div>
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Truck className="w-5 h-5 text-[#E53935]" />
-            Danh Sách Nhà Cung Cấp VPP (C.6)
+            Danh Sách Nhà Cung Cấp (C.6)
           </h2>
           <p className="text-xs text-gray-500 mt-1">
             Quản trị đối tác phân phối, nhà máy sản xuất (Đồng bộ 2 chiều khi khai báo Hàng hóa mới)
@@ -471,7 +471,7 @@ export const SuppliersPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-[#E53935]" />
                 <h3 className="font-bold text-gray-900">
-                  {editingSupplier ? 'Chỉnh Sửa Nhà Cung Cấp' : 'Thêm Nhà Cung Cấp VPP Mới'}
+                  {editingSupplier ? 'Chỉnh Sửa Nhà Cung Cấp' : 'Thêm Nhà Cung Cấp Mới'}
                 </h3>
               </div>
               <button

@@ -333,7 +333,8 @@ export interface CustomerDebtStatement {
 
 export interface CustomerTimelineItem {
   id: string;
-  type: 'QUOTATION' | 'ORDER' | 'HANDOVER' | 'RECEIPT';
+  type: 'QUOTATION' | 'ORDER' | 'HANDOVER' | 'RECEIPT' | 'CARE_LOG' | 'CREATION' | 'UPDATE' | 'ACTION';
+  actionType?: string;
   title: string;
   status?: string;
   paymentStatus?: string;

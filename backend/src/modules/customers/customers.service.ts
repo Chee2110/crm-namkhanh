@@ -271,7 +271,7 @@ export class CustomersService {
       code = `KH${String(count + 1).padStart(4, '0')}`;
     }
 
-    return prisma.customer.create({
+    const newCustomer = await prisma.customer.create({
       data: {
         code,
         name: data.name,
@@ -296,6 +296,23 @@ export class CustomersService {
         }
       }
     });
+
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: creatorId,
+          action: 'CREATE',
+          entityType: 'Customer',
+          entityId: newCustomer.id,
+          newValue: {
+            title: `Khởi tạo hồ sơ khách hàng: ${newCustomer.name}`,
+            notes: `Mã: ${newCustomer.code} • Loại: ${newCustomer.customerType}`
+          }
+        }
+      });
+    } catch (_) {}
+
+    return newCustomer;
   }
 
   async updateCustomer(id: string, data: any) {
@@ -336,7 +353,7 @@ export class CustomersService {
       updateData.maxDebtDays = Number(data.maxDebtDays);
     }
 
-    return prisma.customer.update({
+    const updated = await prisma.customer.update({
       where: { id },
       data: updateData,
       include: {
@@ -345,6 +362,22 @@ export class CustomersService {
         }
       }
     });
+
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entityType: 'Customer',
+          entityId: id,
+          newValue: {
+            title: 'Cập nhật hồ sơ khách hàng',
+            notes: `Cập nhật thông tin: ${Object.keys(updateData).join(', ')}`
+          }
+        }
+      });
+    } catch (_) {}
+
+    return updated;
   }
 
   /**
@@ -612,11 +645,38 @@ export class CustomersService {
     });
   }
 
-  async getCustomerTimeline(id: string) {
-    const customer = await prisma.customer.findUnique({ where: { id } });
+  async addCustomerCareLog(customerId: string, data: { actionType?: string; title?: string; notes: string }, userId?: string) {
+    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new Error('Không tìm thấy khách hàng');
 
-    const [quotations, orders, handovers, receipts] = await Promise.all([
+    const log = await prisma.auditLog.create({
+      data: {
+        userId: userId || null,
+        action: 'CARE_LOG',
+        entityType: 'Customer',
+        entityId: customerId,
+        newValue: {
+          actionType: data.actionType || 'NOTE',
+          title: data.title || 'Nhật ký chăm sóc',
+          notes: data.notes
+        }
+      },
+      include: {
+        user: { select: { fullName: true } }
+      }
+    });
+
+    return log;
+  }
+
+  async getCustomerTimeline(id: string) {
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: { manager: { select: { fullName: true } } }
+    });
+    if (!customer) throw new Error('Không tìm thấy khách hàng');
+
+    const [quotations, orders, handovers, receipts, auditLogs] = await Promise.all([
       prisma.quotation.findMany({
         where: { customerId: id },
         include: { manager: { select: { fullName: true } } },
@@ -642,25 +702,42 @@ export class CustomersService {
           approvedBy: { select: { fullName: true } }
         },
         orderBy: { createdAt: 'desc' }
+      }),
+      prisma.auditLog.findMany({
+        where: { entityType: 'Customer', entityId: id },
+        include: { user: { select: { fullName: true } } },
+        orderBy: { createdAt: 'desc' }
       })
     ]);
 
-    // Gom nhóm timeline theo thời gian (Báo giá, Đơn hàng, Phiếu thu, Bàn giao)
-    const timeline = [
+    // Gom nhóm timeline theo thời gian: Hành động của người dùng trên web đối với khách hàng đó
+    const timeline: any[] = [
+      ...auditLogs.map((log: any) => {
+        const val = (log.newValue && typeof log.newValue === 'object') ? log.newValue : {};
+        return {
+          id: log.id,
+          type: log.action === 'CARE_LOG' ? 'CARE_LOG' : log.action === 'UPDATE' ? 'UPDATE' : 'ACTION',
+          actionType: val.actionType || 'NOTE',
+          title: val.title || (log.action === 'CARE_LOG' ? 'Nhật ký chăm sóc' : log.action === 'UPDATE' ? 'Cập nhật hồ sơ khách hàng' : 'Thao tác trên hệ thống'),
+          notes: val.notes || '',
+          actor: log.user?.fullName || 'Người dùng',
+          date: log.createdAt
+        };
+      }),
       ...quotations.map((q: any) => ({
         id: q.id,
         type: 'QUOTATION',
-        title: `Báo giá: ${q.code}`,
+        title: `Lập báo giá: ${q.code}`,
         status: q.status,
         amount: q.totalAmount,
         date: q.createdAt,
         notes: q.notes,
-        actor: q.manager?.fullName
+        actor: q.manager?.fullName || 'Nhân viên kinh doanh'
       })),
       ...orders.map((o: any) => ({
         id: o.id,
         type: 'ORDER',
-        title: `Đơn hàng: ${o.code}`,
+        title: `Tạo đơn bán hàng: ${o.code}`,
         status: o.deliveryStatus,
         paymentStatus: o.paymentStatus,
         amount: o.totalAmount,
@@ -668,12 +745,12 @@ export class CustomersService {
         remaining: o.remainingAmount,
         date: o.createdAt,
         notes: o.notes,
-        actor: o.manager?.fullName
+        actor: o.manager?.fullName || 'Nhân viên kinh doanh'
       })),
       ...receipts.map((r: any) => ({
         id: r.id,
         type: 'RECEIPT',
-        title: `Phiếu thu: ${r.code}`,
+        title: `Lập phiếu thu tiền: ${r.code}`,
         status: r.status,
         amount: r.amount,
         paymentMethod: r.paymentMethod,
@@ -689,9 +766,29 @@ export class CustomersService {
         to: h.toUser.fullName,
         reason: h.reason,
         date: h.createdAt,
-        actor: h.toUser.fullName
+        actor: h.fromUser?.fullName || h.toUser.fullName
       }))
     ];
+
+    // Thêm mốc sự kiện Khởi tạo hồ sơ khách hàng (nếu chưa có trong audit log)
+    const hasCreationLog = auditLogs.some((l: any) => l.action === 'CREATE');
+    if (!hasCreationLog && customer.createdAt) {
+      const typeLabels: Record<string, string> = {
+        ENTERPRISE: 'Doanh nghiệp',
+        SCHOOL: 'Trường học',
+        ORGANIZATION: 'Cơ quan / Tổ chức',
+        HOUSEHOLD: 'Đại lý / Cửa hàng',
+        INDIVIDUAL: 'Cá nhân'
+      };
+      timeline.push({
+        id: `created-${customer.id}`,
+        type: 'CREATION',
+        title: `Khởi tạo hồ sơ khách hàng: ${customer.name}`,
+        date: customer.createdAt,
+        actor: customer.manager?.fullName || 'Người dùng',
+        notes: `Mã khách hàng: ${customer.code} • Loại: ${typeLabels[customer.customerType] || customer.customerType}`
+      });
+    }
 
     timeline.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return timeline;

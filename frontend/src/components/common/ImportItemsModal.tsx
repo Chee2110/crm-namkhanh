@@ -53,7 +53,7 @@ export const ImportItemsModal: React.FC<ImportItemsModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'Mau_Nhap_Chi_Tiet_VPP_NamKhanh.csv');
+    link.setAttribute('download', 'Mau_Nhap_Chi_Tiet_NamKhanh.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

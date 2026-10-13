@@ -42,7 +42,9 @@ import {
   Check,
   Mail,
   Building2,
-  Hash
+  Hash,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Customer, CustomerTimelineItem, User } from '../../types';
@@ -99,6 +101,47 @@ const getCustomerTypeBadge = (type?: string) => {
     badgeClass: 'bg-[#EBF5FF] text-[#2563EB] border border-[#BFDBFE]',
     codeBadgeClass: 'bg-[#EBF5FF] text-[#2563EB] border border-[#BFDBFE]'
   };
+};
+
+const getPaymentMethodLabel = (method?: string) => {
+  switch (method) {
+    case 'CASH': return 'Tiền mặt';
+    case 'BANK_TRANSFER': return 'Chuyển khoản';
+    case 'DEBT': return 'Ghi nợ';
+    case 'CREDIT': return 'Thẻ tín dụng';
+    default: return method || '';
+  }
+};
+
+const getQuotationStatusLabel = (s?: string) => {
+  switch (s) {
+    case 'DRAFT': return 'Bản nháp';
+    case 'SENT': return 'Đã gửi khách';
+    case 'APPROVED': return 'Đã duyệt';
+    case 'REJECTED': return 'Từ chối';
+    default: return s || '';
+  }
+};
+
+const getOrderStatusLabel = (s?: string) => {
+  switch (s) {
+    case 'PENDING': return 'Chờ xử lý';
+    case 'PROCESSING': return 'Đang xử lý';
+    case 'DELIVERING': return 'Đang giao hàng';
+    case 'DELIVERED': return 'Đã giao hàng';
+    case 'COMPLETED': return 'Hoàn thành';
+    case 'CANCELLED': return 'Đã hủy';
+    default: return s || '';
+  }
+};
+
+const getPaymentStatusLabel = (s?: string) => {
+  switch (s) {
+    case 'UNPAID': return 'Chưa thanh toán';
+    case 'PARTIAL': return 'Thanh toán một phần';
+    case 'PAID': return 'Đã thanh toán đủ';
+    default: return s || '';
+  }
 };
 
 // Cấu trúc cột file Excel nhập khách hàng (thứ tự chuẩn theo file mẫu)
@@ -233,6 +276,13 @@ export const CustomersPage: React.FC = () => {
   const [timeline, setTimeline] = useState<CustomerTimelineItem[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
+  // Thêm nhật ký chăm sóc / tương tác
+  const [isAddingLog, setIsAddingLog] = useState(false);
+  const [logActionType, setLogActionType] = useState('NOTE');
+  const [logTitle, setLogTitle] = useState('');
+  const [logNotes, setLogNotes] = useState('');
+  const [isSubmittingLog, setIsSubmittingLog] = useState(false);
+
   // Modal Add / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -273,6 +323,170 @@ export const CustomersPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'split' | 'table'>('table');
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
 
+  // 1. Phân trang Bảng khách hàng (Mặc định 12 dòng/trang, tự động co giãn thêm/bớt theo zoom)
+  const initialViewportHeightRef = useRef<number>(window.innerHeight);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(12);
+  const [isAutoPageSize, setIsAutoPageSize] = useState<boolean>(true);
+
+  const computeRowsFromZoom = () => {
+    const vh = window.innerHeight;
+    const baseHeight = initialViewportHeightRef.current || 850;
+    const deltaRows = Math.round((vh - baseHeight) / 45);
+    return Math.max(4, Math.min(50, 12 + deltaRows));
+  };
+
+  useEffect(() => {
+    const handleZoomOrResize = () => {
+      if (isAutoPageSize) {
+        setPageSize(computeRowsFromZoom());
+      }
+    };
+    handleZoomOrResize();
+    window.addEventListener('resize', handleZoomOrResize);
+    window.visualViewport?.addEventListener('resize', handleZoomOrResize);
+    return () => {
+      window.removeEventListener('resize', handleZoomOrResize);
+      window.visualViewport?.removeEventListener('resize', handleZoomOrResize);
+    };
+  }, [isAutoPageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, customerType, source, statusFilter, debtPreset, customDebtAmount]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(customers.length / pageSize));
+    if (currentPage > maxPage) {
+      setCurrentPage(maxPage);
+    }
+  }, [customers.length, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(customers.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const currentCustomers = customers.slice(startIndex, startIndex + pageSize);
+
+  // 2. Phân trang cột danh sách trong trang chi tiết (Mặc định 5 dòng/trang, tự động thêm/bớt theo zoom)
+  const [detailListPage, setDetailListPage] = useState<number>(1);
+  const [detailListPageSize, setDetailPageSize] = useState<number>(5);
+  const [isAutoDetailListPageSize, setIsAutoDetailListPageSize] = useState<boolean>(true);
+
+  const computeDetailRowsFromZoom = () => {
+    const vh = window.innerHeight;
+    const baseH = initialViewportHeightRef.current || 820;
+    const deltaRows = Math.round((vh - baseH) / 100);
+    return Math.max(3, Math.min(20, 5 + deltaRows));
+  };
+
+  useEffect(() => {
+    const handleZoom = () => {
+      if (isAutoDetailListPageSize) {
+        setDetailPageSize(computeDetailRowsFromZoom());
+      }
+    };
+    handleZoom();
+    window.addEventListener('resize', handleZoom);
+    window.visualViewport?.addEventListener('resize', handleZoom);
+    return () => {
+      window.removeEventListener('resize', handleZoom);
+      window.visualViewport?.removeEventListener('resize', handleZoom);
+    };
+  }, [isAutoDetailListPageSize]);
+
+  useEffect(() => {
+    setDetailListPage(1);
+  }, [search, customerType, source, statusFilter, debtPreset, customDebtAmount]);
+
+  useEffect(() => {
+    const maxP = Math.max(1, Math.ceil(customers.length / detailListPageSize));
+    if (detailListPage > maxP) {
+      setDetailListPage(maxP);
+    }
+  }, [customers.length, detailListPageSize]);
+
+  const totalDetailListPages = Math.max(1, Math.ceil(customers.length / detailListPageSize));
+  const startDetailListIdx = (detailListPage - 1) * detailListPageSize;
+  const currentDetailCustomers = customers.slice(startDetailListIdx, startDetailListIdx + detailListPageSize);
+
+  // 3. Phân trang Lịch sử giao dịch & Chăm sóc (Timeline) - Mặc định 4 dòng/trang, tự động thêm/bớt theo zoom
+  const [timelinePage, setTimelinePage] = useState<number>(1);
+  const [timelinePageSize, setTimelinePageSize] = useState<number>(4);
+  const [isAutoTimelinePageSize, setIsAutoTimelinePageSize] = useState<boolean>(true);
+
+  const computeTimelineRowsFromZoom = () => {
+    const vh = window.innerHeight;
+    const baseH = initialViewportHeightRef.current || 820;
+    const deltaRows = Math.round((vh - baseH) / 120);
+    return Math.max(2, Math.min(15, 4 + deltaRows));
+  };
+
+  useEffect(() => {
+    const handleZoom = () => {
+      if (isAutoTimelinePageSize) {
+        setTimelinePageSize(computeTimelineRowsFromZoom());
+      }
+    };
+    handleZoom();
+    window.addEventListener('resize', handleZoom);
+    window.visualViewport?.addEventListener('resize', handleZoom);
+    return () => {
+      window.removeEventListener('resize', handleZoom);
+      window.visualViewport?.removeEventListener('resize', handleZoom);
+    };
+  }, [isAutoTimelinePageSize]);
+
+  useEffect(() => {
+    setTimelinePage(1);
+  }, [selectedCustomerId]);
+
+  useEffect(() => {
+    const maxP = Math.max(1, Math.ceil(timeline.length / timelinePageSize));
+    if (timelinePage > maxP) {
+      setTimelinePage(maxP);
+    }
+  }, [timeline.length, timelinePageSize]);
+
+  const totalTimelinePages = Math.max(1, Math.ceil(timeline.length / timelinePageSize));
+  const startTimelineIdx = (timelinePage - 1) * timelinePageSize;
+  const currentTimeline = timeline.slice(startTimelineIdx, startTimelineIdx + timelinePageSize);
+
+  const ensureCustomerPageVisible = (customerId: string) => {
+    const index = customers.findIndex((c) => c.id === customerId);
+    if (index !== -1) {
+      if (detailListPageSize > 0) {
+        setDetailListPage(Math.floor(index / detailListPageSize) + 1);
+      }
+      if (pageSize > 0) {
+        setCurrentPage(Math.floor(index / pageSize) + 1);
+      }
+    }
+  };
+
+  const getPageNumbers = (current: number, total: number) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    const pages: (number | string)[] = [];
+    if (current <= 4) {
+      for (let i = 1; i <= 5; i++) pages.push(i);
+      pages.push('...');
+      pages.push(total);
+    } else if (current >= total - 3) {
+      pages.push(1);
+      pages.push('...');
+      for (let i = total - 4; i <= total; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      pages.push('...');
+      pages.push(current - 1);
+      pages.push(current);
+      pages.push(current + 1);
+      pages.push('...');
+      pages.push(total);
+    }
+    return pages;
+  };
+
   const defaultVisibleCols: Record<string, boolean> = {
     stt: true,
     code: true,
@@ -283,12 +497,12 @@ export const CustomersPage: React.FC = () => {
     taxCode: true,
     address: true,
     deliveryAddress: true,
-    actions: true,
-    manager: false,
-    totalDebt: false,
-    creditBalance: false,
-    orders: false,
-    status: false
+    manager: true,
+    totalDebt: true,
+    creditBalance: true,
+    orders: true,
+    status: true,
+    actions: true
   };
 
   const defaultColOrder = [
@@ -311,13 +525,8 @@ export const CustomersPage: React.FC = () => {
 
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_customers_visible_cols_v4');
+      const saved = localStorage.getItem('namkhanh_customers_visible_cols_v5');
       if (saved) return JSON.parse(saved);
-      const savedV3 = localStorage.getItem('namkhanh_customers_visible_cols_v3');
-      if (savedV3) {
-        const parsed = JSON.parse(savedV3);
-        return { ...parsed, source: true };
-      }
       return defaultVisibleCols;
     } catch {
       return defaultVisibleCols;
@@ -326,21 +535,8 @@ export const CustomersPage: React.FC = () => {
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_customers_col_order_v4');
+      const saved = localStorage.getItem('namkhanh_customers_col_order_v5');
       if (saved) return withActionsLast(JSON.parse(saved), defaultColOrder);
-      const savedV3 = localStorage.getItem('namkhanh_customers_col_order_v3');
-      if (savedV3) {
-        const parsed: string[] = JSON.parse(savedV3);
-        if (!parsed.includes('source')) {
-          const insertIdx = parsed.indexOf('customerType');
-          if (insertIdx !== -1) {
-            parsed.splice(insertIdx + 1, 0, 'source');
-          } else {
-            parsed.push('source');
-          }
-        }
-        return withActionsLast(parsed, defaultColOrder);
-      }
       return defaultColOrder;
     } catch {
       return defaultColOrder;
@@ -409,19 +605,21 @@ export const CustomersPage: React.FC = () => {
   const handleReorderColumns = (newOrder: string[]) => {
     const normalized = withActionsLast(newOrder, defaultColOrder);
     setColumnOrder(normalized);
-    localStorage.setItem('namkhanh_customers_col_order_v4', JSON.stringify(normalized));
+    localStorage.setItem('namkhanh_customers_col_order_v5', JSON.stringify(normalized));
   };
 
   const toggleColumnVisibility = (key: string) => {
     const updated = { ...visibleColumns, [key]: !visibleColumns[key] };
     setVisibleColumns(updated);
-    localStorage.setItem('namkhanh_customers_visible_cols_v4', JSON.stringify(updated));
+    localStorage.setItem('namkhanh_customers_visible_cols_v5', JSON.stringify(updated));
   };
 
   const resetColumns = () => {
     setVisibleColumns(defaultVisibleCols);
     setColumnOrder(defaultColOrder);
     resetWidths();
+    localStorage.removeItem('namkhanh_customers_visible_cols_v5');
+    localStorage.removeItem('namkhanh_customers_col_order_v5');
     localStorage.removeItem('namkhanh_customers_visible_cols_v4');
     localStorage.removeItem('namkhanh_customers_col_order_v4');
     localStorage.removeItem('namkhanh_customers_visible_cols_v3');
@@ -534,6 +732,7 @@ export const CustomersPage: React.FC = () => {
 
   const handleSelectCustomer = async (id: string) => {
     setSelectedCustomerId(id);
+    ensureCustomerPageVisible(id);
     setLoadingDetails(true);
     try {
       const [resCust, resTimeline] = await Promise.all([
@@ -542,10 +741,48 @@ export const CustomersPage: React.FC = () => {
       ]);
       setSelectedCustomer(resCust.data);
       setTimeline(resTimeline.data || []);
+      setIsAddingLog(false);
     } catch (err) {
       console.error(err);
     } finally {
       setLoadingDetails(false);
+    }
+  };
+
+  const handleAddLog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCustomerId) return;
+    if (!logNotes.trim()) {
+      setToastMessage('Vui lòng nhập nội dung nhật ký');
+      return;
+    }
+
+    try {
+      setIsSubmittingLog(true);
+      const actionTypeLabels: Record<string, string> = {
+        NOTE: 'Ghi chú chăm sóc',
+        CALL: 'Cuộc gọi tư vấn',
+        MEETING: 'Gặp trực tiếp khách hàng',
+        MESSAGE: 'Nhắn tin Zalo / SMS',
+        EMAIL: 'Gửi Email trao đổi'
+      };
+      const title = logTitle.trim() || actionTypeLabels[logActionType] || 'Nhật ký chăm sóc';
+      await api.post(`/customers/${selectedCustomerId}/logs`, {
+        actionType: logActionType,
+        title,
+        notes: logNotes.trim()
+      });
+
+      const resTimeline = await api.get<CustomerTimelineItem[]>(`/customers/${selectedCustomerId}/timeline`);
+      setTimeline(resTimeline.data || []);
+      setLogNotes('');
+      setLogTitle('');
+      setIsAddingLog(false);
+      setToastMessage('Đã thêm nhật ký chăm sóc thành công!');
+    } catch (err: any) {
+      setToastMessage(err.response?.data?.message || 'Không thể lưu nhật ký');
+    } finally {
+      setIsSubmittingLog(false);
     }
   };
 
@@ -826,58 +1063,6 @@ export const CustomersPage: React.FC = () => {
             <option value="INACTIVE">Tạm dừng</option>
           </select>
 
-          {/* Lọc Loại khách hàng */}
-          <select
-            className="input"
-            style={{
-              height: '34px',
-              paddingTop: 0,
-              paddingBottom: 0,
-              paddingLeft: '0.65rem',
-              paddingRight: '0.65rem',
-              fontSize: '13px',
-              borderRadius: '8px',
-              width: '155px',
-              borderColor: customerType ? '#EF4444' : undefined,
-              color: customerType ? '#DC2626' : undefined,
-              fontWeight: customerType ? 600 : 400
-            }}
-            value={customerType}
-            onChange={(e) => setCustomerType(e.target.value)}
-          >
-            {CUSTOMER_TYPE_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.value === '' ? '-- Loại khách hàng --' : opt.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Lọc Nguồn gốc */}
-          <select
-            className="input"
-            style={{
-              height: '34px',
-              paddingTop: 0,
-              paddingBottom: 0,
-              paddingLeft: '0.65rem',
-              paddingRight: '0.65rem',
-              fontSize: '13px',
-              borderRadius: '8px',
-              width: '155px',
-              borderColor: source ? '#EF4444' : undefined,
-              color: source ? '#DC2626' : undefined,
-              fontWeight: source ? 600 : 400
-            }}
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-          >
-            {SOURCE_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.value === '' ? '-- Nguồn gốc --' : opt.label}
-              </option>
-            ))}
-          </select>
-
           {/* Lọc Số nợ (có thể tùy chỉnh số nợ cần tìm) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
             <select
@@ -1031,9 +1216,9 @@ export const CustomersPage: React.FC = () => {
 
       {/* GIAO DIỆN HIỂN THỊ: 3 PHẦN (SPLIT) HOẶC BẢNG DATAGRID (TABLE) */}
       {viewMode === 'split' ? (
-        /* GIAO DIỆN ĐẶC THÙ CHIA 3 PHẦN KHI QUẢN TRỊ KHÁCH HÀNG */
-        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr 300px', gap: '0.625rem', alignItems: 'start' }}>
-          {/* CỘT 1 (30%): DANH SÁCH & THÔNG TIN KHÁCH HÀNG */}
+        /* GIAO DIỆN ĐẶC THÙ CHIA 3 PHẦN KHI QUẢN TRỊ KHÁCH HÀNG (CỘT 2 RỘNG HƠN) */
+        <div style={{ display: 'grid', gridTemplateColumns: '280px minmax(0, 1.35fr) minmax(0, 1fr)', gap: '0.625rem', alignItems: 'start' }}>
+          {/* CỘT 1: DANH SÁCH & THÔNG TIN KHÁCH HÀNG (PHÂN TRANG 5-6 DÒNG) */}
           <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
             <div style={{ padding: '0.85rem 1rem', borderBottom: '1px solid #F3F4F6', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: '700', fontSize: '14.3px', color: '#374151' }}>
@@ -1057,7 +1242,7 @@ export const CustomersPage: React.FC = () => {
             </div>
 
             <div style={{ maxHeight: '720px', overflowY: 'auto' }}>
-              {customers.map((c) => {
+              {currentDetailCustomers.map((c) => {
                 const isSelected = c.id === selectedCustomerId;
                 return (
                   <div
@@ -1080,30 +1265,50 @@ export const CustomersPage: React.FC = () => {
                         {c.code}
                       </span>
                     </div>
-                    <div style={{ fontSize: '12.65px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.2rem' }}>
-                      <Phone size={12} />
-                      <span>{c.phone}</span>
-                    </div>
-                    <div style={{ fontSize: '12.1px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
-                      <span style={{ color: '#9CA3AF' }}>Phụ trách: {c.manager?.fullName || 'Chưa gán'}</span>
-                      {(c.totalDebt || 0) > 0 ? (
-                        <span style={{ color: c.isHighDebt ? '#DC2626' : '#D97706', fontWeight: '700' }}>
-                          Nợ: {formatMoney(c.totalDebt || 0)} {c.isHighDebt && '⚠️'}
-                        </span>
-                      ) : (
-                        <span style={{ color: '#EA332A', fontWeight: '600' }}>
-                          {c._count?.orders || 0} đơn
-                        </span>
-                      )}
+                    <div style={{ fontSize: '12.65px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                      <div style={{ color: '#6B7280', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <Phone size={12} />
+                        <span>{c.phone || '—'}</span>
+                      </div>
+                      <span style={{ color: (c.totalDebt || 0) > 0 ? '#DC2626' : '#10B981', fontWeight: '700' }}>
+                        Nợ: {formatMoney(c.totalDebt || 0)}
+                      </span>
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Phân trang Cột 1: 5 dòng/trang, tự động thêm/bớt dòng theo zoom */}
+            <div style={{ padding: '0.6rem 0.85rem', borderTop: '1px solid #F3F4F6', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+              <span style={{ color: '#6B7280' }}>
+                Trang <strong>{detailListPage}</strong>/{totalDetailListPages} ({customers.length} KH)
+              </span>
+              <div style={{ display: 'flex', gap: '0.25rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setDetailListPage((p) => Math.max(1, p - 1))}
+                  disabled={detailListPage === 1}
+                  className="btn btn-secondary btn-sm !p-1 text-slate-600 disabled:opacity-40"
+                  title="Trang trước"
+                >
+                  <ChevronLeft size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDetailListPage((p) => Math.min(totalDetailListPages, p + 1))}
+                  disabled={detailListPage === totalDetailListPages}
+                  className="btn btn-secondary btn-sm !p-1 text-slate-600 disabled:opacity-40"
+                  title="Trang sau"
+                >
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* CỘT 2 (45%): CHI TIẾT & TIMELINE GIAO DỊCH */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+          {/* CỘT 2: THÔNG TIN KHÁCH HÀNG & GHI CHÚ */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', minWidth: 0, width: '100%' }}>
             {selectedCustomer ? (
               <>
                 {/* Header chi tiết khách hàng */}
@@ -1116,7 +1321,7 @@ export const CustomersPage: React.FC = () => {
                           onClick={() => setViewMode('table')}
                           className="btn btn-secondary btn-sm"
                           style={{ padding: '0.25rem 0.65rem', fontSize: '12.5px', gap: '0.3rem', color: '#374151', borderRadius: '9999px' }}
-                          title="Quay lại giao diện Bảng DataGrid"
+                          title="Quay lại giao diện bảng dữ liệu"
                         >
                           <ArrowLeft size={13} />
                           <span>Quay lại bảng</span>
@@ -1130,7 +1335,7 @@ export const CustomersPage: React.FC = () => {
                         <span>•</span>
                         <span>MST: <strong>{selectedCustomer.taxCode || 'Chưa cập nhật'}</strong></span>
                         <span>•</span>
-                        <span>Loại: <strong>{selectedCustomer.customerType}</strong></span>
+                        <span>Loại: <strong>{getCustomerTypeBadge(selectedCustomer.customerType).label}</strong></span>
                       </div>
                     </div>
 
@@ -1138,7 +1343,7 @@ export const CustomersPage: React.FC = () => {
                       <button
                         onClick={() => openHandoverModal(selectedCustomer)}
                         className="btn btn-secondary btn-sm"
-                        title="Bàn giao khách hàng cho Sales khác"
+                        title="Bàn giao khách hàng cho nhân viên khác"
                       >
                         <UserCheck size={14} color="#E53935" />
                       </button>
@@ -1171,11 +1376,14 @@ export const CustomersPage: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Truck size={13} className="text-gray-400 shrink-0" /> <span><strong>Giao hàng:</strong> {selectedCustomer.deliveryAddress || selectedCustomer.address || 'Chưa có'}</span></div>
                   </div>
 
-                  {/* Quản lý Hạn mức tín dụng & Đối chiếu công nợ A4 */}
+                  {/* Quản lý Kiểm soát công nợ & Đối chiếu công nợ A4 */}
                   {(() => {
                     const creditLimit = Number(selectedCustomer.creditLimit) || 50000000;
                     const totalDebt = selectedCustomer.analytics?.totalDebt || 0;
-                    const usedPercent = creditLimit > 0 ? Math.min(100, Math.round((totalDebt / creditLimit) * 100)) : 0;
+                    const totalPaid = selectedCustomer.analytics?.totalPaid || 0;
+                    const totalSpent = selectedCustomer.analytics?.totalSpent || (totalDebt + totalPaid);
+                    const totalIncurred = totalSpent > 0 ? totalSpent : (totalDebt + totalPaid);
+                    const paymentRate = totalIncurred > 0 ? Math.min(100, Math.round((totalPaid / totalIncurred) * 100)) : 100;
                     const isOver = totalDebt > creditLimit;
                     const available = Math.max(0, creditLimit - totalDebt);
 
@@ -1184,7 +1392,7 @@ export const CustomersPage: React.FC = () => {
                         <div className="flex justify-between items-center mb-2">
                           <div className="flex items-center gap-1.5 font-bold text-gray-800 uppercase text-[11px]">
                             {isOver ? <ShieldAlert className="w-4 h-4 text-red-600" /> : <ShieldCheck className="w-4 h-4 text-emerald-600" />}
-                            <span>Hạn mức tín dụng & Kiểm soát công nợ</span>
+                            <span>Kiểm soát công nợ</span>
                           </div>
                           <button
                             type="button"
@@ -1198,39 +1406,40 @@ export const CustomersPage: React.FC = () => {
 
                         <div className="grid grid-cols-3 gap-2 py-1 text-gray-700">
                           <div>
-                            <span className="text-gray-500 text-[11px] block">Hạn mức được cấp:</span>
-                            <strong className="text-gray-900 text-xs">{formatMoney(creditLimit)}</strong>
+                            <span className="text-gray-500 text-[11px] block">Tổng giá trị:</span>
+                            <strong className="text-gray-900 text-xs">{formatMoney(totalIncurred)}</strong>
                           </div>
                           <div>
-                            <span className="text-gray-500 text-[11px] block">Dư nợ hiện tại:</span>
+                            <span className="text-gray-500 text-[11px] block">Thực thu:</span>
+                            <strong className="text-emerald-700 text-xs">{formatMoney(totalPaid)}</strong>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 text-[11px] block">Còn nợ:</span>
                             <strong className={totalDebt > 0 ? 'text-red-600 text-xs' : 'text-gray-900 text-xs'}>
                               {formatMoney(totalDebt)}
                             </strong>
                           </div>
-                          <div>
-                            <span className="text-gray-500 text-[11px] block">Hạn mức khả dụng:</span>
-                            <strong className="text-emerald-700 text-xs">{formatMoney(available)}</strong>
-                          </div>
                         </div>
 
-                        {/* Thanh tỷ lệ sử dụng hạn mức */}
+                        {/* Thanh tỷ lệ thanh toán (tính theo tổng công nợ và thực thu) */}
                         <div className="mt-2 space-y-1">
                           <div className="flex justify-between text-[11px]">
-                            <span className="text-gray-500">Tỷ lệ sử dụng hạn mức:</span>
-                            <span className={isOver ? 'font-bold text-red-600' : 'font-semibold text-gray-700'}>
-                              {usedPercent}% {isOver && '(VƯỢT HẠN MỨC!)'}
+                            <span className="text-gray-500">Tỷ lệ thanh toán:</span>
+                            <span className={paymentRate >= 100 ? 'font-bold text-emerald-600' : 'font-semibold text-gray-700'}>
+                              {paymentRate}% {isOver && '(VƯỢT HẠN MỨC!)'}
                             </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                             <div
-                              className={`h-2 rounded-full transition-all duration-500 ${isOver ? 'bg-red-600' : usedPercent >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
-                                }`}
-                              style={{ width: `${Math.min(100, (totalDebt / creditLimit) * 100)}%` }}
+                              className={`h-2 rounded-full transition-all duration-500 ${
+                                isOver ? 'bg-red-600' : paymentRate >= 100 ? 'bg-emerald-500' : paymentRate >= 50 ? 'bg-blue-500' : 'bg-amber-500'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.max(0, paymentRate))}%` }}
                             />
                           </div>
                           <div className="flex justify-between items-center text-[10px] text-gray-400 pt-0.5">
                             <span>Thời hạn nợ tối đa: <strong>{selectedCustomer.maxDebtDays || 30} ngày</strong></span>
-                            <span>Số dư ký quỹ trả trước: <strong>{formatMoney(selectedCustomer.creditBalance || 0)}</strong></span>
+                            <span>Hạn mức tín dụng: <strong>{formatMoney(creditLimit)}</strong></span>
                           </div>
                         </div>
                       </div>
@@ -1238,106 +1447,15 @@ export const CustomersPage: React.FC = () => {
                   })()}
                 </div>
 
-                {/* Lịch sử giao dịch (Timeline) */}
+                {/* Ghi chú chăm sóc */}
                 <div className="card" style={{ padding: '1.25rem' }}>
-                  <h3 style={{ fontSize: '14.3px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Clock size={14} className="text-gray-500" />
-                    <span>Lịch sử giao dịch & Chăm sóc (Timeline)</span>
+                  <h3 style={{ fontSize: '13.75px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <FileText size={14} className="text-[#E53935]" />
+                    <span>Ghi chú chăm sóc</span>
                   </h3>
-
-                  {loadingDetails ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>Đang tải lịch sử...</div>
-                  ) : timeline.length === 0 ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>Chưa có giao dịch báo giá hoặc đơn hàng nào phát sinh</div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                      {timeline.map((item, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '0.75rem',
-                            padding: '0.75rem',
-                            backgroundColor: '#FAFAFA',
-                            borderRadius: '0.5rem',
-                            border: '1px solid #F3F4F6'
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '8px',
-                              backgroundColor: item.type === 'ORDER' ? '#DCFCE7' : item.type === 'QUOTATION' ? '#FEF3C7' : item.type === 'RECEIPT' ? '#E0F2FE' : '#E0E7FF',
-                              color: item.type === 'ORDER' ? '#16A34A' : item.type === 'QUOTATION' ? '#D97706' : item.type === 'RECEIPT' ? '#0284C7' : '#4F46E5',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0
-                            }}
-                          >
-                            {item.type === 'ORDER' ? <ShoppingBag size={16} /> : item.type === 'QUOTATION' ? <FileSpreadsheet size={16} /> : item.type === 'RECEIPT' ? <CreditCard size={16} /> : <UserCheck size={16} />}
-                          </div>
-
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
-                              <span style={{ fontWeight: '600', fontSize: '14.3px', color: '#111827' }}>
-                                {item.title}
-                              </span>
-                              <span style={{ fontSize: '12.1px', color: '#9CA3AF' }}>
-                                {new Date(item.date).toLocaleDateString('vi-VN')}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: '13.2px', color: '#4B5563' }}>{item.notes || item.reason || (item as any).description || ''}</div>
-                            {item.type === 'RECEIPT' ? (
-                              <div style={{ fontSize: '13.2px', color: '#374151', marginBottom: '0.2rem' }}>
-                                Đã thu: <strong style={{ color: '#0284C7' }}>{formatMoney(item.amount || 0)}</strong>
-                                {item.paymentMethod && (
-                                  <span style={{ marginLeft: '0.5rem', color: '#4B5563' }}>
-                                    ({item.paymentMethod === 'CASH' ? 'Tiền mặt' : item.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : item.paymentMethod})
-                                  </span>
-                                )}
-                                {item.actor && (
-                                  <span style={{ marginLeft: '0.5rem', color: '#6B7280', fontSize: '12.65px' }}>
-                                    - Thu bởi: {item.actor}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              item.amount !== undefined && (
-                                <div style={{ fontSize: '13.2px', color: '#374151', marginBottom: '0.2rem' }}>
-                                  Giá trị: <strong>{formatMoney(item.amount)}</strong>
-                                  {item.paid !== undefined && (
-                                    <span style={{ marginLeft: '0.5rem', color: '#16A34A' }}>
-                                      (Đã thu: {formatMoney(item.paid)})
-                                    </span>
-                                  )}
-                                  {item.remaining !== undefined && item.remaining > 0 && (
-                                    <span style={{ marginLeft: '0.5rem', color: '#DC2626', fontWeight: '600' }}>
-                                      [Còn nợ: {formatMoney(item.remaining)}]
-                                    </span>
-                                  )}
-                                </div>
-                              )
-                            )}
-
-                            {item.reason && (
-                              <div style={{ fontSize: '13.2px', color: '#4B5563', fontStyle: 'italic' }}>
-                                Lý do bàn giao: {item.reason} ({item.from} → {item.to})
-                              </div>
-                            )}
-
-                            {item.notes && (
-                              <div style={{ fontSize: '12.65px', color: '#6B7280', marginTop: '0.2rem' }}>
-                                {item.notes}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div style={{ fontSize: '13.75px', color: '#4B5563', lineHeight: '1.6', minHeight: '120px', backgroundColor: '#FEF9C3', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid #FEF08A' }}>
+                    {selectedCustomer?.notes || 'Chưa có ghi chú chăm sóc đặc thù cho khách hàng này.'}
+                  </div>
                 </div>
               </>
             ) : (
@@ -1356,75 +1474,340 @@ export const CustomersPage: React.FC = () => {
             )}
           </div>
 
-          {/* CỘT 3 (25%): THỐNG KÊ TÀI CHÍNH & CÔNG NỢ */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-            <div className="card" style={{ padding: '1.25rem' }}>
-              <h3 style={{ fontSize: '13.75px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <CreditCard size={14} className="text-[#E53935]" />
-                <span>Tổng quan Công nợ</span>
-              </h3>
+          {/* CỘT 3: LỊCH SỬ GIAO DỊCH & CHĂM SÓC (TIMELINE) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', minWidth: 0, width: '100%' }}>
+            {selectedCustomer ? (
+              <div className="card" style={{ padding: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <h3 style={{ fontSize: '13.5px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '0.35rem', margin: 0 }}>
+                    <Clock size={14} className="text-gray-500" />
+                    <span>Lịch sử giao dịch & Chăm sóc</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingLog((prev) => !prev)}
+                    className="btn btn-secondary btn-sm !py-1 !px-2.5 text-[11.5px] flex items-center gap-1 text-[#EA332A] bg-red-50 border border-red-200 hover:bg-red-100 cursor-pointer font-semibold shadow-xs"
+                    title="Thêm nhật ký chăm sóc / cuộc gọi / gặp gỡ khách hàng"
+                  >
+                    <Plus size={12} />
+                    <span>Thêm nhật ký</span>
+                  </button>
+                </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ padding: '0.75rem', backgroundColor: '#F9FAFB', borderRadius: '0.5rem' }}>
-                  <div style={{ fontSize: '12.65px', color: '#6B7280' }}>Tổng doanh số mua:</div>
-                  <div style={{ fontSize: '1.265rem', fontWeight: '700', color: '#111827' }}>
-                    {formatMoney(selectedCustomer?.analytics?.totalSpent)}
+                {/* Form thêm nhật ký chăm sóc / tương tác của người dùng */}
+                {isAddingLog && (
+                  <form
+                    onSubmit={handleAddLog}
+                    style={{
+                      marginBottom: '0.85rem',
+                      padding: '0.85rem',
+                      backgroundColor: '#FFFBEB',
+                      border: '1px solid #FDE68A',
+                      borderRadius: '0.5rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#92400E', textTransform: 'uppercase' }}>
+                        Thêm nhật ký chăm sóc / tương tác
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingLog(false)}
+                        className="text-gray-400 hover:text-gray-600 p-0.5 rounded cursor-pointer"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    {/* Lựa chọn loại tương tác */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.5rem' }}>
+                      {[
+                        { type: 'CALL', label: '📞 Gọi điện', title: 'Cuộc gọi tư vấn' },
+                        { type: 'MEETING', label: '🤝 Gặp gỡ', title: 'Gặp trực tiếp khách hàng' },
+                        { type: 'MESSAGE', label: '💬 Zalo/SMS', title: 'Nhắn tin Zalo / SMS' },
+                        { type: 'EMAIL', label: '✉️ Email', title: 'Gửi Email trao đổi' },
+                        { type: 'NOTE', label: '📝 Ghi chú', title: 'Ghi chú chăm sóc' }
+                      ].map((item) => (
+                        <button
+                          key={item.type}
+                          type="button"
+                          onClick={() => {
+                            setLogActionType(item.type);
+                            setLogTitle(item.title);
+                          }}
+                          className={`px-2 py-0.5 rounded text-[11.5px] border cursor-pointer font-medium transition-colors ${
+                            logActionType === item.type
+                              ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                              : 'bg-white text-gray-700 border-amber-200 hover:bg-amber-100'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{ marginBottom: '0.45rem' }}>
+                      <input
+                        type="text"
+                        value={logTitle}
+                        onChange={(e) => setLogTitle(e.target.value)}
+                        placeholder="Tiêu đề nhật ký (ví dụ: Gọi điện tư vấn, Hẹn gửi báo giá...)"
+                        className="input text-xs w-full !py-1 !px-2 bg-white"
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <textarea
+                        value={logNotes}
+                        onChange={(e) => setLogNotes(e.target.value)}
+                        placeholder="Nội dung tương tác với khách hàng, phản hồi, thỏa thuận giá, lịch hẹn..."
+                        rows={2}
+                        className="input text-xs w-full !py-1 !px-2 bg-white resize-none"
+                        required
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingLog(false)}
+                        className="btn btn-secondary btn-sm !py-1 !px-2 text-xs cursor-pointer"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmittingLog || !logNotes.trim()}
+                        className="btn btn-primary btn-sm !py-1 !px-3 text-xs bg-[#EA332A] hover:bg-[#d62820] text-white font-semibold disabled:opacity-50 cursor-pointer"
+                      >
+                        {isSubmittingLog ? 'Đang lưu...' : 'Lưu nhật ký'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <div style={{ fontSize: '12.1px', color: '#6B7280', display: 'flex', gap: '1.25rem', marginBottom: '0.85rem', paddingBottom: '0.5rem', borderBottom: '1px solid #F3F4F6' }}>
+                  <div>Tổng số đơn: <strong>{selectedCustomer.analytics?.orderCount || 0}</strong></div>
+                  <div>
+                    Đơn hàng gần nhất:{' '}
+                    <strong>
+                      {selectedCustomer.analytics?.lastOrderDate
+                        ? new Date(selectedCustomer.analytics.lastOrderDate).toLocaleDateString('vi-VN')
+                        : 'Chưa có'}
+                    </strong>
                   </div>
                 </div>
 
-                <div style={{ padding: '0.75rem', backgroundColor: '#DCFCE7', borderRadius: '0.5rem' }}>
-                  <div style={{ fontSize: '12.65px', color: '#166534' }}>Đã thanh toán (Thực thu):</div>
-                  <div style={{ fontSize: '1.265rem', fontWeight: '700', color: '#15803D' }}>
-                    {formatMoney(selectedCustomer?.analytics?.totalPaid)}
-                  </div>
-                </div>
+                {loadingDetails ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>Đang tải lịch sử...</div>
+                ) : timeline.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>Chưa có hoạt động nào phát sinh với khách hàng này</div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', maxHeight: '680px', overflowY: 'auto' }}>
+                      {currentTimeline.map((item, idx) => {
+                        let iconBg = '#E0E7FF';
+                        let iconColor = '#4F46E5';
+                        let IconComp: any = Clock;
+                        let typeBadge = 'Hành động';
+                        let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
 
-                <div style={{ padding: '0.75rem', backgroundColor: selectedCustomer?.analytics?.totalDebt ? '#FEE2E2' : '#F3F4F6', borderRadius: '0.5rem' }}>
-                  <div style={{ fontSize: '12.65px', color: selectedCustomer?.analytics?.totalDebt ? '#991B1B' : '#4B5563' }}>
-                    Còn phải thu (Nợ đọng):
-                  </div>
-                  <div style={{ fontSize: '1.265rem', fontWeight: '700', color: selectedCustomer?.analytics?.totalDebt ? '#DC2626' : '#111827' }}>
-                    {formatMoney(selectedCustomer?.analytics?.totalDebt)}
-                  </div>
-                </div>
+                        if (item.type === 'ORDER') {
+                          iconBg = '#DCFCE7';
+                          iconColor = '#16A34A';
+                          IconComp = ShoppingBag;
+                          typeBadge = 'Đơn bán hàng';
+                          badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                        } else if (item.type === 'QUOTATION') {
+                          iconBg = '#FEF3C7';
+                          iconColor = '#D97706';
+                          IconComp = FileSpreadsheet;
+                          typeBadge = 'Báo giá';
+                          badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+                        } else if (item.type === 'RECEIPT') {
+                          iconBg = '#E0F2FE';
+                          iconColor = '#0284C7';
+                          IconComp = CreditCard;
+                          typeBadge = 'Phiếu thu';
+                          badgeColor = 'bg-sky-50 text-sky-700 border-sky-200';
+                        } else if (item.type === 'HANDOVER') {
+                          iconBg = '#F3E8FF';
+                          iconColor = '#9333EA';
+                          IconComp = ArrowLeftRight;
+                          typeBadge = 'Bàn giao';
+                          badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
+                        } else if (item.type === 'CARE_LOG') {
+                          iconBg = '#FFEDD5';
+                          iconColor = '#EA580C';
+                          IconComp = item.actionType === 'CALL' ? Phone : item.actionType === 'MEETING' ? Users : item.actionType === 'EMAIL' ? Mail : FileText;
+                          typeBadge = 'Nhật ký chăm sóc';
+                          badgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
+                        } else if (item.type === 'CREATION') {
+                          iconBg = '#DBEAFE';
+                          iconColor = '#2563EB';
+                          IconComp = UserCheck;
+                          typeBadge = 'Khởi tạo hồ sơ';
+                          badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+                        } else if (item.type === 'UPDATE') {
+                          iconBg = '#F1F5F9';
+                          iconColor = '#475569';
+                          IconComp = Edit2;
+                          typeBadge = 'Cập nhật';
+                          badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
+                        }
 
-                {/* Số dư ký quỹ / Tiền trả trước theo Mục IX */}
-                <div style={{ padding: '0.75rem', backgroundColor: '#EFF6FF', borderRadius: '0.5rem', border: '1px solid #DBEAFE' }}>
-                  <div style={{ fontSize: '12.65px', color: '#1E40AF', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span>Số dư trả trước / Ký quỹ:</span>
-                    <span style={{ fontSize: '12.1px', backgroundColor: '#DBEAFE', color: '#1E40AF', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>Mục IX</span>
-                  </div>
-                  <div style={{ fontSize: '1.265rem', fontWeight: '700', color: '#1D4ED8', marginTop: '2px' }}>
-                    {formatMoney(Number(selectedCustomer?.creditBalance) || 0)}
-                  </div>
-                  <div style={{ fontSize: '12.1px', color: '#3B82F6', marginTop: '2px' }}>
-                    Tiền khách trả thừa / hoàn cọc cấn trừ đơn sau
-                  </div>
-                </div>
-              </div>
+                        return (
+                          <div
+                            key={item.id || idx}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '0.75rem',
+                              padding: '0.75rem',
+                              backgroundColor: '#FAFAFA',
+                              borderRadius: '0.5rem',
+                              border: '1px solid #F3F4F6'
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                backgroundColor: iconBg,
+                                color: iconColor,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}
+                            >
+                              <IconComp size={16} />
+                            </div>
 
-              <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #F3F4F6', fontSize: '12.65px', color: '#6B7280' }}>
-                <div>Tổng số đơn hàng: <strong>{selectedCustomer?.analytics?.orderCount || 0}</strong></div>
-                <div style={{ marginTop: '0.25rem' }}>
-                  Đơn hàng gần nhất:{' '}
-                  <strong>
-                    {selectedCustomer?.analytics?.lastOrderDate
-                      ? new Date(selectedCustomer.analytics.lastOrderDate).toLocaleDateString('vi-VN')
-                      : 'Chưa có'}
-                  </strong>
-                </div>
-              </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                  <span style={{ fontWeight: '600', fontSize: '13.5px', color: '#111827' }}>
+                                    {item.title}
+                                  </span>
+                                  <span className={`text-[10.5px] px-1.5 py-0.2 rounded border font-medium ${badgeColor}`}>
+                                    {typeBadge}
+                                  </span>
+                                  {item.status && (
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 font-medium">
+                                      {item.type === 'QUOTATION' ? getQuotationStatusLabel(item.status) : getOrderStatusLabel(item.status)}
+                                    </span>
+                                  )}
+                                  {item.paymentStatus && (
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 font-medium">
+                                      {getPaymentStatusLabel(item.paymentStatus)}
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: '11.5px', color: '#9CA3AF', whiteSpace: 'nowrap' }}>
+                                  {new Date(item.date).toLocaleDateString('vi-VN')}
+                                </span>
+                              </div>
+
+                              {item.type === 'RECEIPT' && (
+                                <div style={{ fontSize: '12.5px', color: '#374151', marginBottom: '0.2rem' }}>
+                                  Đã thu: <strong style={{ color: '#0284C7' }}>{formatMoney(item.amount || 0)}</strong>
+                                  {item.paymentMethod && (
+                                    <span style={{ marginLeft: '0.5rem', color: '#4B5563' }}>
+                                      ({getPaymentMethodLabel(item.paymentMethod)})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {(item.type === 'ORDER' || item.type === 'QUOTATION') && item.amount !== undefined && (
+                                <div style={{ fontSize: '12.5px', color: '#374151', marginBottom: '0.2rem' }}>
+                                  Giá trị: <strong>{formatMoney(item.amount)}</strong>
+                                  {item.paid !== undefined && (
+                                    <span style={{ marginLeft: '0.5rem', color: '#16A34A' }}>
+                                      (Đã thu: {formatMoney(item.paid)})
+                                    </span>
+                                  )}
+                                  {item.remaining !== undefined && item.remaining > 0 && (
+                                    <span style={{ marginLeft: '0.5rem', color: '#DC2626', fontWeight: '600' }}>
+                                      [Còn nợ: {formatMoney(item.remaining)}]
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {item.reason && (
+                                <div style={{ fontSize: '12.5px', color: '#4B5563', fontStyle: 'italic', marginBottom: '0.2rem' }}>
+                                  Lý do: {item.reason} {item.from && item.to ? `(${item.from} → ${item.to})` : ''}
+                                </div>
+                              )}
+
+                              {item.notes && (
+                                <div style={{ fontSize: '12.5px', color: '#4B5563', backgroundColor: item.type === 'CARE_LOG' ? '#FFFBEB' : 'transparent', padding: item.type === 'CARE_LOG' ? '0.35rem 0.5rem' : '0', borderRadius: '4px', border: item.type === 'CARE_LOG' ? '1px dashed #FDE68A' : 'none', marginTop: '0.15rem' }}>
+                                  {item.notes}
+                                </div>
+                              )}
+
+                              {item.actor && (
+                                <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '0.25rem' }}>
+                                  Thực hiện bởi: <strong className="text-gray-600">{item.actor}</strong>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                  {/* Phân trang Timeline: Mặc định 4 dòng/trang, tự động thêm/bớt dòng theo zoom */}
+                  <div style={{ padding: '0.65rem 0.25rem 0', marginTop: '0.5rem', borderTop: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', fontSize: '12px', color: '#6B7280' }}>
+                    <span>
+                      {timeline.length > 0 ? (
+                        <>
+                          <span className="font-semibold text-slate-700">{startTimelineIdx + 1}</span> -{' '}
+                          <span className="font-semibold text-slate-700">{Math.min(startTimelineIdx + timelinePageSize, timeline.length)}</span> /{' '}
+                          <span className="font-semibold text-slate-700">{timeline.length}</span> giao dịch
+                        </>
+                      ) : (
+                        '0 giao dịch'
+                      )}
+                    </span>
+
+                    {totalTimelinePages > 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => setTimelinePage((p) => Math.max(1, p - 1))}
+                          disabled={timelinePage === 1}
+                          className="btn btn-secondary btn-sm !p-1 text-slate-600 disabled:opacity-40"
+                          title="Trang trước"
+                        >
+                          <ChevronLeft size={13} />
+                        </button>
+                        <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#374151' }}>
+                          {timelinePage}/{totalTimelinePages}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setTimelinePage((p) => Math.min(totalTimelinePages, p + 1))}
+                          disabled={timelinePage === totalTimelinePages}
+                          className="btn btn-secondary btn-sm !p-1 text-slate-600 disabled:opacity-40"
+                          title="Trang sau"
+                        >
+                          <ChevronRight size={13} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
-
-            <div className="card" style={{ padding: '1.25rem' }}>
-              <h3 style={{ fontSize: '13.75px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <FileText size={14} className="text-[#E53935]" />
-                <span>Ghi chú chăm sóc VPP</span>
-              </h3>
-              <div style={{ fontSize: '13.75px', color: '#4B5563', lineHeight: '1.5', minHeight: '80px', backgroundColor: '#FEF9C3', padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid #FEF08A' }}>
-                {selectedCustomer?.notes || 'Chưa có ghi chú chăm sóc đặc thù cho khách hàng này.'}
+            ) : (
+              <div className="card" style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>
+                Chưa chọn khách hàng
               </div>
-            </div>
+            )}
           </div>
         </div>
       ) : (
@@ -1493,8 +1876,8 @@ export const CustomersPage: React.FC = () => {
                                     setIsSourceFilterOpen(false);
                                   }}
                                   className={`p-1 rounded transition-all cursor-pointer ${customerType
-                                      ? 'bg-red-100 text-red-700 border border-red-300 shadow-sm'
-                                      : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/70'
+                                    ? 'bg-red-100 text-red-700 border border-red-300 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/70'
                                     }`}
                                   title={customerType ? `Đang lọc: ${CUSTOMER_TYPE_FILTER_OPTIONS.find(o => o.value === customerType)?.label}` : 'Lọc Loại khách hàng'}
                                 >
@@ -1525,8 +1908,8 @@ export const CustomersPage: React.FC = () => {
                                           setIsCustomerTypeFilterOpen(false);
                                         }}
                                         className={`w-full px-3 py-1.5 text-[12.5px] flex items-center justify-between transition-colors text-left cursor-pointer ${customerType === opt.value
-                                            ? 'bg-red-50 text-red-600 font-semibold'
-                                            : 'text-slate-700 hover:bg-slate-50'
+                                          ? 'bg-red-50 text-red-600 font-semibold'
+                                          : 'text-slate-700 hover:bg-slate-50'
                                           }`}
                                       >
                                         <span>{opt.label}</span>
@@ -1554,8 +1937,8 @@ export const CustomersPage: React.FC = () => {
                                     setIsCustomerTypeFilterOpen(false);
                                   }}
                                   className={`p-1 rounded transition-all cursor-pointer ${source
-                                      ? 'bg-red-100 text-red-700 border border-red-300 shadow-sm'
-                                      : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/70'
+                                    ? 'bg-red-100 text-red-700 border border-red-300 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/70'
                                     }`}
                                   title={source ? `Đang lọc: ${SOURCE_FILTER_OPTIONS.find(o => o.value === source)?.label}` : 'Lọc Nguồn gốc'}
                                 >
@@ -1586,8 +1969,8 @@ export const CustomersPage: React.FC = () => {
                                           setIsSourceFilterOpen(false);
                                         }}
                                         className={`w-full px-3 py-1.5 text-[12.5px] flex items-center justify-between transition-colors text-left cursor-pointer ${source === opt.value
-                                            ? 'bg-red-50 text-red-600 font-semibold'
-                                            : 'text-slate-700 hover:bg-slate-50'
+                                          ? 'bg-red-50 text-red-600 font-semibold'
+                                          : 'text-slate-700 hover:bg-slate-50'
                                           }`}
                                       >
                                         <span>{opt.label}</span>
@@ -1627,7 +2010,8 @@ export const CustomersPage: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  customers.map((c, idx) => {
+                  currentCustomers.map((c, idx) => {
+                    const actualIndex = startIndex + idx + 1;
                     return (
                       <tr
                         key={c.id}
@@ -1648,7 +2032,7 @@ export const CustomersPage: React.FC = () => {
                                     key={colKey}
                                     className="py-2.5 px-3 text-center text-slate-600 text-[13px] whitespace-nowrap overflow-hidden"
                                   >
-                                    {idx + 1}
+                                    {actualIndex}
                                   </td>
                                 );
                               case 'code': {
@@ -1874,6 +2258,69 @@ export const CustomersPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Thanh phân trang DataGrid chuyên nghiệp */}
+          <div className="px-4 py-3 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
+            <div>
+              {customers.length > 0 ? (
+                <span>
+                  Hiển thị <span className="font-semibold text-slate-800">{startIndex + 1}</span> -{' '}
+                  <span className="font-semibold text-slate-800">{Math.min(startIndex + pageSize, customers.length)}</span> trên{' '}
+                  <span className="font-semibold text-slate-800">{customers.length}</span> khách hàng
+                </span>
+              ) : (
+                <span>0 khách hàng</span>
+              )}
+            </div>
+
+            {/* Phân trang số trang & nút lật */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-md border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                  title="Trang trước"
+                >
+                  <ChevronLeft className="w-4 h-4 text-slate-600" />
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {getPageNumbers(currentPage, totalPages).map((pNum, pIdx) =>
+                    pNum === '...' ? (
+                      <span key={`ellipsis-${pIdx}`} className="px-1.5 text-slate-400">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={`page-${pNum}`}
+                        type="button"
+                        onClick={() => setCurrentPage(Number(pNum))}
+                        className={`min-w-[28px] h-7 px-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                          currentPage === pNum
+                            ? 'bg-[#EA332A] text-white shadow-xs'
+                            : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        {pNum}
+                      </button>
+                    )
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded-md border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                  title="Trang sau"
+                >
+                  <ChevronRight className="w-4 h-4 text-slate-600" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1924,7 +2371,7 @@ export const CustomersPage: React.FC = () => {
                         <option value="ENTERPRISE">Doanh nghiệp</option>
                         <option value="SCHOOL">Trường học</option>
                         <option value="ORGANIZATION">Cơ quan / Tổ chức</option>
-                        <option value="HOUSEHOLD">Đại lý / Cửa hàng VPP</option>
+                        <option value="HOUSEHOLD">Đại lý / Cửa hàng</option>
                         <option value="INDIVIDUAL">Cá nhân</option>
                       </select>
                     </div>
@@ -1936,7 +2383,7 @@ export const CustomersPage: React.FC = () => {
                         value={formData.status}
                         onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                       >
-                        <option value="ACTIVE">Tiềm năng</option>
+                        <option value="ACTIVE">Hoạt động</option>
                         <option value="INACTIVE">Tạm dừng</option>
                       </select>
                     </div>
@@ -2012,7 +2459,7 @@ export const CustomersPage: React.FC = () => {
                       <input
                         type="email"
                         className="customer-modal-input"
-                        placeholder="VD: contact@company.com"
+                        placeholder="VD: khachhang@congty.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       />
@@ -2113,7 +2560,7 @@ export const CustomersPage: React.FC = () => {
                       <input
                         type="text"
                         className="customer-modal-input"
-                        placeholder="QUẢN TRỊ"
+                        placeholder="Quản trị"
                         value={(formData.contactPosition || '').toUpperCase()}
                         readOnly
                       />
@@ -2128,7 +2575,7 @@ export const CustomersPage: React.FC = () => {
                       >
                         <option value="SELF_FOUND">Tự tìm kiếm</option>
                         <option value="REFERRAL">Được giới thiệu</option>
-                        <option value="SOCIAL">Mạng xã hội / Web</option>
+                        <option value="SOCIAL">Mạng xã hội / Trang web</option>
                         <option value="EXHIBITION">Hội thảo / Triển lãm</option>
                         <option value="OTHER">Khác</option>
                       </select>
@@ -2234,7 +2681,7 @@ export const CustomersPage: React.FC = () => {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '13.75px', fontWeight: '500', marginBottom: '0.25rem' }}>
-                    Lý do bàn giao (Bắt buộc lưu audit log) *
+                    Lý do bàn giao (Bắt buộc lưu nhật ký hệ thống) *
                   </label>
                   <textarea
                     className="input"
@@ -2283,7 +2730,7 @@ export const CustomersPage: React.FC = () => {
           [2, '', 'Trường THCS Lê Quý Đôn', '0102345678', '02438345678', 'Số 66 Nguyễn Văn Huyên, Cầu Giấy, Hà Nội', 'Cô Lan', '0987654321', '', users[0]?.fullName || '', 'Trường học', 'Được giới thiệu']
         ]}
         requiredFields={['Tên khách hàng', 'Số điện thoại']}
-        fieldMappingHelp="Tên khách hàng, Số điện thoại (bắt buộc). Mã khách hàng để trống sẽ tự sinh (KH00001, KH00002, ...). Địa chỉ giao hàng trống sẽ lấy theo địa chỉ công ty. Người phụ trách: Họ tên / Mã NV / Email (trống = người nhập). Loại khách hàng: Doanh nghiệp / Trường học / Cơ quan - Tổ chức / Hộ kinh doanh / Cá nhân. Nguồn gốc: Tự tìm kiếm / Được giới thiệu / Mạng xã hội - Web / Hội thảo - Triển lãm / Khác."
+        fieldMappingHelp="Tên khách hàng, Số điện thoại (bắt buộc). Mã khách hàng để trống sẽ tự sinh (KH00001, KH00002, ...). Địa chỉ giao hàng trống sẽ lấy theo địa chỉ công ty. Người phụ trách: Họ tên / Mã NV / Email (trống = người nhập). Loại khách hàng: Doanh nghiệp / Trường học / Cơ quan - Tổ chức / Hộ kinh doanh / Cá nhân. Nguồn gốc: Tự tìm kiếm / Được giới thiệu / Mạng xã hội - Trang web / Hội thảo - Triển lãm / Khác."
         onImport={handleImportCustomers}
       />
       {/* MODAL IN ĐỐI CHIẾU CÔNG NỢ A4 */}
@@ -2322,7 +2769,7 @@ export const CustomersPage: React.FC = () => {
                   Khách hàng này hiện đã có{' '}
                   <strong>{customerToDelete._count?.orders || 0} đơn hàng</strong> và{' '}
                   <strong>{customerToDelete._count?.quotations || 0} báo giá</strong>. Hệ thống sẽ tự động chuyển trạng thái sang{' '}
-                  <span className="font-bold text-red-700">Tạm dừng (INACTIVE)</span> để bảo toàn lịch sử chứng từ và hóa đơn hợp lệ.
+                  <span className="font-bold text-red-700">Tạm dừng</span> để bảo toàn lịch sử chứng từ và hóa đơn hợp lệ.
                 </div>
               ) : (
                 <p className="text-xs text-gray-500 leading-relaxed bg-gray-50 p-2.5 rounded-lg border border-gray-100">

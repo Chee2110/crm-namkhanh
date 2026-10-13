@@ -275,10 +275,10 @@ export const DepartmentsPage: React.FC = () => {
                 </span>
                 <span
                   className={`badge ${dept.status === 'ACTIVE'
-                      ? 'badge-green'
-                      : dept.status === 'SUSPENDED'
-                        ? 'badge-yellow'
-                        : 'badge-red'
+                    ? 'badge-green'
+                    : dept.status === 'SUSPENDED'
+                      ? 'badge-yellow'
+                      : 'badge-red'
                     }`}
                 >
                   {dept.status === 'ACTIVE'

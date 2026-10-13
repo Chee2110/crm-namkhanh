@@ -14,7 +14,7 @@ import { RolesPage } from './pages/system/RolesPage';
 import { PermissionsPage } from './pages/system/PermissionsPage';
 import { DocumentsPage } from './pages/system/DocumentsPage';
 
-// Phân hệ Kinh doanh & Bán hàng VPP
+// Phân hệ Kinh doanh & Bán hàng
 import { CustomersPage } from './pages/sales/CustomersPage';
 import { QuotationsPage } from './pages/sales/QuotationsPage';
 import { OrdersPage } from './pages/sales/OrdersPage';
@@ -22,7 +22,7 @@ import { SalesOverviewPage } from './pages/sales/SalesOverviewPage';
 import { SalesReportsPage } from './pages/sales/SalesReportsPage';
 import { SalesPlansPage } from './pages/sales/SalesPlansPage';
 
-// Phân hệ Kho & Hàng hóa VPP
+// Phân hệ Kho & Hàng hóa
 import { InventoryOverviewPage } from './pages/inventory/InventoryOverviewPage';
 import { WarehousesPage } from './pages/inventory/WarehousesPage';
 import { CategoriesPage } from './pages/inventory/CategoriesPage';
@@ -210,7 +210,7 @@ const AppContent: React.FC = () => {
 
   const renderContent = () => {
     switch (currentTab) {
-      // Phân hệ Kinh doanh & Bán hàng VPP
+      // Phân hệ Kinh doanh & Bán hàng
       case 'customers':
         return <CustomersPage />;
       case 'quotations':
@@ -224,7 +224,7 @@ const AppContent: React.FC = () => {
       case 'sales-plans':
         return <SalesPlansPage />;
 
-      // Phân hệ Kho & Hàng hóa VPP
+      // Phân hệ Kho & Hàng hóa
       case 'inventory-overview':
         return <InventoryOverviewPage />;
       case 'warehouses':

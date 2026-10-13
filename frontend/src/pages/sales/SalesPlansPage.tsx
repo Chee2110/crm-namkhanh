@@ -155,7 +155,7 @@ export const SalesPlansPage: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-namkhanh-50 text-namkhanh-600 flex items-center justify-center font-bold shadow-inner">
               <Target className="w-5 h-5" />
             </div>
-            <span>Kế Hoạch & Chỉ Tiêu Doanh Số VPP</span>
+            <span>Kế Hoạch & Chỉ Tiêu Doanh Số</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1 font-medium">
             Thiết lập chỉ tiêu bán hàng theo kỳ và theo dõi tỷ lệ hoàn thành thực tế
@@ -198,7 +198,7 @@ export const SalesPlansPage: React.FC = () => {
           <div className="col-span-full py-16 text-center text-slate-500 card rounded-3xl border border-slate-100/80 shadow-card">
             <Target className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <p className="text-base font-bold text-slate-700">Chưa có kế hoạch kinh doanh nào trong năm {yearFilter}</p>
-            <p className="text-xs text-slate-400 mt-1 font-medium">Bấm "Lập Kế hoạch Mới" để giao chỉ tiêu doanh số VPP</p>
+            <p className="text-xs text-slate-400 mt-1 font-medium">Bấm "Lập Kế hoạch Mới" để giao chỉ tiêu doanh số</p>
           </div>
         ) : (
           plans.map((plan) => {
@@ -312,7 +312,7 @@ export const SalesPlansPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-gray-900">Thiết Lập Kế Hoạch Bán Hàng Mới</h3>
-                  <p className="text-xs text-gray-500">Giao chỉ tiêu sản lượng và doanh số 5 nhóm ngành VPP</p>
+                  <p className="text-xs text-gray-500">Giao chỉ tiêu sản lượng và doanh số 5 nhóm ngành</p>
                 </div>
               </div>
               <button
@@ -524,7 +524,7 @@ export const SalesPlansPage: React.FC = () => {
                 <table className="w-full text-xs text-left">
                   <thead className="bg-gray-100 text-gray-700 uppercase font-bold text-[10px]">
                     <tr>
-                      <th className="p-3">Nhóm VPP</th>
+                      <th className="p-3">Nhóm hàng</th>
                       <th className="p-3 text-center">ĐVT</th>
                       <th className="p-3 text-center">Chỉ tiêu SL</th>
                       <th className="p-3 text-center">Thực tế SL</th>

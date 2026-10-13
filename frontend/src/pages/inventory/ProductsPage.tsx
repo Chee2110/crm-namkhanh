@@ -845,7 +845,7 @@ export const ProductsPage: React.FC = () => {
       setProductTypes(resTypes.data || []);
       setSuppliers(resSup.data || []);
     } catch (err) {
-      console.error('Lỗi khi tải sản phẩm VPP:', err);
+      console.error('Lỗi khi tải sản phẩm:', err);
     } finally {
       if (!isSilent) setLoading(false);
     }
@@ -996,11 +996,11 @@ export const ProductsPage: React.FC = () => {
           prev.map((item) =>
             item.id === editingProduct.id
               ? {
-                  ...item,
-                  ...payload,
-                  imageUrl: payload.imageUrl,
-                  ...(typeof updatedData === 'object' && updatedData !== null ? updatedData : {})
-                }
+                ...item,
+                ...payload,
+                imageUrl: payload.imageUrl,
+                ...(typeof updatedData === 'object' && updatedData !== null ? updatedData : {})
+              }
               : item
           )
         );
@@ -1071,7 +1071,7 @@ export const ProductsPage: React.FC = () => {
               Quản Lý Hàng Hóa Chi Tiết (SKU Master)
             </h2>
             <p style={{ fontSize: '13.2px', color: '#6B7280', margin: '0.2rem 0 0 0' }}>
-              Danh mục sản phẩm VPP, giá vốn, giá bán, thuế VAT, định mức tồn kho và cấu trúc phân loại
+              Danh mục sản phẩm, giá vốn, giá bán, thuế VAT, định mức tồn kho và cấu trúc phân loại
             </p>
           </div>
         </div>
@@ -1571,7 +1571,7 @@ export const ProductsPage: React.FC = () => {
                 <Package className="w-5 h-5 text-[#E53935]" />
                 <div>
                   <h3 className="font-bold text-gray-900">
-                    {editingProduct ? 'Chỉnh Sửa Mặt Hàng SKU' : 'Khai Báo Sản Phẩm VPP Mới (SKU Master)'}
+                    {editingProduct ? 'Chỉnh Sửa Mặt Hàng SKU' : 'Khai Báo Sản Phẩm Mới (SKU Master)'}
                   </h3>
                   <p className="text-xs text-gray-500">Tự động tạo Nhà cung cấp nếu tên NCC mới chưa có trên hệ thống</p>
                 </div>
@@ -1590,8 +1590,8 @@ export const ProductsPage: React.FC = () => {
                 type="button"
                 onClick={() => setFormTab('structure')}
                 className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${formTab === 'structure'
-                    ? 'border-[#E53935] text-[#E53935] bg-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                  ? 'border-[#E53935] text-[#E53935] bg-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-800'
                   }`}
               >
                 1. Kho & Phân loại
@@ -1600,8 +1600,8 @@ export const ProductsPage: React.FC = () => {
                 type="button"
                 onClick={() => setFormTab('general')}
                 className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${formTab === 'general'
-                    ? 'border-[#E53935] text-[#E53935] bg-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                  ? 'border-[#E53935] text-[#E53935] bg-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-800'
                   }`}
               >
                 2. Sản phẩm & Hình ảnh
@@ -1610,8 +1610,8 @@ export const ProductsPage: React.FC = () => {
                 type="button"
                 onClick={() => setFormTab('price')}
                 className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${formTab === 'price'
-                    ? 'border-[#E53935] text-[#E53935] bg-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                  ? 'border-[#E53935] text-[#E53935] bg-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-800'
                   }`}
               >
                 3. Giá & Tồn kho
@@ -1620,8 +1620,8 @@ export const ProductsPage: React.FC = () => {
                 type="button"
                 onClick={() => setFormTab('supplier')}
                 className={`px-4 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${formTab === 'supplier'
-                    ? 'border-[#E53935] text-[#E53935] bg-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                  ? 'border-[#E53935] text-[#E53935] bg-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-800'
                   }`}
               >
                 4. Nhà cung cấp & Khác
@@ -2078,7 +2078,7 @@ export const ProductsPage: React.FC = () => {
                         onChange={(e) => setFormData({ ...formData, vatRate: parseInt(e.target.value) || 8 })}
                         className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white"
                       >
-                        <option value={8}>8% (Tiêu chuẩn VPP)</option>
+                        <option value={8}>8% (Tiêu chuẩn)</option>
                         <option value={10}>10% (Thiết bị VP)</option>
                         <option value={5}>5%</option>
                         <option value={0}>0% (Miễn thuế)</option>
@@ -2328,7 +2328,7 @@ export const ProductsPage: React.FC = () => {
       <ImportExcelModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        title="Nhập danh sách Sản phẩm VPP từ Excel (Cấu trúc 21 cột)"
+        title="Nhập danh sách Sản phẩm từ Excel (Cấu trúc 21 cột)"
         sampleFileName="Cau_Truc_San_Pham_NamKhanh.xlsx"
         sampleHeaders={[
           'Stt',

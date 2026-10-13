@@ -48,7 +48,7 @@ export const InventoryOverviewPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#EA332A] animate-pulse"></span>
             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Tổng Quan Quản Trị Kho & Hàng Hóa VPP
+              Tổng Quan Quản Trị Kho & Hàng Hóa
             </h2>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -163,7 +163,7 @@ export const InventoryOverviewPage: React.FC = () => {
 
           {/* GRID 2 CỘT: CƠ CẤU THEO DANH MỤC & PHÂN BỔ KHO */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Cơ cấu giá trị tồn kho theo 5 Danh mục VPP */}
+            {/* Cơ cấu giá trị tồn kho theo 5 Danh mục */}
             <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-card flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -176,7 +176,7 @@ export const InventoryOverviewPage: React.FC = () => {
                     </h3>
                   </div>
                   <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                    5 Nhóm VPP Chủ Lực
+                    5 Nhóm Chủ Lực
                   </span>
                 </div>
 

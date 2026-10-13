@@ -160,7 +160,7 @@ export const CategoriesPage: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-namkhanh-50 text-namkhanh-600 flex items-center justify-center font-bold shadow-inner">
               <Layers className="w-5 h-5" />
             </div>
-            <span>Danh Mục Hàng Hóa VPP (Cấp 1)</span>
+            <span>Danh Mục Hàng Hóa (Cấp 1)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1 font-medium">
             Phân loại cấp cao nhất của ngành hàng văn phòng phẩm & phân bổ kho lưu trữ
@@ -226,7 +226,7 @@ export const CategoriesPage: React.FC = () => {
                   <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
                 <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.name || defaultCategoryWidths.name}px`, position: 'relative' }}>
-                  <span>Tên danh mục VPP</span>
+                  <span>Tên danh mục</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('name', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
                 <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.warehouse || defaultCategoryWidths.warehouse}px`, position: 'relative' }}>
@@ -335,7 +335,7 @@ export const CategoriesPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-[#E53935]" />
                 <h3 className="font-bold text-gray-900">
-                  {editingCategory ? 'Chỉnh Sửa Danh Mục' : 'Thêm Danh Mục VPP Cấp 1'}
+                  {editingCategory ? 'Chỉnh Sửa Danh Mục' : 'Thêm Danh Mục Cấp 1'}
                 </h3>
               </div>
               <button

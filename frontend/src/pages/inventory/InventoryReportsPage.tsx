@@ -140,7 +140,7 @@ export const InventoryReportsPage: React.FC = () => {
         `"${item.percentage}%"`
       ]);
     } else {
-      headers = ['STT', 'Mã SKU', 'Mã Vạch Barcode', 'Tên Sản Phẩm VPP', 'Danh Mục', 'Loại Hàng', 'Kho Lưu Trữ', 'ĐVT', 'Tồn Kho', 'Định Mức Tối Thiểu', 'Giá Nhập Bình Quân (VND)', 'Tổng Giá Trị Tồn (VND)', 'Tỷ Trọng (%)', 'Trạng Thái'];
+      headers = ['STT', 'Mã SKU', 'Mã Vạch Barcode', 'Tên Sản Phẩm', 'Danh Mục', 'Loại Hàng', 'Kho Lưu Trữ', 'ĐVT', 'Tồn Kho', 'Định Mức Tối Thiểu', 'Giá Nhập Bình Quân (VND)', 'Tổng Giá Trị Tồn (VND)', 'Tỷ Trọng (%)', 'Trạng Thái'];
       rows = filteredItems.map((item, idx) => [
         String(idx + 1),
         `"${item.code}"`,
@@ -242,8 +242,8 @@ export const InventoryReportsPage: React.FC = () => {
             <button
               onClick={() => setActiveTab('category')}
               className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-all ${activeTab === 'category'
-                  ? 'border-[#E53935] text-[#E53935]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-[#E53935] text-[#E53935]'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
               <Layers className="w-4 h-4" />
@@ -253,8 +253,8 @@ export const InventoryReportsPage: React.FC = () => {
             <button
               onClick={() => setActiveTab('type')}
               className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-all ${activeTab === 'type'
-                  ? 'border-[#E53935] text-[#E53935]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-[#E53935] text-[#E53935]'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
               <Package className="w-4 h-4" />
@@ -264,8 +264,8 @@ export const InventoryReportsPage: React.FC = () => {
             <button
               onClick={() => setActiveTab('product')}
               className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-all ${activeTab === 'product'
-                  ? 'border-[#E53935] text-[#E53935]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-[#E53935] text-[#E53935]'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
               <Barcode className="w-4 h-4" />
@@ -545,7 +545,7 @@ export const InventoryReportsPage: React.FC = () => {
                       <th className="py-3 px-3 w-10 text-center">STT</th>
                       <th className="py-3 px-3 w-28 text-center">Mã SKU</th>
                       <th className="py-3 px-3 w-28 text-center">Mã Vạch</th>
-                      <th className="py-3 px-4">Tên Sản Phẩm VPP</th>
+                      <th className="py-3 px-4">Tên Sản Phẩm</th>
                       <th className="py-3 px-3">Loại / Danh Mục</th>
                       <th className="py-3 px-3">Kho</th>
                       <th className="py-3 px-2 text-center">ĐVT</th>

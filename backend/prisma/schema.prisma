@@ -261,7 +261,7 @@ model Product {
   supplierId    String?         @map("supplier_id")
   supplier      Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
-  // Quy cách thông số kỹ thuật VPP
+  // Quy cách thông số kỹ thuật
   brand         String?         // Thương hiệu (Double, Thiên Long, ...)
   specification String?         // Quy cách (500 tờ/ream, 20 cây/hộp, ...)
   subTypeCode   String?         @map("sub_type_code") // Mã nhóm loại
@@ -538,7 +538,7 @@ model ExpenseType {
 model RevenueType {
   id          String           @id @default(uuid())
   code        String           @unique // KT01, KT02...
-  name        String           // Thu bán hàng VPP, Thu dịch vụ in ấn, Thu hoàn ứng, Khác...
+  name        String           // Thu bán hàng, Thu dịch vụ in ấn, Thu hoàn ứng, Khác...
   description String?          @db.Text
   status      String           @default("ACTIVE")
   createdAt   DateTime         @default(now()) @map("created_at")

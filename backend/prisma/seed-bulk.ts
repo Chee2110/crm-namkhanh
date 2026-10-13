@@ -379,13 +379,13 @@ async function main() {
   // 4. HỒ SƠ GIẤY TỜ (+120)
   // =====================================================================
   if (!(await prisma.legalDocument.findUnique({ where: { code: 'HS-2026-001' } }))) {
-    const contractTpl = ['Hợp đồng nguyên tắc cung ứng VPP', 'Hợp đồng mua bán giấy in', 'Phụ lục hợp đồng điều chỉnh đơn giá', 'Hợp đồng đại lý phân phối', 'Biên bản thanh lý hợp đồng', 'Hợp đồng cung cấp thiết bị văn phòng'];
+    const contractTpl = ['Hợp đồng nguyên tắc cung ứng', 'Hợp đồng mua bán giấy in', 'Phụ lục hợp đồng điều chỉnh đơn giá', 'Hợp đồng đại lý phân phối', 'Biên bản thanh lý hợp đồng', 'Hợp đồng cung cấp thiết bị văn phòng'];
     const certTpl = ['Chứng nhận xuất xứ CO', 'Chứng nhận chất lượng CQ', 'Giấy ủy quyền phân phối', 'Hồ sơ năng lực', 'Chứng nhận ISO 9001:2015', 'Giấy chứng nhận hợp quy'];
     const files = [
-      { url: '/uploads/sample_contract_vpp_2026.pdf', mime: 'application/pdf', ext: 'pdf' },
+      { url: '/uploads/sample_contract_2026.pdf', mime: 'application/pdf', ext: 'pdf' },
       { url: '/uploads/sample_distributor_contract.docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ext: 'docx' },
-      { url: '/uploads/chung_chi_co_cq_giay_in_vpp.pdf', mime: 'application/pdf', ext: 'pdf' },
-      { url: '/uploads/ho_so_nang_luc_vpp_nam_khanh.pdf', mime: 'application/pdf', ext: 'pdf' }
+      { url: '/uploads/chung_chi_co_cq_giay_in.pdf', mime: 'application/pdf', ext: 'pdf' },
+      { url: '/uploads/ho_so_nang_luc_nam_khanh.pdf', mime: 'application/pdf', ext: 'pdf' }
     ];
     const rows: any[] = [];
     for (let i = 1; i <= 120; i++) {
@@ -589,7 +589,7 @@ async function main() {
         name = `${pick(ORG_PREFIX)} ${district}`;
         email = `vanthu${idx}@coquan.gov.vn`;
       } else if (type === 'HOUSEHOLD') {
-        name = `${pick(['Nhà sách', 'Cửa hàng VPP', 'Đại lý VPP', 'Photocopy'])} ${pick(COMPANY_CORE)}`;
+        name = `${pick(['Nhà sách', 'Cửa hàng', 'Đại lý', 'Photocopy'])} ${pick(COMPANY_CORE)}`;
         email = `${unaccent(name).toLowerCase().replace(/[^a-z]/g, '')}${idx}@gmail.com`;
       } else {
         name = p.name;
@@ -669,7 +669,7 @@ async function main() {
           ...sums,
           vatRate: items.some((x) => x.vatRate === 10) ? 10 : 8,
           notes: pick([
-            `Báo giá cung ứng VPP định kỳ cho ${c.name}`,
+            `Báo giá cung ứng định kỳ cho ${c.name}`,
             'Báo giá theo yêu cầu, đã bao gồm phí vận chuyển nội thành',
             'Giá áp dụng cho đơn hàng số lượng lớn',
             'Báo giá thiết bị văn phòng kèm bảo hành 12 tháng',
@@ -801,7 +801,7 @@ async function main() {
   } else console.log('• Danh mục chi phí: đã có, bỏ qua');
 
   if (!(await prisma.revenueType.findUnique({ where: { code: 'KT-001' } }))) {
-    const bases = ['Thu bán hàng VPP', 'Thu bán thiết bị văn phòng', 'Thu dịch vụ in ấn', 'Thu phí vận chuyển', 'Thu tiền đặt cọc', 'Thu hoàn ứng', 'Thu thanh lý tài sản', 'Thu chiết khấu nhà cung cấp', 'Thu lãi tiền gửi', 'Thu khác'];
+    const bases = ['Thu bán hàng', 'Thu bán thiết bị văn phòng', 'Thu dịch vụ in ấn', 'Thu phí vận chuyển', 'Thu tiền đặt cọc', 'Thu hoàn ứng', 'Thu thanh lý tài sản', 'Thu chiết khấu nhà cung cấp', 'Thu lãi tiền gửi', 'Thu khác'];
     const channels = ['Khách doanh nghiệp', 'Trường học', 'Cơ quan nhà nước', 'Đại lý cấp 1', 'Đại lý cấp 2', 'Bán lẻ tại cửa hàng', 'Bán online', 'Dự án B2B', 'Chi nhánh TP.HCM', 'Chi nhánh Đà Nẵng'];
     const rows: any[] = [];
     let n = 0;

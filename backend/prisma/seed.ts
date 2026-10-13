@@ -244,7 +244,7 @@ async function main() {
     }
   });
 
-  console.log('✓ Đã tạo Cây cơ cấu tổ chức 3 cấp & Hệ thống Tổng kho VPP Nam Khánh');
+  console.log('✓ Đã tạo Cây cơ cấu tổ chức 3 cấp & Hệ thống Tổng kho Nam Khánh');
 
   // 4. Tạo Tài khoản Người dùng duy nhất: Admin
   const targetEmail = 'dinhhchi2110@gmail.com';
@@ -382,7 +382,7 @@ async function main() {
   const khoTong = await prisma.warehouse.findUnique({ where: { code: 'KHO-TONG' } });
   const khoTrungTam = await prisma.warehouse.findUnique({ where: { code: 'KHO-TRUNG-TAM' } });
 
-  // 6.1 Tạo 5 Nhà cung cấp VPP lớn
+  // 6.1 Tạo 5 Nhà cung cấp lớn
   const suppliersData = [
     {
       code: 'NCC-DOUBLEA',
@@ -490,7 +490,7 @@ async function main() {
     });
     categoryMap.set(cat.code, c);
   }
-  console.log('✓ Đã tạo 5 Danh mục hàng hóa VPP Cấp 1');
+  console.log('✓ Đã tạo 5 Danh mục hàng hóa Cấp 1');
 
   // 6.3 Tạo 10 Loại hàng hóa Cấp 2
   const typesData = [
@@ -527,7 +527,7 @@ async function main() {
     });
     typeMap.set(t.code, pt);
   }
-  console.log('✓ Đã tạo 10 Loại hàng hóa VPP Cấp 2');
+  console.log('✓ Đã tạo 10 Loại hàng hóa Cấp 2');
 
   // 6.4 Tạo Master Data 10 Sản phẩm Văn phòng phẩm chi tiết
   const sampleProducts = [
@@ -737,7 +737,7 @@ async function main() {
     });
     productMap.set(p.code, prod);
   }
-  console.log('✓ Đã cập nhật 10 Sản phẩm VPP liên kết đầy đủ Kho, Danh mục, Loại hàng & Nhà cung cấp');
+  console.log('✓ Đã cập nhật 10 Sản phẩm liên kết đầy đủ Kho, Danh mục, Loại hàng & Nhà cung cấp');
 
   // 7. Tạo Khách hàng mẫu (B.1)
   const salesUser = adminUser;
@@ -755,7 +755,7 @@ async function main() {
       source: 'REFERRAL',
       contactPerson: 'Anh Hoàng Hải (Trưởng phòng Hành chính)',
       email: 'hai.hoang@cmc.com.vn',
-      notes: 'Khách hàng ký hợp đồng nguyên tắc cung ứng VPP định kỳ mỗi tháng từ 20-30 triệu',
+      notes: 'Khách hàng ký hợp đồng nguyên tắc cung ứng định kỳ mỗi tháng từ 20-30 triệu',
       managerId: salesUser?.id,
       status: 'ACTIVE'
     },
@@ -1187,7 +1187,7 @@ async function main() {
     update: {},
     create: {
       code: 'LCP-VAN-CHUYEN',
-      name: 'Cước vận chuyển & Xăng xe giao hàng VPP',
+      name: 'Cước vận chuyển & Xăng xe giao hàng',
       categoryId: cpBanHang.id
     }
   });
@@ -1211,7 +1211,7 @@ async function main() {
     create: {
       code: 'KT-BAN-HANG',
       name: 'Thu tiền bán hàng Văn phòng phẩm',
-      description: 'Thu tiền khách hàng thanh toán đơn hàng VPP'
+      description: 'Thu tiền khách hàng thanh toán đơn hàng'
     }
   });
 
@@ -1297,7 +1297,7 @@ async function main() {
       typeId: lcpTiepKhach.id,
       recipient: 'Trần Văn Nam (Phòng Kinh Doanh)',
       phone: '0903456789',
-      reason: 'Tiếp khách đàm phán hợp đồng cung cấp VPP khối cơ quan',
+      reason: 'Tiếp khách đàm phán hợp đồng cung cấp khối cơ quan',
       amount: 3200000,
       paymentMethod: 'CASH',
       status: 'APPROVED',
@@ -1322,7 +1322,7 @@ async function main() {
         payer: sampleCustomer.contactPerson || sampleCustomer.name,
         phone: sampleCustomer.phone,
         address: sampleCustomer.address || 'Hà Nội',
-        reason: `Thu tiền thanh toán đơn hàng VPP của ${sampleCustomer.name}`,
+        reason: `Thu tiền thanh toán đơn hàng của ${sampleCustomer.name}`,
         amount: 8500000,
         paymentMethod: 'BANK_TRANSFER',
         invoiceNumber: 'UNC-TCB-88392',

@@ -272,7 +272,7 @@ export const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({
             <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-[11px] text-gray-500 shrink-0">
               <span className="font-semibold text-gray-600 flex items-center gap-1">
                 <Package className="w-3.5 h-3.5 text-[#E53935]" />
-                {searchQuery ? `Tìm thấy: ${filteredProducts.length} sản phẩm` : `Kho VPP (${products.length} sản phẩm)`}
+                {searchQuery ? `Tìm thấy: ${filteredProducts.length} sản phẩm` : `Kho hàng (${products.length} sản phẩm)`}
               </span>
               <span className="text-[10px] text-gray-400">Nhấp vào dòng để chọn</span>
             </div>
@@ -294,9 +294,8 @@ export const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({
                     <div
                       key={p.id}
                       onClick={() => handleSelectProduct(p)}
-                      className={`px-3 py-2 flex items-center justify-between gap-2.5 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-red-50/80 text-[#E53935]' : 'hover:bg-gray-50 text-gray-800'
-                      }`}
+                      className={`px-3 py-2 flex items-center justify-between gap-2.5 cursor-pointer transition-colors ${isSelected ? 'bg-red-50/80 text-[#E53935]' : 'hover:bg-gray-50 text-gray-800'
+                        }`}
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-semibold shrink-0">

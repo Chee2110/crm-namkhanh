@@ -22,5 +22,6 @@ router.post('/import', requirePermission('B_CUSTOMERS', 'create'), customersCont
 router.put('/:id', requirePermission('B_CUSTOMERS', 'update'), customersController.updateCustomer);
 router.delete('/:id', requirePermission('B_CUSTOMERS', 'delete'), customersController.deleteCustomer);
 router.post('/:id/handover', requirePermission('B_CUSTOMERS', 'update'), customersController.handoverCustomer);
+router.post('/:id/logs', requirePermission('B_CUSTOMERS', 'update'), customersController.addCustomerLog);
 
 export default router;

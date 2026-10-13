@@ -58,7 +58,7 @@ export const SalesOverviewPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#EA332A] animate-pulse"></span>
             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Tổng Quan Doanh Thu & Sản Lượng VPP
+              Tổng Quan Doanh Thu & Sản Lượng
             </h2>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -120,12 +120,12 @@ export const SalesOverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* KPI 2: Tổng sản lượng VPP */}
+            {/* KPI 2: Tổng sản lượng */}
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-card relative overflow-hidden">
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    Tổng sản lượng VPP
+                    Tổng sản lượng
                   </p>
                   <p className="text-2xl font-black text-slate-900 mt-1">
                     {data?.kpis.totalVolume.toLocaleString('vi-VN') || 0}{' '}
@@ -195,7 +195,7 @@ export const SalesOverviewPage: React.FC = () => {
             </div>
           </div>
 
-          {/* GRID 2 CỘT: XU HƯỚNG 12 THÁNG & CƠ CẤU 5 NHÓM VPP */}
+          {/* GRID 2 CỘT: XU HƯỚNG 12 THÁNG & CƠ CẤU 5 NHÓM */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Biểu đồ Doanh thu 12 tháng */}
             <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-card flex flex-col justify-between">
@@ -258,7 +258,7 @@ export const SalesOverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Cơ cấu Doanh thu theo 5 nhóm VPP */}
+            {/* Cơ cấu Doanh thu theo 5 nhóm */}
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-card flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-4">

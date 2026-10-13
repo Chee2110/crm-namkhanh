@@ -148,6 +148,18 @@ export class CustomersController {
     }
   }
 
+  async addCustomerLog(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { actionType, title, notes } = req.body;
+      const userId = (req as any).user?.id;
+      const result = await customersService.addCustomerCareLog(id, { actionType, title, notes }, userId);
+      return successResponse(res, result, 'Thêm nhật ký chăm sóc thành công');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Lỗi thêm nhật ký chăm sóc', 400);
+    }
+  }
+
   async getCustomerDebtStatement(req: Request, res: Response) {
     try {
       const { id } = req.params;

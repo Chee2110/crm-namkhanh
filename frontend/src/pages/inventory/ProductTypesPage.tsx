@@ -161,7 +161,7 @@ export const ProductTypesPage: React.FC = () => {
         <div>
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Package className="w-5 h-5 text-[#E53935]" />
-            Loại Hàng Hóa VPP (Cấp 2)
+            Loại Hàng Hóa (Cấp 2)
           </h2>
           <p className="text-xs text-gray-500 mt-1">
             Đơn vị phân loại chi tiết trực thuộc Danh mục Cấp 1 & dùng trong phân bổ Kế hoạch Kinh doanh
@@ -227,7 +227,7 @@ export const ProductTypesPage: React.FC = () => {
                   <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
                 <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.name || defaultTypeWidths.name}px`, position: 'relative' }}>
-                  <span>Tên loại hàng hóa VPP</span>
+                  <span>Tên loại hàng hóa</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('name', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
                 <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.category || defaultTypeWidths.category}px`, position: 'relative' }}>
@@ -334,7 +334,7 @@ export const ProductTypesPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Package className="w-5 h-5 text-[#E53935]" />
                 <h3 className="font-bold text-gray-900">
-                  {editingType ? 'Chỉnh Sửa Loại Hàng' : 'Thêm Loại Hàng VPP Cấp 2'}
+                  {editingType ? 'Chỉnh Sửa Loại Hàng' : 'Thêm Loại Hàng Cấp 2'}
                 </h3>
               </div>
               <button

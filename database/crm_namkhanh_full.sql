@@ -711,7 +711,7 @@ f59e180a-4a53-41b1-96e7-da87ebfecaa9	KH0007	Trường THCS Lê Quý Đôn	243834
 a71b22cf-aa26-4093-98cb-039425dd46ec	KH004	Nhà sách & Văn Phòng Phẩm Minh Đức	0913988222	8345920192	142 Nguyễn Trãi, Thanh Xuân, Hà Nội	Kho phân phối Minh Đức - 142 Nguyễn Trãi	HOUSEHOLD	SELF_FOUND	Chị Trần Thị Minh	vppminhduc@gmail.com	Đại lý phân phối cấp 1, nhập số lượng lớn giấy in và bút viết theo quý	621cf917-d0da-4232-b833-b5e0e4306237	ACTIVE	2026-09-10 10:10:45.999	2026-09-14 11:14:52.129	0.00
 27d75309-cefc-4d0b-964b-9e2369d6e9c0	KH005	Bệnh Viện Bạch Mai - Phòng Hành Chính Quản Trị	02438693731	0100778899	78 Giải Phóng, Phương Mai, Đống Đa, Hà Nội	Kho vật tư văn phòng - Tầng hầm Nhà P	ORGANIZATION	OTHER	Bác sĩ Vũ Tuấn Anh	vattu@bachmai.gov.vn	Cung cấp giấy in bệnh án, bìa hồ sơ bệnh nhân, bút viết y tế	621cf917-d0da-4232-b833-b5e0e4306237	ACTIVE	2026-09-10 10:10:46.001	2026-09-14 11:14:52.13	0.00
 989dfadc-f7bd-46be-97e0-5191ca0050b7	KH0008	THCS đông á	393950301	12154514	Trịnh Văn Bô Hà Nội	Trịnh Văn Bô Hà Nội	Trường học	SELF_FOUND	Đinh Chi	\N	\N	621cf917-d0da-4232-b833-b5e0e4306237	ACTIVE	2026-09-11 12:41:51.793	2026-09-14 11:13:12.21	0.00
-daf833ab-2074-4f1a-9635-f0990978e485	KH001	Công ty Cổ phần Tập Đoàn Công Nghệ CMC	02437689000	0100244112	Tòa nhà CMC, Phố Duy Tân, Cầu Giấy, Hà Nội	Tầng 12 Tòa nhà CMC, Phố Duy Tân, Cầu Giấy, Hà Nội	ENTERPRISE	REFERRAL	Anh Hoàng Hải (Trưởng phòng Hành chính)	hai.hoang@cmc.com.vn	Khách hàng ký hợp đồng nguyên tắc cung ứng VPP định kỳ mỗi tháng từ 20-30 triệu	621cf917-d0da-4232-b833-b5e0e4306237	ACTIVE	2026-09-10 10:10:45.986	2026-09-14 11:14:52.126	0.00
+daf833ab-2074-4f1a-9635-f0990978e485	KH001	Công ty Cổ phần Tập Đoàn Công Nghệ CMC	02437689000	0100244112	Tòa nhà CMC, Phố Duy Tân, Cầu Giấy, Hà Nội	Tầng 12 Tòa nhà CMC, Phố Duy Tân, Cầu Giấy, Hà Nội	ENTERPRISE	REFERRAL	Anh Hoàng Hải (Trưởng phòng Hành chính)	hai.hoang@cmc.com.vn	Khách hàng ký hợp đồng nguyên tắc cung ứng định kỳ mỗi tháng từ 20-30 triệu	621cf917-d0da-4232-b833-b5e0e4306237	ACTIVE	2026-09-10 10:10:45.986	2026-09-14 11:14:52.126	0.00
 \.
 
 
@@ -747,7 +747,7 @@ COPY public.expense_categories (id, code, name, description, status, created_at,
 COPY public.expense_types (id, code, name, category_id, description, status, created_at, updated_at) FROM stdin;
 ff1119fa-c54d-4401-9352-3863f7d2e71f	LCP-THUE-NHA	Tiền thuê văn phòng & kho bãi	4fd0455c-ec5f-43ff-a534-9c920274ef2e	Thanh toán định kỳ hàng tháng	ACTIVE	2026-09-10 16:00:20.021	2026-09-10 16:00:20.021
 b7ca629c-faef-4087-9e65-40bccf975059	LCP-DIEN-NUOC	Tiền điện, nước & Internet viễn thông	4fd0455c-ec5f-43ff-a534-9c920274ef2e	\N	ACTIVE	2026-09-10 16:00:20.026	2026-09-10 16:00:20.026
-7f669675-7426-4164-b153-7bedccc33437	LCP-VAN-CHUYEN	Cước vận chuyển & Xăng xe giao hàng VPP	614d0974-6c44-42cf-a1ef-c03399ceb954	\N	ACTIVE	2026-09-10 16:00:20.028	2026-09-10 16:00:20.028
+7f669675-7426-4164-b153-7bedccc33437	LCP-VAN-CHUYEN	Cước vận chuyển & Xăng xe giao hàng	614d0974-6c44-42cf-a1ef-c03399ceb954	\N	ACTIVE	2026-09-10 16:00:20.028	2026-09-10 16:00:20.028
 d120546b-06ce-42bb-ad48-8997eb2c166c	LCP-TIEP-KHACH	Chi phí tiếp khách & Đàm phán hợp đồng	614d0974-6c44-42cf-a1ef-c03399ceb954	\N	ACTIVE	2026-09-10 16:00:20.03	2026-09-10 16:00:20.03
 \.
 
@@ -818,7 +818,7 @@ da0e5c71-1f6d-4875-bdbe-fabafdb9f25d	DH-2026-0001	daf833ab-2074-4f1a-9635-f09909
 COPY public.payment_vouchers (id, code, voucher_date, category_id, type_id, recipient, phone, address, reason, amount, payment_method, invoice_number, invoice_date, file_url, file_name, status, customer_id, order_id, created_by_id, approved_by_id, approved_at, rejected_reason, notes, created_at, updated_at) FROM stdin;
 777a7e27-53e1-4f60-801e-69334e81b1d4	PC-2026-0001	2026-03-01	4fd0455c-ec5f-43ff-a534-9c920274ef2e	ff1119fa-c54d-4401-9352-3863f7d2e71f	Công ty CP Đầu Tư Địa Ốc Cầu Giấy	0988112233	Tầng 3, Tòa nhà Cầu Giấy, Hà Nội	Thanh toán tiền thuê văn phòng trụ sở chính Tháng 03/2026	15000000.00	BANK_TRANSFER	HD-THUE-0326	\N	\N	\N	PAID	\N	\N	621cf917-d0da-4232-b833-b5e0e4306237	621cf917-d0da-4232-b833-b5e0e4306237	2026-03-01 10:00:00	\N	Đã hoàn tất chuyển khoản Vietcombank	2026-09-10 16:00:20.047	2026-09-14 11:13:12.234
 95ac51cf-e845-4b1e-adee-fa836a2d9cc4	PC-2026-0002	2026-03-05	614d0974-6c44-42cf-a1ef-c03399ceb954	7f669675-7426-4164-b153-7bedccc33437	Nguyễn Văn Hùng (Đội xe giao hàng)	0912345678	\N	Thanh toán xăng xe và phí cầu đường giao hàng tuần 1 tháng 3	2350000.00	CASH	\N	\N	\N	\N	PAID	\N	\N	621cf917-d0da-4232-b833-b5e0e4306237	621cf917-d0da-4232-b833-b5e0e4306237	2026-03-05 14:30:00	\N	\N	2026-09-10 16:00:20.052	2026-09-14 11:13:12.234
-679f8949-912a-4bf6-afc0-96e82d97589e	PC-2026-0003	2026-03-08	614d0974-6c44-42cf-a1ef-c03399ceb954	d120546b-06ce-42bb-ad48-8997eb2c166c	Trần Văn Nam (Phòng Kinh Doanh)	0903456789	\N	Tiếp khách đàm phán hợp đồng cung cấp VPP khối cơ quan	3200000.00	CASH	\N	\N	\N	\N	APPROVED	\N	\N	621cf917-d0da-4232-b833-b5e0e4306237	621cf917-d0da-4232-b833-b5e0e4306237	2026-03-08 16:00:00	\N	Đã duyệt chi, chờ xuất quỹ	2026-09-10 16:00:20.055	2026-09-14 11:13:12.234
+679f8949-912a-4bf6-afc0-96e82d97589e	PC-2026-0003	2026-03-08	614d0974-6c44-42cf-a1ef-c03399ceb954	d120546b-06ce-42bb-ad48-8997eb2c166c	Trần Văn Nam (Phòng Kinh Doanh)	0903456789	\N	Tiếp khách đàm phán hợp đồng cung cấp khối cơ quan	3200000.00	CASH	\N	\N	\N	\N	APPROVED	\N	\N	621cf917-d0da-4232-b833-b5e0e4306237	621cf917-d0da-4232-b833-b5e0e4306237	2026-03-08 16:00:00	\N	Đã duyệt chi, chờ xuất quỹ	2026-09-10 16:00:20.055	2026-09-14 11:13:12.234
 \.
 
 
@@ -894,7 +894,7 @@ COPY public.receipt_voucher_allocations (id, voucher_id, order_id, amount, creat
 --
 
 COPY public.receipt_vouchers (id, code, voucher_date, type_id, payer, phone, address, reason, amount, payment_method, invoice_number, invoice_date, file_url, file_name, status, customer_id, order_id, created_by_id, approved_by_id, approved_at, rejected_reason, notes, created_at, updated_at) FROM stdin;
-ef3232d0-8cf2-49d4-aa69-3e47b1517299	PT-2026-0001	2026-03-03	5fca915b-0110-4503-bdb7-4b1b2c69c624	Anh Hoàng Hải (Trưởng phòng Hành chính)	02437689000	Tòa nhà CMC, Phố Duy Tân, Cầu Giấy, Hà Nội	Thu tiền thanh toán đơn hàng VPP của Công ty Cổ phần Tập Đoàn Công Nghệ CMC	8500000.00	BANK_TRANSFER	UNC-TCB-88392	\N	\N	\N	PAID	daf833ab-2074-4f1a-9635-f0990978e485	da0e5c71-1f6d-4875-bdbe-fabafdb9f25d	621cf917-d0da-4232-b833-b5e0e4306237	621cf917-d0da-4232-b833-b5e0e4306237	2026-03-03 11:00:00	\N	Tiền đã về tài khoản Techcombank Nam Khánh	2026-09-10 16:00:20.057	2026-09-14 11:13:12.239
+ef3232d0-8cf2-49d4-aa69-3e47b1517299	PT-2026-0001	2026-03-03	5fca915b-0110-4503-bdb7-4b1b2c69c624	Anh Hoàng Hải (Trưởng phòng Hành chính)	02437689000	Tòa nhà CMC, Phố Duy Tân, Cầu Giấy, Hà Nội	Thu tiền thanh toán đơn hàng của Công ty Cổ phần Tập Đoàn Công Nghệ CMC	8500000.00	BANK_TRANSFER	UNC-TCB-88392	\N	\N	\N	PAID	daf833ab-2074-4f1a-9635-f0990978e485	da0e5c71-1f6d-4875-bdbe-fabafdb9f25d	621cf917-d0da-4232-b833-b5e0e4306237	621cf917-d0da-4232-b833-b5e0e4306237	2026-03-03 11:00:00	\N	Tiền đã về tài khoản Techcombank Nam Khánh	2026-09-10 16:00:20.057	2026-09-14 11:13:12.239
 28334a9c-8da7-486b-bb32-d6e3e5e3204c	PT-2026-0002	2026-03-09	5fca915b-0110-4503-bdb7-4b1b2c69c624	Phạm Thị Lan	0977665544	Thanh Xuân, Hà Nội	Đặt cọc 50% đơn hàng vật tư và giấy in văn phòng quý 1	5000000.00	CASH	\N	\N	\N	\N	PENDING	daf833ab-2074-4f1a-9635-f0990978e485	\N	621cf917-d0da-4232-b833-b5e0e4306237	621cf917-d0da-4232-b833-b5e0e4306237	\N	\N	\N	2026-09-10 16:00:20.062	2026-09-14 11:13:12.239
 \.
 
@@ -904,7 +904,7 @@ ef3232d0-8cf2-49d4-aa69-3e47b1517299	PT-2026-0001	2026-03-03	5fca915b-0110-4503-
 --
 
 COPY public.revenue_types (id, code, name, description, status, created_at, updated_at) FROM stdin;
-5fca915b-0110-4503-bdb7-4b1b2c69c624	KT-BAN-HANG	Thu tiền bán hàng Văn phòng phẩm	Thu tiền khách hàng thanh toán đơn hàng VPP	ACTIVE	2026-09-10 16:00:20.031	2026-09-10 16:00:20.031
+5fca915b-0110-4503-bdb7-4b1b2c69c624	KT-BAN-HANG	Thu tiền bán hàng Văn phòng phẩm	Thu tiền khách hàng thanh toán đơn hàng	ACTIVE	2026-09-10 16:00:20.031	2026-09-10 16:00:20.031
 5113c303-24e2-46d9-8e24-79125b3836e6	KT-DICH-VU-IN	Thu dịch vụ in ấn & đóng cuốn	Gia công đóng bìa còng, in ấn tài liệu	ACTIVE	2026-09-10 16:00:20.036	2026-09-10 16:00:20.036
 c50a48e0-abab-4fed-9315-35a83eb736a4	KT-HOAN-UNG	Thu hoàn ứng công tác phí	Nhân viên hoàn ứng sau khi hoàn tất công tác	ACTIVE	2026-09-10 16:00:20.038	2026-09-10 16:00:20.038
 \.

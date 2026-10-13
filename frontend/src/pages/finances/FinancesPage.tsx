@@ -1567,8 +1567,8 @@ export const FinancesPage: React.FC = () => {
                     key={p}
                     onClick={() => setReportPeriod(p)}
                     className={`px-3 py-1.5 rounded-md transition-all ${reportPeriod === p
-                        ? 'bg-white text-[#E53935] shadow-sm font-bold'
-                        : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-white text-[#E53935] shadow-sm font-bold'
+                      : 'text-gray-500 hover:text-gray-900'
                       }`}
                   >
                     {p === 'month' ? 'Tháng này' : p === 'quarter' ? 'Quý này' : p === 'year' ? 'Năm nay' : 'Toàn bộ'}

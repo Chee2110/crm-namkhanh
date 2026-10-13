@@ -700,8 +700,8 @@ export const UsersPage: React.FC = () => {
                           <button
                             onClick={() => handleToggleStatus(u)}
                             className={`p-1 rounded-md transition-colors cursor-pointer ${u.status === 'ACTIVE'
-                                ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
-                                : 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50'
+                              ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
+                              : 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50'
                               }`}
                             title={u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Kích hoạt lại'}
                           >

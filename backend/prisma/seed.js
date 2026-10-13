@@ -224,7 +224,7 @@ async function main() {
       departmentId: pkho.id
     }
   });
-  console.log("\u2713 \u0110\xE3 t\u1EA1o C\xE2y c\u01A1 c\u1EA5u t\u1ED5 ch\u1EE9c 3 c\u1EA5p & H\u1EC7 th\u1ED1ng T\u1ED5ng kho VPP Nam Kh\xE1nh");
+  console.log("\u2713 \u0110\xE3 t\u1EA1o C\xE2y c\u01A1 c\u1EA5u t\u1ED5 ch\u1EE9c 3 c\u1EA5p & H\u1EC7 th\u1ED1ng T\u1ED5ng kho Nam Kh\xE1nh");
   const targetEmail = "dinhhchi2110@gmail.com";
   const passwordHash = await bcrypt.hash("Dhc2110@", 10);
   const adminRole = roleMap.get("ADMIN");
@@ -447,7 +447,7 @@ async function main() {
     });
     categoryMap.set(cat.code, c);
   }
-  console.log("\u2713 \u0110\xE3 t\u1EA1o 5 Danh m\u1EE5c h\xE0ng h\xF3a VPP C\u1EA5p 1");
+  console.log("\u2713 \u0110\xE3 t\u1EA1o 5 Danh m\u1EE5c h\xE0ng h\xF3a C\u1EA5p 1");
   const typesData = [
     { code: "LH-GIAY-A4", name: "Gi\u1EA5y in kh\u1ED5 A4", categoryCode: "DM-GIAY", unit: "Ream", description: "\u0110\u1ECBnh l\u01B0\u1EE3ng 70gsm, 80gsm ti\xEAu chu\u1EA9n" },
     { code: "LH-GIAY-A3", name: "Gi\u1EA5y in kh\u1ED5 A3", categoryCode: "DM-GIAY", unit: "Ream", description: "Gi\u1EA5y in b\u1EA3n v\u1EBD, s\u01A1 \u0111\u1ED3 A3" },
@@ -481,7 +481,7 @@ async function main() {
     });
     typeMap.set(t.code, pt);
   }
-  console.log("\u2713 \u0110\xE3 t\u1EA1o 10 Lo\u1EA1i h\xE0ng h\xF3a VPP C\u1EA5p 2");
+  console.log("\u2713 \u0110\xE3 t\u1EA1o 10 Lo\u1EA1i h\xE0ng h\xF3a C\u1EA5p 2");
   const sampleProducts = [
     {
       code: "SP-GIAY-01",
@@ -702,7 +702,7 @@ async function main() {
       source: "REFERRAL",
       contactPerson: "Anh Ho\xE0ng H\u1EA3i (Tr\u01B0\u1EDFng ph\xF2ng H\xE0nh ch\xEDnh)",
       email: "hai.hoang@cmc.com.vn",
-      notes: "Kh\xE1ch h\xE0ng k\xFD h\u1EE3p \u0111\u1ED3ng nguy\xEAn t\u1EAFc cung \u1EE9ng VPP \u0111\u1ECBnh k\u1EF3 m\u1ED7i th\xE1ng t\u1EEB 20-30 tri\u1EC7u",
+      notes: "Kh\xE1ch h\xE0ng k\xFD h\u1EE3p \u0111\u1ED3ng nguy\xEAn t\u1EAFc cung \u1EE9ng \u0111\u1ECBnh k\u1EF3 m\u1ED7i th\xE1ng t\u1EEB 20-30 tri\u1EC7u",
       managerId: salesUser?.id,
       status: "ACTIVE"
     },
@@ -1113,7 +1113,7 @@ async function main() {
     update: {},
     create: {
       code: "LCP-VAN-CHUYEN",
-      name: "C\u01B0\u1EDBc v\u1EADn chuy\u1EC3n & X\u0103ng xe giao h\xE0ng VPP",
+      name: "C\u01B0\u1EDBc v\u1EADn chuy\u1EC3n & X\u0103ng xe giao h\xE0ng",
       categoryId: cpBanHang.id
     }
   });
@@ -1133,7 +1133,7 @@ async function main() {
     create: {
       code: "KT-BAN-HANG",
       name: "Thu ti\u1EC1n b\xE1n h\xE0ng V\u0103n ph\xF2ng ph\u1EA9m",
-      description: "Thu ti\u1EC1n kh\xE1ch h\xE0ng thanh to\xE1n \u0111\u01A1n h\xE0ng VPP"
+      description: "Thu ti\u1EC1n kh\xE1ch h\xE0ng thanh to\xE1n \u0111\u01A1n h\xE0ng"
     }
   });
   const ktInAn = await prisma.revenueType.upsert({
@@ -1209,7 +1209,7 @@ async function main() {
       typeId: lcpTiepKhach.id,
       recipient: "Tr\u1EA7n V\u0103n Nam (Ph\xF2ng Kinh Doanh)",
       phone: "0903456789",
-      reason: "Ti\u1EBFp kh\xE1ch \u0111\xE0m ph\xE1n h\u1EE3p \u0111\u1ED3ng cung c\u1EA5p VPP kh\u1ED1i c\u01A1 quan",
+      reason: "Ti\u1EBFp kh\xE1ch \u0111\xE0m ph\xE1n h\u1EE3p \u0111\u1ED3ng cung c\u1EA5p kh\u1ED1i c\u01A1 quan",
       amount: 32e5,
       paymentMethod: "CASH",
       status: "APPROVED",
@@ -1231,7 +1231,7 @@ async function main() {
         payer: sampleCustomer.contactPerson || sampleCustomer.name,
         phone: sampleCustomer.phone,
         address: sampleCustomer.address || "H\xE0 N\u1ED9i",
-        reason: `Thu ti\u1EC1n thanh to\xE1n \u0111\u01A1n h\xE0ng VPP c\u1EE7a ${sampleCustomer.name}`,
+        reason: `Thu ti\u1EC1n thanh to\xE1n \u0111\u01A1n h\xE0ng c\u1EE7a ${sampleCustomer.name}`,
         amount: 85e5,
         paymentMethod: "BANK_TRANSFER",
         invoiceNumber: "UNC-TCB-88392",

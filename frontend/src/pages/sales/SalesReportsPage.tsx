@@ -95,7 +95,7 @@ export const SalesReportsPage: React.FC = () => {
       let rows: any[][] = [];
 
       if (revenueView === 'category') {
-        headers = ['STT', 'Mã danh mục', 'Tên nhóm hàng VPP', 'Sản lượng bán', 'Doanh thu thuần (VNĐ)', 'Tỷ lệ đóng góp (%)'];
+        headers = ['STT', 'Mã danh mục', 'Tên nhóm hàng', 'Sản lượng bán', 'Doanh thu thuần (VNĐ)', 'Tỷ lệ đóng góp (%)'];
         rows = revenueData.items.map((item, idx) => [
           idx + 1,
           item.code,
@@ -105,7 +105,7 @@ export const SalesReportsPage: React.FC = () => {
           `"${item.percentage}%"`
         ]);
       } else if (revenueView === 'product') {
-        headers = ['STT', 'Mã SKU', 'Tên mặt hàng VPP', 'Đơn vị tính', 'Sản lượng bán', 'Doanh thu thuần (VNĐ)', 'Tỷ lệ đóng góp (%)'];
+        headers = ['STT', 'Mã SKU', 'Tên mặt hàng', 'Đơn vị tính', 'Sản lượng bán', 'Doanh thu thuần (VNĐ)', 'Tỷ lệ đóng góp (%)'];
         rows = revenueData.items.map((item, idx) => [
           idx + 1,
           item.code,
@@ -130,8 +130,8 @@ export const SalesReportsPage: React.FC = () => {
       }
 
       const csvContent = '\uFEFF' + [
-        ['BÁO CÁO DOANH THU & SẢN LƯỢNG VPP - CÔNG TY TNHH NK NAM KHÁNH'],
-        [`Góc nhìn phân tích: ${revenueView === 'category' ? 'Theo Nhóm hàng VPP' : revenueView === 'product' ? 'Theo Từng mặt hàng SKU' : 'Theo Nhân viên phụ trách'}`],
+        ['BÁO CÁO DOANH THU & SẢN LƯỢNG - CÔNG TY TNHH NK NAM KHÁNH'],
+        [`Góc nhìn phân tích: ${revenueView === 'category' ? 'Theo Nhóm hàng' : revenueView === 'product' ? 'Theo Từng mặt hàng SKU' : 'Theo Nhân viên phụ trách'}`],
         [`Thời gian xuất: ${new Date().toLocaleString('vi-VN')}`],
         [`Tổng doanh thu: ${revenueData.totalRevenue} VNĐ`],
         [],
@@ -215,7 +215,7 @@ export const SalesReportsPage: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-namkhanh-50 text-namkhanh-600 flex items-center justify-center font-bold shadow-inner">
               <BarChart3 className="w-5 h-5" />
             </div>
-            <span>Báo Cáo Bán Hàng & Quản Trị Công Nợ VPP</span>
+            <span>Báo Cáo Bán Hàng & Quản Trị Công Nợ</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1 font-medium">
             Hệ thống báo cáo tài chính nội bộ Công ty TNHH NK Nam Khánh
@@ -272,14 +272,14 @@ export const SalesReportsPage: React.FC = () => {
                   className={`pill-tab-item flex items-center gap-1.5 ${revenueView === 'category' ? 'pill-tab-item-active' : ''}`}
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>Theo Nhóm hàng VPP</span>
+                  <span>Theo Nhóm hàng</span>
                 </button>
                 <button
                   onClick={() => setRevenueView('product')}
                   className={`pill-tab-item flex items-center gap-1.5 ${revenueView === 'product' ? 'pill-tab-item-active' : ''}`}
                 >
                   <Package className="w-3.5 h-3.5" />
-                  <span>Theo Mặt hàng VPP</span>
+                  <span>Theo Mặt hàng</span>
                 </button>
                 <button
                   onClick={() => setRevenueView('manager')}
@@ -309,9 +309,9 @@ export const SalesReportsPage: React.FC = () => {
                     <th className="py-3 px-4 w-28 text-center">Mã</th>
                     <th className="py-3 px-4">
                       {revenueView === 'category'
-                        ? 'Nhóm sản phẩm VPP'
+                        ? 'Nhóm sản phẩm'
                         : revenueView === 'product'
-                          ? 'Tên sản phẩm VPP'
+                          ? 'Tên sản phẩm'
                           : 'Họ tên nhân viên kinh doanh'}
                     </th>
                     {revenueView === 'product' && (
