@@ -250,7 +250,8 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
         <table className="table-custom">
           <thead>
             <tr>
-              <th className="table-th" style={{ width: '40%', textAlign: 'center' }}>Phân hệ / Chức năng con</th>
+              <th className="table-th" style={{ width: '60px', textAlign: 'center' }}>STT</th>
+              <th className="table-th" style={{ width: '36%', textAlign: 'center' }}>Phân hệ / Chức năng con</th>
               <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[XEM]</th>
               <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[THÊM]</th>
               <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[SỬA]</th>
@@ -261,17 +262,18 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#6B7280' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: '#6B7280' }}>
                   Đang nạp ma trận phân quyền...
                 </td>
               </tr>
-            ) : (
-              Object.entries(groupedPermissions).map(([groupName, items]) => (
+            ) : (() => {
+              let globalIndex = 0;
+              return Object.entries(groupedPermissions).map(([groupName, items]) => (
                 <React.Fragment key={groupName}>
                   {/* Dòng Header phân nhóm */}
                   <tr style={{ backgroundColor: '#F3F4F6' }}>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       style={{
                         padding: '0.5rem 1rem',
                         fontSize: '12.65px',
@@ -286,16 +288,21 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
                   </tr>
 
                   {/* Danh sách các chức năng trong nhóm */}
-                  {items.map((item) => (
-                    <tr key={item.moduleCode} className="table-tr">
-                      <td className="table-td">
-                        <div style={{ fontWeight: '600', color: '#111827' }}>
-                          {item.moduleName || item.moduleCode}
-                        </div>
-                        <div style={{ fontSize: '12.1px', color: '#6B7280' }}>
-                          {item.moduleCode}
-                        </div>
-                      </td>
+                  {items.map((item) => {
+                    globalIndex++;
+                    return (
+                      <tr key={item.moduleCode} className="table-tr">
+                        <td className="table-td" style={{ textAlign: 'center', fontWeight: '500', color: '#6B7280' }}>
+                          {globalIndex}
+                        </td>
+                        <td className="table-td">
+                          <div style={{ fontWeight: '600', color: '#111827' }}>
+                            {item.moduleName || item.moduleCode}
+                          </div>
+                          <div style={{ fontSize: '12.1px', color: '#6B7280' }}>
+                            {item.moduleCode}
+                          </div>
+                        </td>
 
                       {/* Checkbox Xem */}
                       <td className="table-td" style={{ textAlign: 'center' }}>
@@ -356,10 +363,11 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
                         </select>
                       </td>
                     </tr>
-                  ))}
+                  );
+                })}
                 </React.Fragment>
-              ))
-            )}
+              ));
+            })()}
           </tbody>
         </table>
       </div>

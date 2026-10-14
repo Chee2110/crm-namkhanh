@@ -45,9 +45,12 @@ import { printA4 } from '../../utils/printA4';
 import '../../styles/print-a4.css';
 import { ImportItemsModal } from '../../components/common/ImportItemsModal';
 import { useTableResize } from '../../hooks/useTableResize';
+import { TablePagination } from '../../components/common/TablePagination';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
 import { ProductSearchSelect } from '../../components/common/ProductSearchSelect';
 import { Toast } from '../../components/common/Toast';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
+import { SearchInput } from '../../components/common/SearchInput';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
 import { withActionsLast } from '../../utils/columnOrder';
 import { formatVND, formatNumber, parseNumberFromFormatted } from '../../utils/formatCurrency';
@@ -65,13 +68,111 @@ const INVOICE_STATUS_OPTIONS: StatusOption[] = [
   { value: 'ISSUED', label: 'Đã xuất HĐ', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' }
 ];
 
+interface InlinePaidInputProps {
+  orderId: string;
+  totalAmount: number;
+  paidAmount: number;
+  canEdit: boolean;
+  onSave: (orderId: string, newPaid: number) => Promise<void>;
+}
+
+const InlinePaidInput: React.FC<InlinePaidInputProps> = ({ orderId, totalAmount, paidAmount, canEdit, onSave }) => {
+  const [val, setVal] = useState<string>(() => (paidAmount > 0 ? formatNumber(paidAmount) : '0'));
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setVal(paidAmount > 0 ? formatNumber(paidAmount) : '0');
+    }
+  }, [paidAmount, isFocused]);
+
+  const commitChange = () => {
+    setIsFocused(false);
+    const parsed = parseNumberFromFormatted(val);
+    const validPaid = Math.max(0, Math.min(Number(totalAmount), parsed));
+    setVal(formatNumber(validPaid));
+    if (validPaid !== Number(paidAmount)) {
+      onSave(orderId, validPaid);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      setVal(paidAmount > 0 ? formatNumber(paidAmount) : '0');
+      setIsFocused(false);
+      e.currentTarget.blur();
+    }
+  };
+
+  if (!canEdit) {
+    return <span className="font-semibold text-emerald-600 tabular-nums">{formatVND(paidAmount)}</span>;
+  }
+
+  return (
+    <div
+      className="inline-flex items-center justify-center relative w-full max-w-[125px]"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <input
+        type="text"
+        inputMode="numeric"
+        value={val}
+        title="Bấm để sửa trực tiếp thực thu (Enter để lưu)"
+        onFocus={(e) => {
+          setIsFocused(true);
+          e.target.select();
+        }}
+        onChange={(e) => {
+          const raw = e.target.value;
+          if (raw === '') {
+            setVal('');
+            return;
+          }
+          const parsed = parseNumberFromFormatted(raw);
+          const clamped = Math.min(Number(totalAmount), parsed);
+          setVal(formatNumber(clamped));
+        }}
+        onBlur={commitChange}
+        onKeyDown={handleKeyDown}
+        className={`w-full text-center text-xs font-bold text-emerald-600 tabular-nums py-1 px-1.5 rounded-md transition-all ${
+          isFocused
+            ? 'bg-white border-2 border-emerald-500 shadow-xs ring-2 ring-emerald-100 outline-none'
+            : 'bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-200/80 hover:border-emerald-400 cursor-text'
+        }`}
+      />
+    </div>
+  );
+};
+
 export const OrdersPage: React.FC = () => {
   const { user, hasPermission } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Pagination (vừa vặn màn hình laptop, tự động co giãn thêm/bớt dòng theo zoom)
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    startIndex,
+    paginate: paginateOrders
+  } = useAutoTablePagination({
+    totalItems: orders.length,
+    rowHeight: 39,
+    topOffset: 310,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedOrders = paginateOrders(orders);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -99,6 +200,7 @@ export const OrdersPage: React.FC = () => {
 
   // Cấu hình Ẩn/Hiện cột (Column Visibility) & Kéo thả (Drag & Drop)
   const defaultVisibleCols: Record<string, boolean> = {
+    stt: true,
     code: true,
     customer: true,
     deliveryAddress: false,
@@ -114,6 +216,7 @@ export const OrdersPage: React.FC = () => {
   };
 
   const defaultColOrder = [
+    'stt',
     'code',
     'customer',
     'deliveryAddress',
@@ -129,6 +232,7 @@ export const OrdersPage: React.FC = () => {
   ];
 
   const columnLabels: Record<string, string> = {
+    stt: 'STT',
     code: 'Mã đơn hàng',
     customer: 'Khách hàng & Liên hệ',
     deliveryAddress: 'Địa chỉ giao',
@@ -146,8 +250,10 @@ export const OrdersPage: React.FC = () => {
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_orders_visible_cols');
-      return saved ? JSON.parse(saved) : defaultVisibleCols;
+      const saved = localStorage.getItem('namkhanh_orders_visible_cols_v5');
+      if (saved) return JSON.parse(saved);
+      const old = localStorage.getItem('namkhanh_orders_visible_cols');
+      return old ? { ...defaultVisibleCols, ...JSON.parse(old), stt: true } : defaultVisibleCols;
     } catch {
       return defaultVisibleCols;
     }
@@ -155,14 +261,22 @@ export const OrdersPage: React.FC = () => {
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_orders_col_order');
-      return saved ? withActionsLast(JSON.parse(saved), defaultColOrder) : defaultColOrder;
+      const saved = localStorage.getItem('namkhanh_orders_col_order_v5');
+      if (saved) return withActionsLast(JSON.parse(saved), defaultColOrder);
+      const old = localStorage.getItem('namkhanh_orders_col_order');
+      if (old) {
+        const parsed = withActionsLast(JSON.parse(old), defaultColOrder);
+        if (!parsed.includes('stt')) return ['stt', ...parsed];
+        return parsed;
+      }
+      return defaultColOrder;
     } catch {
       return defaultColOrder;
     }
   });
 
   const defaultOrderWidths: Record<string, number> = {
+    stt: 60,
     code: 160,
     customer: 300,
     deliveryAddress: 220,
@@ -174,14 +288,15 @@ export const OrdersPage: React.FC = () => {
     paidAmount: 140,
     remainingAmount: 160,
     manager: 150,
-    actions: 310
+    actions: 170
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'orders_v4',
+    tableKey: 'orders_v5',
     defaultWidths: defaultOrderWidths,
-    minWidth: 60,
+    minWidth: 50,
     minWidths: {
+      stt: 50,
       code: 130,
       customer: 200,
       deliveryAddress: 150,
@@ -193,26 +308,29 @@ export const OrdersPage: React.FC = () => {
       paidAmount: 120,
       remainingAmount: 140,
       manager: 130,
-      actions: 280
+      actions: 130
     }
   });
 
   const handleReorderColumns = (newOrder: string[]) => {
-    const normalized = withActionsLast(newOrder, defaultColOrder);
+    const withoutStt = newOrder.filter((k) => k !== 'stt');
+    const normalized = withActionsLast(['stt', ...withoutStt], defaultColOrder);
     setColumnOrder(normalized);
-    localStorage.setItem('namkhanh_orders_col_order', JSON.stringify(normalized));
+    localStorage.setItem('namkhanh_orders_col_order_v5', JSON.stringify(normalized));
   };
 
   const toggleColumnVisibility = (key: string) => {
     const updated = { ...visibleColumns, [key]: !visibleColumns[key] };
     setVisibleColumns(updated);
-    localStorage.setItem('namkhanh_orders_visible_cols', JSON.stringify(updated));
+    localStorage.setItem('namkhanh_orders_visible_cols_v5', JSON.stringify(updated));
   };
 
   const resetColumns = () => {
     setVisibleColumns(defaultVisibleCols);
     setColumnOrder(defaultColOrder);
     resetWidths();
+    localStorage.removeItem('namkhanh_orders_visible_cols_v5');
+    localStorage.removeItem('namkhanh_orders_col_order_v5');
     localStorage.removeItem('namkhanh_orders_visible_cols');
     localStorage.removeItem('namkhanh_orders_col_order');
   };
@@ -311,14 +429,23 @@ export const OrdersPage: React.FC = () => {
       if (paymentFilter) query.append('paymentStatus', paymentFilter);
       if (invoiceFilter) query.append('invoiceStatus', invoiceFilter);
 
-      const [resOrders, resCustomers, resProducts, resUsers] = await Promise.all([
+      const hasFilter = Boolean(search || deliveryFilter || paymentFilter || invoiceFilter);
+
+      const [resOrders, resAllOrders, resCustomers, resProducts, resUsers] = await Promise.all([
         api.get<Order[]>(`/orders?${query.toString()}`),
+        hasFilter ? api.get<Order[]>('/orders') : Promise.resolve(null),
         api.get<Customer[]>('/customers'),
         api.get<Product[]>('/products'),
         api.get<User[]>('/users').catch(() => ({ data: [] }))
       ]);
 
-      setOrders(resOrders.data || []);
+      const loadedOrders = resOrders.data || [];
+      setOrders(loadedOrders);
+      if (resAllOrders) {
+        setAllOrders(resAllOrders.data || []);
+      } else {
+        setAllOrders(loadedOrders);
+      }
       setCustomers(resCustomers.data || []);
       setProducts(resProducts.data || []);
       setUsers(resUsers.data || []);
@@ -331,7 +458,7 @@ export const OrdersPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [deliveryFilter, paymentFilter, invoiceFilter]);
+  }, [deliveryFilter, paymentFilter, invoiceFilter, search]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -704,6 +831,86 @@ export const OrdersPage: React.FC = () => {
     }
   };
 
+  const handleInlineUpdatePaid = async (orderId: string, newPaidAmount: number) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+    const oldPaid = Number(targetOrder.paidAmount || 0);
+    if (oldPaid === newPaidAmount) return;
+
+    const total = Number(targetOrder.totalAmount || 0);
+    const newRemaining = Math.max(0, total - newPaidAmount);
+    const newPaymentStatus = newPaidAmount >= total && total > 0 ? 'PAID' : newPaidAmount > 0 ? 'PARTIAL_PAID' : 'UNPAID';
+
+    // 1. Cập nhật lạc quan (Optimistic update) ngay lập tức cho orders list
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              paidAmount: newPaidAmount,
+              remainingAmount: newRemaining,
+              paymentStatus: newPaymentStatus as any
+            }
+          : o
+      )
+    );
+
+    // 2. Cập nhật allOrders để 4 ô tổng quan nhảy số ngay lập tức
+    setAllOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              paidAmount: newPaidAmount,
+              remainingAmount: newRemaining,
+              paymentStatus: newPaymentStatus as any
+            }
+          : o
+      )
+    );
+
+    // 3. Gửi cập nhật lên máy chủ
+    try {
+      await api.put(`/orders/${orderId}`, {
+        paidAmount: newPaidAmount,
+        remainingAmount: newRemaining,
+        paymentStatus: newPaymentStatus
+      });
+      setToastMessage(
+        `Đã cập nhật thực thu đơn ${targetOrder.code}: ${formatVND(newPaidAmount)} (Công nợ: ${formatVND(newRemaining)})`
+      );
+      loadData(true);
+    } catch (err: any) {
+      console.error('Lỗi khi sửa trực tiếp thực thu:', err);
+      // Rollback nếu có lỗi mạng/máy chủ
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                paidAmount: oldPaid,
+                remainingAmount: Number(targetOrder.remainingAmount || 0),
+                paymentStatus: targetOrder.paymentStatus
+              }
+            : o
+        )
+      );
+      setAllOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                paidAmount: oldPaid,
+                remainingAmount: Number(targetOrder.remainingAmount || 0),
+                paymentStatus: targetOrder.paymentStatus
+              }
+            : o
+        )
+      );
+      alert(err.response?.data?.message || 'Không thể cập nhật thực thu');
+    }
+  };
+
   const openHandoverModal = (order: Order) => {
     setSelectedOrder(order);
     setHandoverData({ toUserId: '', reason: '' });
@@ -963,11 +1170,13 @@ export const OrdersPage: React.FC = () => {
     }
   };
 
-  // KPIs
-  const totalRevenue = orders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
-  const totalPaid = orders.reduce((sum, o) => sum + Number(o.paidAmount), 0);
-  const totalRemaining = orders.reduce((sum, o) => sum + Number(o.remainingAmount), 0);
-  const pendingDeliveryCount = orders.filter((o) => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'DELIVERING').length;
+  // KPIs - Luôn hiển thị tổng số tiền & tổng đơn toàn bộ hệ thống
+  const summarySource = allOrders.length > 0 ? allOrders : orders;
+  const totalRevenue = summarySource.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+  const totalPaid = summarySource.reduce((sum, o) => sum + Number(o.paidAmount || 0), 0);
+  const totalRemaining = summarySource.reduce((sum, o) => sum + Number(o.remainingAmount || 0), 0);
+  const pendingDeliveryCount = summarySource.filter((o) => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'DELIVERING').length;
+  const totalOrdersCount = summarySource.length;
 
   const renderDeliveryBadge = (status: string) => {
     switch (status) {
@@ -1613,131 +1822,81 @@ export const OrdersPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* 4 THẺ TỔNG QUAN ĐƠN HÀNG & CÔNG NỢ (TƯƠNG TÁC 1 CHẠM ĐỂ LỌC) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div
-          onClick={() => {
-            if (deliveryFilter === 'PENDING') {
-              setDeliveryFilter('');
-            } else {
-              setDeliveryFilter('PENDING');
-            }
-          }}
-          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${deliveryFilter === 'PENDING'
-            ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-400'
-            : 'bg-white border-gray-200 hover:border-amber-300'
-            }`}
-          title="Nhấn để lọc nhanh các đơn hàng chờ xuất kho"
-        >
-          <div>
-            <div className="flex items-center gap-1.5">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng đơn hàng</p>
-              {deliveryFilter === 'PENDING' && (
-                <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Đang lọc</span>
-              )}
-            </div>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{orders.length}</p>
-            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1 font-semibold">
-              <Clock className="w-3.5 h-3.5" /> {pendingDeliveryCount} đơn cần xử lý giao
+    <div className="space-y-2.5">
+      {/* 4 Ô TỔNG QUAN: TỔNG ĐƠN HÀNG, TỔNG DOANH SỐ, THỰC THU, CÒN PHẢI THU (TỔNG TOÀN BỘ SỐ TIỀN, GỌN GÀNG, BỎ LỌC) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+        {/* Ô 1: TỔNG ĐƠN HÀNG */}
+        <div className="bg-white px-3 py-2 rounded-xl border border-gray-200/90 shadow-2xs flex items-center justify-between">
+          <div className="min-w-0 pr-2">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide truncate">Tổng đơn hàng</p>
+            <p className="text-lg font-bold text-gray-900 mt-0.5 leading-tight">
+              {totalOrdersCount} <span className="text-xs font-normal text-gray-500">đơn</span>
+            </p>
+            <p className="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1 font-medium truncate">
+              <Clock className="w-3 h-3 shrink-0" /> {pendingDeliveryCount} đơn cần giao
             </p>
           </div>
-          <div className="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center text-[#E53935]">
-            <ShoppingBag className="w-6 h-6" />
+          <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center text-[#E53935] shrink-0">
+            <ShoppingBag className="w-4.5 h-4.5" />
           </div>
         </div>
 
-        <div
-          onClick={() => {
-            setDeliveryFilter('');
-            setPaymentFilter('');
-            setInvoiceFilter('');
-            setSearch('');
-          }}
-          className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md hover:border-blue-300"
-          title="Nhấn để xem toàn bộ đơn hàng (Xóa bộ lọc)"
-        >
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng doanh số đơn</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{formatVND(totalRevenue)}</p>
-            <p className="text-xs text-gray-500 mt-1">Gồm VAT 8% (Bấm xem tất cả)</p>
+        {/* Ô 2: TỔNG DOANH SỐ ĐƠN */}
+        <div className="bg-white px-3 py-2 rounded-xl border border-gray-200/90 shadow-2xs flex items-center justify-between">
+          <div className="min-w-0 pr-2">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide truncate">Tổng doanh số đơn</p>
+            <p className="text-lg font-bold text-gray-900 mt-0.5 leading-tight">{formatVND(totalRevenue)}</p>
+            <p className="text-[11px] text-gray-500 mt-0.5 truncate">Toàn bộ doanh số (gồm VAT)</p>
           </div>
-          <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-            <DollarSign className="w-6 h-6" />
+          <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <DollarSign className="w-4.5 h-4.5" />
           </div>
         </div>
 
-        <div
-          onClick={() => {
-            setPaymentFilter(paymentFilter === 'PAID' ? '' : 'PAID');
-          }}
-          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${paymentFilter === 'PAID'
-            ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-400'
-            : 'bg-white border-gray-200 hover:border-emerald-300'
-            }`}
-          title="Nhấn để lọc các đơn hàng đã thanh toán đủ"
-        >
-          <div>
-            <div className="flex items-center gap-1.5">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Thực thu (Đã trả)</p>
-              {paymentFilter === 'PAID' && (
-                <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">Đang lọc</span>
-              )}
-            </div>
-            <p className="text-2xl font-bold text-emerald-600 mt-1">{formatVND(totalPaid)}</p>
-            <p className="text-xs text-emerald-700 mt-1">
+        {/* Ô 3: THỰC THU (ĐÃ TRẢ) */}
+        <div className="bg-white px-3 py-2 rounded-xl border border-gray-200/90 shadow-2xs flex items-center justify-between">
+          <div className="min-w-0 pr-2">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide truncate">Thực thu (Đã trả)</p>
+            <p className="text-lg font-bold text-emerald-600 mt-0.5 leading-tight">{formatVND(totalPaid)}</p>
+            <p className="text-[11px] text-emerald-700 mt-0.5 truncate">
               Đạt {totalRevenue > 0 ? Math.round((totalPaid / totalRevenue) * 100) : 0}% tổng giá trị
             </p>
           </div>
-          <div className="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
-            <CreditCard className="w-6 h-6" />
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <CreditCard className="w-4.5 h-4.5" />
           </div>
         </div>
 
-        <div
-          onClick={() => {
-            setPaymentFilter(paymentFilter === 'UNPAID' ? '' : 'UNPAID');
-          }}
-          className={`p-5 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md ${paymentFilter === 'UNPAID'
-            ? 'bg-red-100 border-red-500 ring-2 ring-red-400'
-            : 'bg-red-50/20 border-red-200 hover:border-red-400'
-            }`}
-          title="Nhấn để lọc các đơn hàng chưa thanh toán (còn nợ)"
-        >
-          <div>
-            <div className="flex items-center gap-1.5">
-              <p className="text-xs font-semibold text-[#E53935] uppercase tracking-wider">Còn phải thu (Nợ)</p>
-              {paymentFilter === 'UNPAID' && (
-                <span className="text-[10px] bg-red-200 text-red-900 px-1.5 py-0.5 rounded font-bold">Đang lọc</span>
-              )}
-            </div>
-            <p className="text-2xl font-bold text-[#E53935] mt-1">{formatVND(totalRemaining)}</p>
-            <p className="text-xs text-gray-500 mt-1">Bấm để lọc đơn nợ chưa thu</p>
+        {/* Ô 4: CÒN PHẢI THU (NỢ) */}
+        <div className="bg-white px-3 py-2 rounded-xl border border-gray-200/90 shadow-2xs flex items-center justify-between">
+          <div className="min-w-0 pr-2">
+            <p className="text-[11px] font-semibold text-[#E53935] uppercase tracking-wide truncate">Còn phải thu (Nợ)</p>
+            <p className="text-lg font-bold text-[#E53935] mt-0.5 leading-tight">{formatVND(totalRemaining)}</p>
+            <p className="text-[11px] text-gray-500 mt-0.5 truncate">Công nợ đơn hàng cần thu</p>
           </div>
-          <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center text-[#E53935]">
-            <AlertCircle className="w-6 h-6" />
+          <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center text-[#E53935] shrink-0">
+            <AlertCircle className="w-4.5 h-4.5" />
           </div>
         </div>
       </div>
 
       {/* FILTER & ACTIONS BAR */}
-      <div className="toolbar-pill bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
+      <div className="toolbar-pill bg-white px-3.5 py-1.5 md:py-2 rounded-xl border border-gray-200 shadow-xs flex flex-col md:flex-row gap-2 justify-between items-center">
         <form onSubmit={handleSearch} className="flex flex-1 w-full md:w-auto gap-2 items-center flex-wrap">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Tìm mã đơn, tên khách hàng, SĐT..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E53935]/20 focus:border-[#E53935]"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(val) => setSearch(val)}
+            onSearchImmediate={() => loadData()}
+            placeholder="Tìm mã đơn, tên khách hàng, SĐT..."
+            className="text-xs border-gray-200 focus:ring-2 focus:ring-[#E53935]/20 focus:border-[#E53935]"
+            style={{ height: '34px', borderRadius: '8px', fontSize: '13px' }}
+            wrapperStyle={{ flex: 1, minWidth: '220px' }}
+          />
 
           <select
             value={deliveryFilter}
             onChange={(e) => setDeliveryFilter(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#E53935]"
+            className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 h-[34px] bg-white focus:outline-none focus:border-[#E53935]"
           >
             <option value="">Giao hàng: Tất cả</option>
             <option value="PENDING">Chờ xuất kho</option>
@@ -1749,7 +1908,7 @@ export const OrdersPage: React.FC = () => {
           <select
             value={paymentFilter}
             onChange={(e) => setPaymentFilter(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#E53935]"
+            className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 h-[34px] bg-white focus:outline-none focus:border-[#E53935]"
           >
             <option value="">Thanh toán: Tất cả</option>
             <option value="UNPAID">Chưa thanh toán</option>
@@ -1760,7 +1919,7 @@ export const OrdersPage: React.FC = () => {
           <select
             value={invoiceFilter}
             onChange={(e) => setInvoiceFilter(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#E53935]"
+            className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 h-[34px] bg-white focus:outline-none focus:border-[#E53935]"
           >
             <option value="">Hóa đơn VAT: Tất cả</option>
             <option value="NOT_ISSUED">Chưa xuất HĐ</option>
@@ -1777,7 +1936,7 @@ export const OrdersPage: React.FC = () => {
                 setPaymentFilter('');
                 setInvoiceFilter('');
               }}
-              className="px-2.5 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-1 transition-colors cursor-pointer border border-red-200"
+              className="px-2.5 py-1 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-1 transition-colors cursor-pointer border border-red-200 h-[34px]"
               title="Khôi phục toàn bộ danh sách đơn hàng"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -1787,13 +1946,13 @@ export const OrdersPage: React.FC = () => {
 
           <button
             type="submit"
-            className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-sm font-medium transition-colors"
+            className="px-3.5 py-1.5 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-xs font-medium transition-colors h-[34px] flex items-center"
           >
             Lọc dữ liệu
           </button>
         </form>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Nút Cột */}
           <ColumnCustomizerDropdown
             columnOrder={columnOrder}
@@ -1802,18 +1961,18 @@ export const OrdersPage: React.FC = () => {
             onToggleColumn={toggleColumnVisibility}
             onReorderColumns={handleReorderColumns}
             onReset={resetColumns}
-            disabledKeys={['code', 'customer']}
-            fixedKeys={['actions']}
+            disabledKeys={['stt', 'code', 'customer']}
+            fixedKeys={['stt', 'actions']}
           />
 
           <button
             type="button"
             onClick={handleExportExcel}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-medium transition-colors shadow-xs whitespace-nowrap cursor-pointer h-[34px]"
             title="Xuất toàn bộ danh sách đơn hàng sang file Excel/CSV"
           >
-            <Download className="w-4 h-4 text-emerald-600" />
-            Xuất Excel
+            <Download className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Xuất Excel</span>
           </button>
           {hasPermission('B_ORDERS', 'create') && (
             <button
@@ -1839,10 +1998,10 @@ export const OrdersPage: React.FC = () => {
                 setFormError(null);
                 setIsCreatePage(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-xs font-semibold transition-colors shadow-xs whitespace-nowrap h-[34px]"
             >
-              <Plus className="w-4 h-4" />
-              Tạo đơn hàng mới
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tạo đơn hàng mới</span>
             </button>
           )}
         </div>
@@ -1866,7 +2025,7 @@ export const OrdersPage: React.FC = () => {
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      className={`py-3 px-3.5 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${colKey === 'actions' ? 'sticky-action-th' : ''
+                      className={`py-2 px-2.5 select-none transition-colors whitespace-nowrap overflow-hidden text-center ${colKey === 'actions' ? 'sticky-action-th' : ''
                         }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 140}px`,
@@ -1905,8 +2064,8 @@ export const OrdersPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => {
-                  const rem = Number(order.remainingAmount) || 0;
+                paginatedOrders.map((order, idx) => {
+                  const rem = Math.max(0, Number(order.totalAmount || 0) - Number(order.paidAmount || 0));
                   return (
                     <tr
                       key={order.id}
@@ -1920,9 +2079,15 @@ export const OrdersPage: React.FC = () => {
                         .filter((k) => visibleColumns[k])
                         .map((colKey) => {
                           switch (colKey) {
+                            case 'stt':
+                              return (
+                                <td key={colKey} className="py-2 px-2.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                                  {startIndex + idx + 1}
+                                </td>
+                              );
                             case 'code':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 whitespace-nowrap overflow-hidden text-center">
+                                <td key={colKey} className="py-2 px-2.5 whitespace-nowrap overflow-hidden text-center">
                                   <div className="font-semibold text-gray-900 flex items-center justify-center gap-1.5 min-w-0" title={`Mã đơn: ${order.code}${order.quotation ? ` (Từ BG: ${order.quotation.code})` : ''}`}>
                                     <ShoppingBag className="w-4 h-4 text-[#E53935] shrink-0" />
                                     <span className="font-mono">{order.code}</span>
@@ -1934,7 +2099,7 @@ export const OrdersPage: React.FC = () => {
                               const phone = order.phone || order.customer?.phone || '';
                               const fullText = `${order.customer?.name || ''}${contact ? `\nLiên hệ: ${contact}` : ''}${phone ? ` • SĐT: ${phone}` : ''}`;
                               return (
-                                <td key={colKey} className="py-2.5 px-3.5 overflow-hidden">
+                                <td key={colKey} className="py-1.5 px-2.5 overflow-hidden">
                                   <div className="min-w-0" title={fullText}>
                                     <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
                                       {order.customer?.name || '—'}
@@ -1946,7 +2111,7 @@ export const OrdersPage: React.FC = () => {
                             case 'deliveryAddress': {
                               const addr = order.deliveryAddress || order.customer?.deliveryAddress || order.customer?.address || 'N/A';
                               return (
-                                <td key={colKey} className="py-2.5 px-3.5 text-xs text-gray-600 overflow-hidden">
+                                <td key={colKey} className="py-1.5 px-2.5 text-xs text-gray-600 overflow-hidden">
                                   <div className="flex items-center gap-1 min-w-0" title={addr}>
                                     <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                     <span className="truncate">{addr}</span>
@@ -1956,13 +2121,13 @@ export const OrdersPage: React.FC = () => {
                             }
                             case 'phone':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 text-xs font-mono text-gray-700 whitespace-nowrap overflow-hidden text-center">
+                                <td key={colKey} className="py-2 px-2.5 text-xs font-mono text-gray-700 whitespace-nowrap overflow-hidden text-center">
                                   {order.phone || order.customer?.phone || 'N/A'}
                                 </td>
                               );
                             case 'dates':
                               return (
-                                <td key={colKey} className="py-2.5 px-3.5 text-xs overflow-hidden text-center">
+                                <td key={colKey} className="py-1.5 px-2.5 text-xs overflow-hidden text-center">
                                   <div className="min-w-0 text-center" title={`Ngày đặt: ${new Date(order.orderDate).toLocaleDateString('vi-VN')}${order.deliveryDate ? ` - Hẹn giao: ${new Date(order.deliveryDate).toLocaleDateString('vi-VN')}` : ''}`}>
                                     <div className="text-gray-900 font-medium">
                                       {new Date(order.orderDate).toLocaleDateString('vi-VN')}
@@ -1974,7 +2139,7 @@ export const OrdersPage: React.FC = () => {
                               return (
                                 <td
                                   key={colKey}
-                                  className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden"
+                                  className="py-1.5 px-2.5 text-center whitespace-nowrap overflow-hidden"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <div className="flex items-center justify-center">
@@ -1990,7 +2155,7 @@ export const OrdersPage: React.FC = () => {
                               return (
                                 <td
                                   key={colKey}
-                                  className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden"
+                                  className="py-1.5 px-2.5 text-center whitespace-nowrap overflow-hidden"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <div className="flex items-center justify-center">
@@ -2004,19 +2169,29 @@ export const OrdersPage: React.FC = () => {
                               );
                             case 'totalAmount':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 text-center font-bold text-gray-900 whitespace-nowrap overflow-hidden tabular-nums">
+                                <td key={colKey} className="py-2 px-2.5 text-center font-bold text-gray-900 whitespace-nowrap overflow-hidden tabular-nums">
                                   {formatVND(Number(order.totalAmount))}
                                 </td>
                               );
                             case 'paidAmount':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 text-center font-medium text-emerald-600 whitespace-nowrap overflow-hidden tabular-nums">
-                                  {formatVND(Number(order.paidAmount))}
+                                <td
+                                  key={colKey}
+                                  className="py-1 px-1.5 text-center whitespace-nowrap overflow-hidden tabular-nums"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <InlinePaidInput
+                                    orderId={order.id}
+                                    totalAmount={Number(order.totalAmount || 0)}
+                                    paidAmount={Number(order.paidAmount || 0)}
+                                    canEdit={hasPermission('B_ORDERS', 'update')}
+                                    onSave={handleInlineUpdatePaid}
+                                  />
                                 </td>
                               );
                             case 'remainingAmount':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 text-center font-bold whitespace-nowrap overflow-hidden tabular-nums">
+                                <td key={colKey} className="py-2 px-2.5 text-center font-bold whitespace-nowrap overflow-hidden tabular-nums">
                                   <span className={rem > 0 ? 'text-[#E53935]' : 'text-emerald-700'}>
                                     {formatVND(rem)}
                                   </span>
@@ -2024,8 +2199,8 @@ export const OrdersPage: React.FC = () => {
                               );
                             case 'manager':
                               return (
-                                <td key={colKey} className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
-                                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 max-w-[140px] truncate" title={order.manager?.fullName || 'Chưa gán'}>
+                                <td key={colKey} className="py-2 px-2.5 text-center whitespace-nowrap overflow-hidden">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 max-w-[140px] truncate" title={order.manager?.fullName || 'Chưa gán'}>
                                     {order.manager?.fullName || 'Chưa gán'}
                                   </span>
                                 </td>
@@ -2035,26 +2210,14 @@ export const OrdersPage: React.FC = () => {
                                 <td
                                   key={colKey}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="py-2 px-2 text-center sticky-action-td whitespace-nowrap bg-white overflow-hidden"
+                                  className="py-1.5 px-1.5 text-center sticky-action-td whitespace-nowrap bg-white overflow-hidden"
                                   style={{
-                                    width: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 310}px`,
-                                    minWidth: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 310}px`,
-                                    maxWidth: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 310}px`
+                                    width: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 170}px`,
+                                    minWidth: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 170}px`,
+                                    maxWidth: `${columnWidths[colKey] || defaultOrderWidths[colKey] || 170}px`
                                   }}
                                 >
                                   <div className="flex items-center justify-center gap-1 w-full">
-                                    {/* Xem chi tiết đơn */}
-                                    <button
-                                      title="Xem chi tiết đơn hàng"
-                                      onClick={() => {
-                                        setSelectedOrder(order);
-                                        setIsDetailModalOpen(true);
-                                      }}
-                                      className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                                    >
-                                      <Eye className="w-4 h-4" />
-                                    </button>
-
                                     {/* Chỉnh sửa đơn hàng (Update) */}
                                     {hasPermission('B_ORDERS', 'update') && (
                                       <button
@@ -2085,28 +2248,6 @@ export const OrdersPage: React.FC = () => {
                                     >
                                       <Printer className="w-4 h-4 text-[#E53935]" />
                                     </button>
-
-                                    {/* Thu tiền / Cập nhật tiến độ */}
-                                    {hasPermission('B_ORDERS', 'update') && order.deliveryStatus !== 'CANCELLED' && (
-                                      <button
-                                        title="Cập nhật thanh toán & Trạng thái"
-                                        onClick={() => openPaymentModal(order)}
-                                        className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
-                                      >
-                                        <DollarSign className="w-4 h-4" />
-                                      </button>
-                                    )}
-
-                                    {/* Điều chỉnh giá trị đơn hàng (+/-) */}
-                                    {hasPermission('B_ORDERS', 'update') && order.deliveryStatus !== 'CANCELLED' && (
-                                      <button
-                                        title="Điều chỉnh giá trị đơn hàng (+/-)"
-                                        onClick={() => openAdjustModal(order)}
-                                        className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
-                                      >
-                                        <Edit3 className="w-4 h-4" />
-                                      </button>
-                                    )}
 
                                     {/* Hủy đơn & Hoàn tiền cọc */}
                                     {hasPermission('B_ORDERS', 'update') && order.deliveryStatus !== 'CANCELLED' && order.deliveryStatus !== 'DELIVERED' && (
@@ -2171,6 +2312,14 @@ export const OrdersPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={orders.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="đơn hàng"
+        />
       </div>
 
 
@@ -2674,6 +2823,7 @@ export const OrdersPage: React.FC = () => {
                 <table className="w-full text-left">
                   <thead className="bg-gray-100/80 border-b border-gray-200 text-gray-700 font-bold uppercase text-[10px]">
                     <tr>
+                      <th className="p-2.5 text-center w-12">STT</th>
                       <th className="p-2.5 text-center">Sản phẩm</th>
                       <th className="p-2.5 text-center w-16">ĐVT</th>
                       <th className="p-2.5 text-center w-20">Đã giao</th>
@@ -2688,6 +2838,9 @@ export const OrdersPage: React.FC = () => {
                       const itemTotal = item.returnQuantity * item.unitPrice;
                       return (
                         <tr key={idx} className={item.returnQuantity > 0 ? 'bg-orange-50/30' : ''}>
+                          <td className="p-2.5 text-center font-medium text-gray-500 tabular-nums w-12">
+                            {idx + 1}
+                          </td>
                           <td className="p-2.5">
                             <div className="font-bold text-gray-900">{item.productName}</div>
                             <div className="text-[10px] font-mono text-gray-500 text-center">{item.productCode}</div>

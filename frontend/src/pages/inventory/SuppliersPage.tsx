@@ -20,14 +20,34 @@ import { api } from '../../services/api';
 import { Supplier, Product } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
+import { TablePagination } from '../../components/common/TablePagination';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
 import { withActionsLast } from '../../utils/columnOrder';
+import { SearchInput } from '../../components/common/SearchInput';
 
 export const SuppliersPage: React.FC = () => {
   const { hasPermission } = useAuth();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    startIndex,
+    paginate: paginateSuppliers
+  } = useAutoTablePagination({
+    totalItems: suppliers.length,
+    rowHeight: 45,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedSuppliers = paginateSuppliers(suppliers);
 
   // Cấu hình ẩn / hiện cột
   const defaultVisibleCols: Record<string, boolean> = {
@@ -160,7 +180,7 @@ export const SuppliersPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [search]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,14 +286,13 @@ export const SuppliersPage: React.FC = () => {
         </div>
 
         <div className="toolbar-pill flex items-center gap-3 w-full sm:w-auto">
-          <form onSubmit={handleSearch} className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Tìm tên NCC, MST, SĐT..."
+          <form onSubmit={handleSearch} className="flex-1 sm:w-64">
+            <SearchInput
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
+              onChange={(val) => setSearch(val)}
+              onSearchImmediate={() => loadData()}
+              placeholder="Tìm tên NCC, MST, SĐT..."
+              style={{ height: '34px', borderRadius: '8px' }}
             />
           </form>
 
@@ -348,7 +367,7 @@ export const SuppliersPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                suppliers.map((s, idx) => (
+                paginatedSuppliers.map((s, idx) => (
                   <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
                     {columnOrder
                       .filter((k) => visibleColumns[k])
@@ -357,7 +376,7 @@ export const SuppliersPage: React.FC = () => {
                           case 'stt':
                             return (
                               <td key={colKey} className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
-                                {idx + 1}
+                                {startIndex + idx + 1}
                               </td>
                             );
                           case 'code':
@@ -461,6 +480,14 @@ export const SuppliersPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={suppliers.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="nhà cung cấp"
+        />
       </div>
 
       {/* MODAL THÊM / SỬA NHÀ CUNG CẤP */}
@@ -640,6 +667,7 @@ export const SuppliersPage: React.FC = () => {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-100 text-gray-700 uppercase font-bold text-[10px]">
+                      <th className="p-2.5 text-center w-12">STT</th>
                       <th className="p-2.5 text-center">Mã SKU</th>
                       <th className="p-2.5">Tên sản phẩm</th>
                       <th className="p-2.5 text-center">ĐVT</th>
@@ -649,8 +677,9 @@ export const SuppliersPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {supplierProducts.map((p) => (
+                    {supplierProducts.map((p, idx) => (
                       <tr key={p.id} className="hover:bg-gray-50">
+                        <td className="p-2.5 text-center font-medium text-gray-500 tabular-nums w-12">{idx + 1}</td>
                         <td className="p-2.5 font-mono font-bold text-gray-800 text-center">{p.code}</td>
                         <td className="p-2.5 font-semibold text-gray-900">{p.name}</td>
                         <td className="p-2.5 text-center text-gray-500">{p.unit}</td>

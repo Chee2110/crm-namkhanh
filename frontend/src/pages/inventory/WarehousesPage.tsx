@@ -17,6 +17,7 @@ import {
 import { api } from '../../services/api';
 import { Warehouse, Department } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { SearchInput } from '../../components/common/SearchInput';
 
 export const WarehousesPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -57,7 +58,7 @@ export const WarehousesPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [search]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,14 +150,14 @@ export const WarehousesPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <form onSubmit={handleSearch} className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Tìm theo tên kho, mã kho..."
+          <form onSubmit={handleSearch} className="flex-1 sm:w-64">
+            <SearchInput
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input input-pill pl-10 text-xs font-medium"
+              onChange={(val) => setSearch(val)}
+              onSearchImmediate={() => loadData()}
+              placeholder="Tìm theo tên kho, mã kho..."
+              className="input-pill text-xs font-medium"
+              style={{ height: '36px', borderRadius: '9999px' }}
             />
           </form>
 

@@ -16,6 +16,9 @@ import { api } from '../../services/api';
 import { LegalDocument } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
+import { TablePagination } from '../../components/common/TablePagination';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
+import { SearchInput } from '../../components/common/SearchInput';
 
 export const DocumentsPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -53,6 +56,24 @@ export const DocumentsPage: React.FC = () => {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Pagination (vừa vặn màn hình laptop, tự động co giãn thêm/bớt dòng theo zoom)
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    startIndex,
+    paginate: paginateDocuments
+  } = useAutoTablePagination({
+    totalItems: documents.length,
+    rowHeight: 45,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedDocuments = paginateDocuments(documents);
   const [formError, setFormError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -226,18 +247,12 @@ export const DocumentsPage: React.FC = () => {
             </button>
           </div>
 
-          <div className="toolbar-pill" style={{ position: 'relative', width: '260px' }}>
-            <Search
-              size={15}
-              style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.75rem', color: '#9CA3AF' }}
-            />
-            <input
-              type="text"
-              placeholder="Tìm kiếm mã, tên hồ sơ..."
-              className="input"
-              style={{ paddingLeft: '2.25rem', paddingRight: '0.75rem' }}
+          <div style={{ width: '260px' }}>
+            <SearchInput
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(val) => setSearch(val)}
+              onSearchImmediate={() => loadDocuments()}
+              placeholder="Tìm kiếm mã, tên hồ sơ..."
             />
           </div>
         </div>
@@ -311,9 +326,9 @@ export const DocumentsPage: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              documents.map((doc, index) => (
+              paginatedDocuments.map((doc, index) => (
                 <tr key={doc.id} className="table-tr">
-                  <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{index + 1}</td>
+                  <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{startIndex + index + 1}</td>
                   <td className="table-td whitespace-nowrap overflow-hidden text-center">
                     <span className="font-semibold text-xs text-[#E53935] font-mono">
                       {doc.code}
@@ -384,6 +399,14 @@ export const DocumentsPage: React.FC = () => {
             )}
           </tbody>
         </table>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={documents.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="hồ sơ"
+        />
       </div>
 
       {/* MODAL UPLOAD TÀI LIỆU (TỐI ĐA 25MB) */}

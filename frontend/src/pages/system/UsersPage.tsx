@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Users,
   Plus,
@@ -24,8 +24,11 @@ import { api } from '../../services/api';
 import { User, Department, Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
+import { TablePagination } from '../../components/common/TablePagination';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+import { SearchInput } from '../../components/common/SearchInput';
 
 const USER_STATUS_OPTIONS: StatusOption[] = [
   { value: 'ACTIVE', label: 'Đang làm việc', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
@@ -141,8 +144,25 @@ export const UsersPage: React.FC = () => {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+
+  // Pagination (vừa vặn màn hình laptop, tự động co giãn thêm/bớt dòng theo zoom)
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    startIndex,
+    paginate: paginateUsers
+  } = useAutoTablePagination({
+    totalItems: users.length,
+    rowHeight: 45,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedUsers = paginateUsers(users);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -168,39 +188,59 @@ export const UsersPage: React.FC = () => {
     status: 'ACTIVE'
   });
 
-  const loadData = async (silent: boolean | unknown = false) => {
-    const isSilent = silent === true;
+  const loadMetadata = async () => {
     try {
-      if (!isSilent) setLoading(true);
+      const [resDepts, resRoles] = await Promise.all([
+        api.get<Department[]>('/departments?format=flat'),
+        api.get<Role[]>('/roles')
+      ]);
+      setDepartments(resDepts.data || []);
+      setRoles(resRoles.data || []);
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
+  const loadUsers = async (silent: boolean = false) => {
+    try {
+      if (!silent) setLoading(true);
       const query = new URLSearchParams({
-        page: page.toString(),
-        pageSize: '20',
+        page: '1',
+        pageSize: '1000',
         ...(search ? { search } : {}),
         ...(departmentFilter ? { departmentId: departmentFilter } : {}),
         ...(roleFilter ? { roleId: roleFilter } : {}),
         ...(statusFilter ? { status: statusFilter } : {})
       });
 
-      const [resUsers, resDepts, resRoles] = await Promise.all([
-        api.get<User[]>(`/users?${query.toString()}`),
-        api.get<Department[]>('/departments?format=flat'),
-        api.get<Role[]>('/roles')
-      ]);
-
+      const resUsers = await api.get<User[]>(`/users?${query.toString()}`);
       setUsers(resUsers.data || []);
       setTotal(resUsers.meta?.total || 0);
-      setDepartments(resDepts.data || []);
-      setRoles(resRoles.data || []);
     } catch (err: any) {
       console.error(err);
     } finally {
-      if (!isSilent) setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
+  const loadData = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
+    if (departments.length === 0 || roles.length === 0) {
+      loadMetadata();
+    }
+    await loadUsers(isSilent);
+  };
+
+  const isFirstMount = useRef(true);
   useEffect(() => {
-    loadData();
-  }, [page, search, departmentFilter, roleFilter, statusFilter]);
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      loadMetadata();
+      loadUsers(false);
+      return;
+    }
+    loadUsers(true);
+  }, [search, departmentFilter, roleFilter, statusFilter]);
 
   const openAddModal = () => {
     setEditingUser(null);
@@ -343,17 +383,13 @@ export const UsersPage: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', flex: 1 }}>
-          <div style={{ position: 'relative', width: '260px' }}>
-            <Search size={16} style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.75rem', color: '#9CA3AF' }} />
-            <input
-              type="text"
-              placeholder="Tìm họ tên, email, SĐT, mã..."
-              className="input"
-              style={{ paddingLeft: '2.25rem' }}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(val) => setSearch(val)}
+            onSearchImmediate={() => loadUsers(true)}
+            placeholder="Tìm họ tên, email, SĐT, mã..."
+            wrapperStyle={{ width: '260px' }}
+          />
 
           <select
             className="input"
@@ -563,11 +599,11 @@ export const UsersPage: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              users.map((u, index) => (
+              paginatedUsers.map((u, index) => (
                 <tr key={u.id} className="table-tr">
                   {visibleColumns.stt && (
                     <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">
-                      {index + 1}
+                      {startIndex + index + 1}
                     </td>
                   )}
                   {visibleColumns.code && (
@@ -716,6 +752,14 @@ export const UsersPage: React.FC = () => {
             )}
           </tbody>
         </table>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={users.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="nhân sự"
+        />
       </div>
 
       {/* MODAL THÊM / SỬA NHÂN SỰ VỚI 3 TABS QUY CHUẨN */}

@@ -378,15 +378,17 @@ export const SalesPlansPage: React.FC = () => {
                 <table className="w-full text-xs text-left">
                   <thead className="bg-gray-100/60 border-b border-gray-200 text-gray-600">
                     <tr>
+                      <th className="p-2.5 w-12 text-center">STT</th>
                       <th className="p-2.5">Nhóm mặt hàng</th>
-                      <th className="p-2.5 w-20">ĐVT</th>
-                      <th className="p-2.5 w-32">Chỉ tiêu SL</th>
+                      <th className="p-2.5 w-20 text-center">ĐVT</th>
+                      <th className="p-2.5 w-32 text-center">Chỉ tiêu SL</th>
                       <th className="p-2.5 w-44 text-center">Chỉ tiêu Doanh thu (VNĐ)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {formData.items.map((it, idx) => (
                       <tr key={idx}>
+                        <td className="p-2.5 text-center font-medium text-gray-500 tabular-nums w-12">{idx + 1}</td>
                         <td className="p-2.5 font-semibold text-gray-800">{it.category}</td>
                         <td className="p-2.5 text-center text-gray-500">{it.unit}</td>
                         <td className="p-2.5">
@@ -524,6 +526,7 @@ export const SalesPlansPage: React.FC = () => {
                 <table className="w-full text-xs text-left">
                   <thead className="bg-gray-100 text-gray-700 uppercase font-bold text-[10px]">
                     <tr>
+                      <th className="p-3 w-12 text-center">STT</th>
                       <th className="p-3">Nhóm hàng</th>
                       <th className="p-3 text-center">ĐVT</th>
                       <th className="p-3 text-center">Chỉ tiêu SL</th>
@@ -537,6 +540,7 @@ export const SalesPlansPage: React.FC = () => {
                   <tbody className="divide-y divide-gray-100">
                     {compareData.items.map((item: any, idx: number) => (
                       <tr key={idx} className="hover:bg-gray-50">
+                        <td className="p-3 text-center font-medium text-gray-500 tabular-nums w-12">{idx + 1}</td>
                         <td className="p-3 font-bold text-gray-800">{item.category}</td>
                         <td className="p-3 text-center text-gray-500">{item.unit}</td>
                         <td className="p-3 text-center">{item.targetQuantity.toLocaleString('vi-VN')}</td>

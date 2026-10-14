@@ -48,8 +48,11 @@ import {
 } from '../../types';
 import { useTableResize } from '../../hooks/useTableResize';
 import { VoucherPrintModal } from './components/VoucherPrintModal';
+import { SearchInput } from '../../components/common/SearchInput';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
+import { TablePagination } from '../../components/common/TablePagination';
 
 const RECEIPT_STATUS_OPTIONS: StatusOption[] = [
   { value: 'PENDING', label: 'Chờ phê duyệt', colorClass: 'bg-amber-50 text-amber-700 border-amber-300' },
@@ -706,6 +709,66 @@ export const FinancesPage: React.FC = () => {
     return matchSearch && matchStatus;
   });
 
+  // Phân trang tự động co giãn vừa vặn màn hình laptop, tự thêm/bớt dòng khi zoom
+  const {
+    currentPage: receiptsPage,
+    setCurrentPage: setReceiptsPage,
+    pageSize: receiptsPageSize,
+    setPageSize: setReceiptsPageSize,
+    startIndex: receiptsStartIndex,
+    paginate: paginateReceipts
+  } = useAutoTablePagination({
+    totalItems: filteredReceipts.length,
+    rowHeight: 42,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedReceipts = paginateReceipts(filteredReceipts);
+
+  useEffect(() => {
+    setReceiptsPage(1);
+  }, [searchTerm, statusFilter]);
+
+  const {
+    currentPage: paymentsPage,
+    setCurrentPage: setPaymentsPage,
+    pageSize: paymentsPageSize,
+    setPageSize: setPaymentsPageSize,
+    startIndex: paymentsStartIndex,
+    paginate: paginatePayments
+  } = useAutoTablePagination({
+    totalItems: filteredPayments.length,
+    rowHeight: 42,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedPayments = paginatePayments(filteredPayments);
+
+  useEffect(() => {
+    setPaymentsPage(1);
+  }, [searchTerm, statusFilter]);
+
+  const {
+    currentPage: revTypesPage,
+    setCurrentPage: setRevTypesPage,
+    pageSize: revTypesPageSize,
+    setPageSize: setRevTypesPageSize,
+    startIndex: revTypesStartIndex,
+    paginate: paginateRevTypes
+  } = useAutoTablePagination({
+    totalItems: revenueTypes.length,
+    rowHeight: 42,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedRevTypes = paginateRevTypes(revenueTypes);
+
   // ================= XUẤT FILE EXCEL / CSV HỖ TRỢ TIẾNG VIỆT (UTF-8 BOM) =================
   const handleExportReceiptsExcel = () => {
     if (filteredReceipts.length === 0) {
@@ -981,14 +1044,12 @@ export const FinancesPage: React.FC = () => {
         <div className="space-y-4">
           {/* Thanh tìm kiếm và bộ lọc trạng thái */}
           <div className="card toolbar-pill p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
-            <div className="relative flex-1 w-full">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
+            <div className="flex-1 w-full">
+              <SearchInput
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(val) => setSearchTerm(val)}
                 placeholder="Tìm theo số phiếu thu, người nộp, lý do thu..."
-                className="input pl-9 text-xs"
+                style={{ height: '34px', borderRadius: '8px' }}
               />
             </div>
 
@@ -1104,11 +1165,11 @@ export const FinancesPage: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredReceipts.map((r, idx) => (
+                    paginatedReceipts.map((r, idx) => (
                       <tr key={r.id} className="hover:bg-gray-50/80 transition-colors">
                         {receiptsVisibleCols.stt && (
                           <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">
-                            {idx + 1}
+                            {receiptsStartIndex + idx + 1}
                           </td>
                         )}
                         {receiptsVisibleCols.voucherDate && (
@@ -1257,6 +1318,15 @@ export const FinancesPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            <TablePagination
+              currentPage={receiptsPage}
+              pageSize={receiptsPageSize}
+              totalItems={filteredReceipts.length}
+              onPageChange={setReceiptsPage}
+              onPageSizeChange={setReceiptsPageSize}
+              itemLabel="phiếu thu"
+            />
           </div>
         </div>
       )}
@@ -1268,14 +1338,12 @@ export const FinancesPage: React.FC = () => {
         <div className="space-y-4">
           {/* Thanh tìm kiếm và bộ lọc trạng thái */}
           <div className="card toolbar-pill p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
-            <div className="relative flex-1 w-full">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
+            <div className="flex-1 w-full">
+              <SearchInput
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(val) => setSearchTerm(val)}
                 placeholder="Tìm theo số phiếu chi, người nhận tiền, nội dung chi..."
-                className="input pl-9 text-xs"
+                style={{ height: '34px', borderRadius: '8px' }}
               />
             </div>
 
@@ -1391,11 +1459,11 @@ export const FinancesPage: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredPayments.map((p, idx) => (
+                    paginatedPayments.map((p, idx) => (
                       <tr key={p.id} className="hover:bg-gray-50/80 transition-colors">
                         {paymentsVisibleCols.stt && (
                           <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">
-                            {idx + 1}
+                            {paymentsStartIndex + idx + 1}
                           </td>
                         )}
                         {paymentsVisibleCols.voucherDate && (
@@ -1546,6 +1614,15 @@ export const FinancesPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            <TablePagination
+              currentPage={paymentsPage}
+              pageSize={paymentsPageSize}
+              totalItems={filteredPayments.length}
+              onPageChange={setPaymentsPage}
+              onPageSizeChange={setPaymentsPageSize}
+              itemLabel="phiếu chi"
+            />
           </div>
         </div>
       )}
@@ -1818,9 +1895,9 @@ export const FinancesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {revenueTypes.map((rt, idx) => (
+                {paginatedRevTypes.map((rt, idx) => (
                   <tr key={rt.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{idx + 1}</td>
+                    <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{revTypesStartIndex + idx + 1}</td>
                     <td className="table-td font-mono font-bold text-xs text-green-700 overflow-hidden text-center">{rt.code}</td>
                     <td className="table-td font-semibold text-xs text-gray-900 overflow-hidden">{rt.name}</td>
                     <td className="table-td text-xs text-gray-600 overflow-hidden">{rt.description || 'Chưa có mô tả'}</td>
@@ -1834,6 +1911,15 @@ export const FinancesPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          <TablePagination
+            currentPage={revTypesPage}
+            pageSize={revTypesPageSize}
+            totalItems={revenueTypes.length}
+            onPageChange={setRevTypesPage}
+            onPageSizeChange={setRevTypesPageSize}
+            itemLabel="khoản thu"
+          />
         </div>
       )}
 
@@ -1974,6 +2060,7 @@ export const FinancesPage: React.FC = () => {
                       <table className="w-full text-[11px] text-left">
                         <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-bold uppercase text-[10px]">
                           <tr>
+                            <th className="p-2 text-center w-12">STT</th>
                             <th className="p-2 text-center">Mã đơn</th>
                             <th className="p-2 text-center">Ngày đặt</th>
                             <th className="p-2 text-center">Tổng tiền</th>
@@ -1984,6 +2071,7 @@ export const FinancesPage: React.FC = () => {
                         <tbody className="divide-y divide-gray-100">
                           {allocations.map((a, aIdx) => (
                             <tr key={a.orderId} className={a.allocatedAmount > 0 ? 'bg-purple-50/40' : ''}>
+                              <td className="p-2 text-center text-gray-500 font-medium tabular-nums w-12">{aIdx + 1}</td>
                               <td className="p-2 font-mono font-bold text-gray-900 text-center">{a.orderCode}</td>
                               <td className="p-2 text-center text-gray-500">
                                 {new Date(a.orderDate).toLocaleDateString('vi-VN')}

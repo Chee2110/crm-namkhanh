@@ -127,12 +127,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'inventory-overview', label: 'Tổng quan kho', icon: Boxes },
         { id: 'warehouses', label: 'Quản lý kho vật lý', icon: Warehouse },
-        { id: 'categories', label: 'Danh mục hàng hóa', icon: Layers },
-        { id: 'product-types', label: 'Loại hàng hóa', icon: Package },
         {
           id: 'products',
-          label: 'Quản lý sản phẩm SKU',
-          icon: Barcode,
+          label: 'Quản lý hàng hóa',
+          icon: Package,
           badge: lowStockCount && lowStockCount > 0 ? `${lowStockCount} sắp hết` : undefined
         },
         { id: 'suppliers', label: 'Nhà cung cấp', icon: Truck },
@@ -383,16 +381,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 {group.items.map((item) => {
                   const Icon = item.icon;
-                  const isActive = currentTab === item.id;
+                  const isActive =
+                    currentTab === item.id ||
+                    (item.id === 'products' && (currentTab === 'categories' || currentTab === 'product-types' || currentTab === 'products' || currentTab === 'goods-management'));
+                  const targetTab =
+                    item.id === 'products'
+                      ? (localStorage.getItem('nk_goods_management_tab') || 'products')
+                      : item.id;
 
                   return (
                     <a
                       key={item.id}
-                      href={`#/${item.id}`}
+                      href={`#/${targetTab}`}
                       onClick={(e) => {
                         if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
                           e.preventDefault();
-                          onSelectTab(item.id);
+                          onSelectTab(targetTab);
                           if (isOpenMobile) onCloseMobile();
                         }
                       }}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FileSpreadsheet,
   Plus,
@@ -29,12 +29,15 @@ import { useAuth } from '../../context/AuthContext';
 import { QuotationPrintModal } from './components/QuotationPrintModal';
 import { ImportItemsModal } from '../../components/common/ImportItemsModal';
 import { useTableResize } from '../../hooks/useTableResize';
+import { TablePagination } from '../../components/common/TablePagination';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
 import { ProductSearchSelect } from '../../components/common/ProductSearchSelect';
 import { Toast } from '../../components/common/Toast';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
 import { withActionsLast } from '../../utils/columnOrder';
 import { formatVND } from '../../utils/formatCurrency';
+import { SearchInput } from '../../components/common/SearchInput';
 
 const QUOTATION_STATUS_OPTIONS: StatusOption[] = [
   { value: 'DRAFT', label: 'Bản thảo', colorClass: 'bg-gray-100 text-gray-700 border-gray-300' },
@@ -165,6 +168,24 @@ export const QuotationsPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [convertingQuoteId, setConvertingQuoteId] = useState<string | null>(null);
+
+  // Pagination (vừa vặn màn hình laptop, tự động co giãn thêm/bớt dòng theo zoom)
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    startIndex,
+    paginate: paginateQuotations
+  } = useAutoTablePagination({
+    totalItems: quotations.length,
+    rowHeight: 39,
+    topOffset: 205,
+    minRows: 6,
+    maxRows: 50,
+  });
+
+  const paginatedQuotations = paginateQuotations(quotations);
   const [formData, setFormData] = useState({
     customerId: '',
     date: new Date().toISOString().split('T')[0],
@@ -404,32 +425,52 @@ export const QuotationsPage: React.FC = () => {
     );
   };
 
-  const loadData = async (silent: boolean | unknown = false) => {
-    const isSilent = silent === true;
+  const loadMetadata = async () => {
     try {
-      if (!isSilent) setLoading(true);
+      const [resCust, resProds] = await Promise.all([
+        api.get<Customer[]>('/customers'),
+        api.get<Product[]>('/products')
+      ]);
+      setCustomers(resCust.data || []);
+      setProducts(resProds.data || []);
+    } catch (err) {
+      console.error('Lỗi khi tải metadata báo giá:', err);
+    }
+  };
+
+  const loadQuotations = async (silent: boolean = false) => {
+    try {
+      if (!silent) setLoading(true);
       const query = new URLSearchParams();
       if (search) query.append('search', search);
       if (statusFilter) query.append('status', statusFilter);
 
-      const [resQuotes, resCust, resProds] = await Promise.all([
-        api.get<Quotation[]>(`/quotations?${query.toString()}`),
-        api.get<Customer[]>('/customers'),
-        api.get<Product[]>('/products')
-      ]);
-
+      const resQuotes = await api.get<Quotation[]>(`/quotations?${query.toString()}`);
       setQuotations(resQuotes.data || []);
-      setCustomers(resCust.data || []);
-      setProducts(resProds.data || []);
     } catch (err) {
       console.error(err);
     } finally {
-      if (!isSilent) setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
+  const loadData = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
+    if (customers.length === 0 || products.length === 0) {
+      loadMetadata();
+    }
+    await loadQuotations(isSilent);
+  };
+
+  const isFirstMount = useRef(true);
   useEffect(() => {
-    loadData();
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      loadMetadata();
+      loadQuotations(false);
+      return;
+    }
+    loadQuotations(true);
   }, [search, statusFilter]);
 
   const openAddModal = () => {
@@ -1373,17 +1414,13 @@ export const QuotationsPage: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '280px' }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: '360px' }}>
-            <Search size={16} style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.75rem', color: '#9CA3AF' }} />
-            <input
-              type="text"
-              className="input"
-              style={{ paddingLeft: '2.25rem' }}
-              placeholder="Tìm theo số báo giá, tên khách hàng..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(val) => setSearch(val)}
+            onSearchImmediate={() => loadQuotations(true)}
+            placeholder="Tìm theo số báo giá, tên khách hàng..."
+            wrapperStyle={{ flex: 1, maxWidth: '360px' }}
+          />
 
           <select
             className="input"
@@ -1498,7 +1535,7 @@ export const QuotationsPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                quotations.map((q, idx) => (
+                paginatedQuotations.map((q, idx) => (
                   <tr
                     key={q.id}
                     onClick={() => {
@@ -1514,7 +1551,7 @@ export const QuotationsPage: React.FC = () => {
                           case 'stt':
                             return (
                               <td key={colKey} className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
-                                {idx + 1}
+                                {startIndex + idx + 1}
                               </td>
                             );
                           case 'code':
@@ -1681,6 +1718,14 @@ export const QuotationsPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={quotations.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="báo giá"
+        />
       </div>
 
       {/* Modal Tạo nhanh Khách hàng mới */}

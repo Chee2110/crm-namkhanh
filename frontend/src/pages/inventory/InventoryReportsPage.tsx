@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { InventoryReportItem, Warehouse, Category } from '../../types';
+import { SearchInput } from '../../components/common/SearchInput';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
+import { TablePagination } from '../../components/common/TablePagination';
 
 export const InventoryReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'category' | 'type' | 'product'>('category');
@@ -106,6 +109,28 @@ export const InventoryReportsPage: React.FC = () => {
 
     return matchesSearch && matchesWarehouse && matchesCategory && matchesStatus;
   });
+
+  // Phân trang tự động co giãn vừa vặn màn hình laptop, tự thêm/bớt dòng khi zoom
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    startIndex,
+    paginate
+  } = useAutoTablePagination({
+    totalItems: filteredItems.length,
+    rowHeight: 40,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedItems = paginate(filteredItems);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchTerm, selectedWarehouse, selectedCategory, stockStatusFilter]);
 
   // Calculate summary stats
   const totalDisplayQuantity = filteredItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -329,14 +354,12 @@ export const InventoryReportsPage: React.FC = () => {
 
         {/* Thanh tìm kiếm & bộ lọc */}
         <div className="toolbar-pill flex flex-col lg:flex-row gap-3 items-center justify-between mt-6 pt-4 border-t border-gray-100 print:hidden">
-          <div className="w-full lg:w-96 relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
+          <div className="w-full lg:w-96">
+            <SearchInput
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(val) => setSearchTerm(val)}
               placeholder="Tìm theo tên, mã SKU, mã vạch barcode..."
-              className="w-full pl-9 pr-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E53935] focus:border-transparent"
+              style={{ height: '36px', borderRadius: '8px' }}
             />
           </div>
 
@@ -413,7 +436,8 @@ export const InventoryReportsPage: React.FC = () => {
             Không tìm thấy bản ghi tồn kho nào phù hợp với bộ lọc.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               {/* TAB 1: BÁO CÁO THEO DANH MỤC CẤP 1 */}
               {activeTab === 'category' && (
@@ -429,9 +453,9 @@ export const InventoryReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700">
-                    {filteredItems.map((item, idx) => (
+                    {paginatedItems.map((item, idx) => (
                       <tr key={idx} className="hover:bg-red-50/30 transition-colors">
-                        <td className="py-3 px-4 text-center text-gray-400">{idx + 1}</td>
+                        <td className="py-3 px-4 text-center text-gray-400">{startIndex + idx + 1}</td>
                         <td className="py-3 px-4 font-mono font-semibold text-gray-800 text-center">{item.code}</td>
                         <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
                         <td className="py-3 px-4 text-center font-semibold text-blue-700">
@@ -488,9 +512,9 @@ export const InventoryReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700">
-                    {filteredItems.map((item, idx) => (
+                    {paginatedItems.map((item, idx) => (
                       <tr key={idx} className="hover:bg-red-50/30 transition-colors">
-                        <td className="py-3 px-4 text-center text-gray-400">{idx + 1}</td>
+                        <td className="py-3 px-4 text-center text-gray-400">{startIndex + idx + 1}</td>
                         <td className="py-3 px-4 font-mono font-semibold text-gray-800 text-center">{item.code}</td>
                         <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
                         <td className="py-3 px-4 text-gray-600">{item.categoryName || 'Chung'}</td>
@@ -557,13 +581,13 @@ export const InventoryReportsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700">
-                    {filteredItems.map((item, idx) => (
+                    {paginatedItems.map((item, idx) => (
                       <tr
                         key={idx}
                         className={`hover:bg-red-50/30 transition-colors ${item.status === 'LOW_STOCK' ? 'bg-amber-50/30' : ''
                           }`}
                       >
-                        <td className="py-3 px-3 text-center text-gray-400">{idx + 1}</td>
+                        <td className="py-3 px-3 text-center text-gray-400">{startIndex + idx + 1}</td>
                         <td className="py-3 px-3 font-mono font-bold text-gray-800 text-center">{item.code}</td>
                         <td className="py-3 px-3 font-mono text-[11px] text-gray-500 text-center">{item.barcode || '-'}</td>
                         <td className="py-3 px-4">
@@ -627,6 +651,16 @@ export const InventoryReportsPage: React.FC = () => {
               )}
             </table>
           </div>
+
+            <TablePagination
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalItems={filteredItems.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemLabel={activeTab === 'category' ? 'danh mục' : activeTab === 'type' ? 'loại hàng' : 'sản phẩm'}
+            />
+          </>
         )}
       </div>
 

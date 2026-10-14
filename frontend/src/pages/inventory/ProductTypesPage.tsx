@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Package,
   Plus,
@@ -14,8 +14,17 @@ import { api } from '../../services/api';
 import { ProductType, Category } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
+import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+import { withActionsLast } from '../../utils/columnOrder';
+import { TablePagination } from '../../components/common/TablePagination';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
+import { SearchInput } from '../../components/common/SearchInput';
 
-export const ProductTypesPage: React.FC = () => {
+interface ProductTypesPageProps {
+  headerSlot?: React.ReactNode;
+}
+
+export const ProductTypesPage: React.FC<ProductTypesPageProps> = ({ headerSlot }) => {
   const { hasPermission } = useAuth();
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -23,30 +32,118 @@ export const ProductTypesPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
 
+  // Pagination (vừa vặn màn hình laptop, tự động tăng/giảm dòng khi zoom)
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    startIndex,
+    paginate: paginateProductTypes
+  } = useAutoTablePagination({
+    totalItems: productTypes.length,
+    rowHeight: 42,
+    topOffset: 290,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const defaultColOrder = ['stt', 'code', 'name', 'category', 'unit', 'skuCount', 'actions'];
+
+  const columnLabels: Record<string, string> = {
+    stt: 'STT',
+    code: 'Mã loại',
+    name: 'Tên loại hàng hóa',
+    category: 'Danh mục',
+    unit: 'ĐVT',
+    skuCount: 'Số hàng hóa',
+    actions: 'Thao tác'
+  };
+
+  const defaultVisibleCols: Record<string, boolean> = {
+    stt: true,
+    code: true,
+    name: true,
+    category: true,
+    unit: true,
+    skuCount: true,
+    actions: true
+  };
+
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('namkhanh_product_types_visible_cols');
+      return saved ? JSON.parse(saved) : defaultVisibleCols;
+    } catch {
+      return defaultVisibleCols;
+    }
+  });
+
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('namkhanh_product_types_col_order');
+      return saved ? withActionsLast(JSON.parse(saved), defaultColOrder) : defaultColOrder;
+    } catch {
+      return defaultColOrder;
+    }
+  });
+
   const defaultTypeWidths: Record<string, number> = {
     stt: 60,
     code: 140,
     name: 260,
-    category: 220,
-    unit: 120,
-    skuCount: 150,
-    actions: 140
+    category: 260,
+    unit: 110,
+    skuCount: 140,
+    actions: 85
   };
 
-  const { columnWidths, startResize, getTableWidth } = useTableResize({
-    tableKey: 'product_types',
+  const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
+    tableKey: 'product_types_v3',
     defaultWidths: defaultTypeWidths,
     minWidth: 60,
     minWidths: {
       stt: 50,
       code: 110,
       name: 180,
-      category: 160,
-      unit: 90,
-      skuCount: 130,
-      actions: 120
+      category: 180,
+      unit: 80,
+      skuCount: 120,
+      actions: 75
     }
   });
+
+  const handleReorderColumns = (newOrder: string[]) => {
+    const normalized = withActionsLast(newOrder, defaultColOrder);
+    setColumnOrder(normalized);
+    try {
+      localStorage.setItem('namkhanh_product_types_col_order', JSON.stringify(normalized));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const toggleColumnVisibility = (colKey: string) => {
+    const updated = { ...visibleColumns, [colKey]: !visibleColumns[colKey] };
+    setVisibleColumns(updated);
+    try {
+      localStorage.setItem('namkhanh_product_types_visible_cols', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const resetColumns = () => {
+    setVisibleColumns(defaultVisibleCols);
+    setColumnOrder(defaultColOrder);
+    resetWidths();
+    try {
+      localStorage.setItem('namkhanh_product_types_visible_cols', JSON.stringify(defaultVisibleCols));
+      localStorage.removeItem('namkhanh_product_types_col_order');
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,33 +158,55 @@ export const ProductTypesPage: React.FC = () => {
     status: 'ACTIVE'
   });
 
-  const loadData = async () => {
+  const loadCategories = async () => {
     try {
-      setLoading(true);
+      const resCats = await api.get<Category[]>('/categories');
+      setCategories(resCats.data || []);
+    } catch (err) {
+      console.error('Lỗi khi tải danh mục:', err);
+    }
+  };
+
+  const loadProductTypes = async (silent: boolean = false) => {
+    try {
+      if (!silent) setLoading(true);
       const query = new URLSearchParams();
       if (search) query.append('search', search);
       if (categoryFilter) query.append('categoryId', categoryFilter);
 
-      const [resTypes, resCats] = await Promise.all([
-        api.get<ProductType[]>(`/product-types?${query.toString()}`),
-        api.get<Category[]>('/categories')
-      ]);
+      const resTypes = await api.get<ProductType[]>(`/product-types?${query.toString()}`);
       setProductTypes(resTypes.data || []);
-      setCategories(resCats.data || []);
     } catch (err) {
       console.error('Lỗi khi tải loại hàng hóa:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
+  const loadData = async (silent: boolean = false) => {
+    if (categories.length === 0) {
+      loadCategories();
+    }
+    await loadProductTypes(silent);
+  };
+
+  const isFirstMount = useRef(true);
   useEffect(() => {
-    loadData();
-  }, [categoryFilter]);
+    setCurrentPage(1);
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      loadCategories();
+      loadProductTypes(false);
+      return;
+    }
+    loadProductTypes(true);
+  }, [search, categoryFilter]);
+
+  const paginatedProductTypes = paginateProductTypes(productTypes);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    loadData();
+    loadProductTypes(true);
   };
 
   const openAddModal = () => {
@@ -155,53 +274,62 @@ export const ProductTypesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* HEADER & FILTER */}
-      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Package className="w-5 h-5 text-[#E53935]" />
-            Loại Hàng Hóa (Cấp 2)
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            Đơn vị phân loại chi tiết trực thuộc Danh mục Cấp 1 & dùng trong phân bổ Kế hoạch Kinh doanh
-          </p>
-        </div>
+    <div className="space-y-3 pb-3">
+      {/* KHỐI TẬP TRUNG: TIÊU ĐỀ, TABS & THANH CÔNG CỤ (GỘP THÀNH 1 KHỐI) */}
+      <div className="card p-3 sm:px-4 sm:py-2.5 rounded-2xl border border-slate-100/90 shadow-sm bg-white/95 backdrop-blur-md space-y-2">
+        {headerSlot}
+        {headerSlot && <div className="border-t border-slate-100" />}
 
-        <div className="toolbar-pill flex items-center gap-3 w-full sm:w-auto flex-wrap">
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#E53935]"
-          >
-            <option value="">Tất cả danh mục Cấp 1</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
-          <form onSubmit={handleSearch} className="relative flex-1 sm:w-56">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Tìm mã, tên loại hàng..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
-            />
-          </form>
-
-          {hasPermission('C_PRODUCT_TYPES', 'create') && (
-            <button
-              onClick={openAddModal}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-xs font-semibold shadow-sm transition-colors whitespace-nowrap"
+        {/* THANH CÔNG CỤ: BỘ LỌC, TÌM KIẾM & NÚT THAO TÁC */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 flex-1 flex-wrap">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="input text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#E53935]"
+              style={{ width: '200px', height: '32px' }}
             >
-              <Plus className="w-4 h-4" />
-              Thêm Loại Hàng
-            </button>
-          )}
+              <option value="">-- Tất cả danh mục --</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
+            <form onSubmit={handleSearch} className="flex-1 min-w-[200px] max-w-sm">
+              <SearchInput
+                value={search}
+                onChange={(val) => setSearch(val)}
+                onSearchImmediate={() => loadProductTypes(true)}
+                placeholder="Tìm mã, tên loại hàng..."
+              />
+            </form>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <ColumnCustomizerDropdown
+              columnOrder={columnOrder}
+              columnLabels={columnLabels}
+              visibleColumns={visibleColumns}
+              onToggleColumn={toggleColumnVisibility}
+              onReorderColumns={handleReorderColumns}
+              onReset={resetColumns}
+              disabledKeys={['code', 'name']}
+              buttonStyle={{ height: '32px' }}
+            />
+
+            {hasPermission('C_PRODUCT_TYPES', 'create') && (
+              <button
+                onClick={openAddModal}
+                className="btn btn-primary btn-sm flex items-center gap-1.5 whitespace-nowrap shadow-glow"
+                style={{ padding: '0.35rem 0.75rem', fontSize: '12.5px', height: '32px' }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Thêm Loại Hàng</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -211,119 +339,150 @@ export const ProductTypesPage: React.FC = () => {
           <table
             className="w-full text-left text-sm border-collapse"
             style={{
-              width: `${getTableWidth(Object.keys(defaultTypeWidths))}px`,
+              width: `${getTableWidth(columnOrder.filter((k) => visibleColumns[k]))}px`,
               minWidth: '100%',
               tableLayout: 'fixed'
             }}
           >
             <thead>
               <tr className="bg-slate-50/90 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider whitespace-nowrap">
-                <th className="py-3 px-3.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.stt || defaultTypeWidths.stt}px`, position: 'relative' }}>
-                  <span>STT</span>
-                  <div className="col-resizer" onMouseDown={(e) => startResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                </th>
-                <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.code || defaultTypeWidths.code}px`, position: 'relative' }}>
-                  <span>Mã loại</span>
-                  <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                </th>
-                <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.name || defaultTypeWidths.name}px`, position: 'relative' }}>
-                  <span>Tên loại hàng hóa</span>
-                  <div className="col-resizer" onMouseDown={(e) => startResize('name', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                </th>
-                <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.category || defaultTypeWidths.category}px`, position: 'relative' }}>
-                  <span>Thuộc danh mục (Cấp 1)</span>
-                  <div className="col-resizer" onMouseDown={(e) => startResize('category', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                </th>
-                <th className="py-3 px-3.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.unit || defaultTypeWidths.unit}px`, position: 'relative' }}>
-                  <span>ĐVT chuẩn</span>
-                  <div className="col-resizer" onMouseDown={(e) => startResize('unit', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                </th>
-                <th className="py-3 px-3.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.skuCount || defaultTypeWidths.skuCount}px`, position: 'relative' }}>
-                  <span>Số SKU liên kết</span>
-                  <div className="col-resizer" onMouseDown={(e) => startResize('skuCount', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
-                </th>
-                <th className="py-3 px-3.5 text-center sticky-action-th" style={{ width: `${columnWidths.actions || defaultTypeWidths.actions}px` }}>
-                  <span>Thao tác</span>
-                </th>
+                {columnOrder
+                  .filter((k) => visibleColumns[k])
+                  .map((colKey) => (
+                    <th
+                      key={colKey}
+                      className={`py-1.5 ${colKey === 'actions' ? 'px-1.5' : 'px-2.5'} select-none overflow-hidden ${
+                        colKey === 'actions'
+                          ? 'sticky-action-th text-center'
+                          : colKey === 'stt' || colKey === 'unit' || colKey === 'skuCount'
+                          ? 'text-center'
+                          : ''
+                      }`}
+                      style={{
+                        width: `${columnWidths[colKey] || defaultTypeWidths[colKey]}px`,
+                        position: colKey === 'actions' ? 'sticky' : 'relative'
+                      }}
+                    >
+                      <span>{columnLabels[colKey]}</span>
+                      {colKey !== 'actions' && (
+                        <div
+                          className="col-resizer"
+                          onMouseDown={(e) => startResize(colKey, e)}
+                          onClick={(e) => e.stopPropagation()}
+                          title="Kéo để chỉnh độ rộng"
+                        />
+                      )}
+                    </th>
+                  ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-500">
+                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 7} className="py-8 text-center text-gray-500">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#E53935] mb-2"></div>
                     <p>Đang tải danh mục loại hàng...</p>
                   </td>
                 </tr>
               ) : productTypes.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-500">
+                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 7} className="py-8 text-center text-gray-500">
                     Chưa có loại hàng hóa nào
                   </td>
                 </tr>
               ) : (
-                productTypes.map((t, idx) => (
+                paginatedProductTypes.map((t, idx) => (
                   <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
-                      {idx + 1}
-                    </td>
-                    <td className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
-                      {t.code}
-                    </td>
-                    <td className="py-2.5 px-3.5 overflow-hidden">
-                      <div className="min-w-0" title={`${t.name}${t.description ? `\n• ${t.description}` : ''}`}>
-                        <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
-                          {t.name}
-                        </div>
-                        {t.description && (
-                          <div className="text-xs text-gray-400 truncate mt-0.5">
-                            {t.description}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-3.5 text-xs font-medium text-gray-700 whitespace-nowrap overflow-hidden">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 font-semibold text-gray-800" title={t.category?.name || 'N/A'}>
-                        <Layers className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                        <span className="truncate max-w-[150px]">{t.category?.name || 'N/A'}</span>
-                      </span>
-                    </td>
-                    <td className="py-3 px-3.5 text-center text-xs font-semibold text-gray-700 whitespace-nowrap overflow-hidden">
-                      {t.unit || 'Sp'}
-                    </td>
-                    <td className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700">
-                        {t._count?.products || 0} SKU
-                      </span>
-                    </td>
-                    <td className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1 w-full">
-                        {hasPermission('C_PRODUCT_TYPES', 'update') && (
-                          <button
-                            onClick={() => openEditModal(t)}
-                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                            title="Sửa loại hàng"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        )}
-                        {hasPermission('C_PRODUCT_TYPES', 'delete') && (
-                          <button
-                            onClick={() => handleDelete(t)}
-                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
-                            title="Xóa loại hàng"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                    {columnOrder
+                      .filter((k) => visibleColumns[k])
+                      .map((colKey) => {
+                        switch (colKey) {
+                          case 'stt':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                                {startIndex + idx + 1}
+                              </td>
+                            );
+                          case 'code':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
+                                {t.code}
+                              </td>
+                            );
+                          case 'name':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 overflow-hidden">
+                                <div className="font-semibold text-gray-900 text-xs truncate leading-normal" title={t.name}>
+                                  {t.name}
+                                </div>
+                              </td>
+                            );
+                          case 'category':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 text-xs font-medium text-gray-700">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-100 font-semibold text-gray-800" title={t.category?.name || 'N/A'}>
+                                  <Layers className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                                  <span className="whitespace-normal break-words leading-tight">{t.category?.name || 'N/A'}</span>
+                                </span>
+                              </td>
+                            );
+                          case 'unit':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 text-center text-xs font-semibold text-gray-700 whitespace-nowrap overflow-hidden">
+                                {t.unit || 'Sp'}
+                              </td>
+                            );
+                          case 'skuCount':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 text-center whitespace-nowrap overflow-hidden">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700">
+                                  {t._count?.products || 0} Hàng hóa
+                                </span>
+                              </td>
+                            );
+                          case 'actions':
+                            return (
+                              <td key={colKey} className="py-1 px-1.5 text-center sticky-action-td whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1 w-full">
+                                  {hasPermission('C_PRODUCT_TYPES', 'update') && (
+                                    <button
+                                      onClick={() => openEditModal(t)}
+                                      className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                                      title="Sửa loại hàng"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {hasPermission('C_PRODUCT_TYPES', 'delete') && (
+                                    <button
+                                      onClick={() => handleDelete(t)}
+                                      className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                      title="Xóa loại hàng"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          default:
+                            return null;
+                        }
+                      })}
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={productTypes.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="loại hàng"
+        />
       </div>
 
       {/* MODAL THÊM / SỬA LOẠI HÀNG */}

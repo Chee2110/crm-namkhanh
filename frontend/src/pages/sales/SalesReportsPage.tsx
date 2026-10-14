@@ -14,6 +14,8 @@ import {
   Calendar
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
+import { TablePagination } from '../../components/common/TablePagination';
 
 export const SalesReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'revenue' | 'debts'>('revenue');
@@ -46,6 +48,49 @@ export const SalesReportsPage: React.FC = () => {
     customers: []
   });
   const [loadingDebts, setLoadingDebts] = useState(false);
+
+  // Phân trang tự động co giãn vừa vặn màn hình laptop, tự thêm/bớt dòng khi zoom
+  const {
+    currentPage: revenuePage,
+    setCurrentPage: setRevenuePage,
+    pageSize: revenuePageSize,
+    setPageSize: setRevenuePageSize,
+    startIndex: revenueStartIndex,
+    paginate: paginateRevenue
+  } = useAutoTablePagination({
+    totalItems: revenueData.items.length,
+    rowHeight: 42,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedRevenue = paginateRevenue(revenueData.items);
+
+  useEffect(() => {
+    setRevenuePage(1);
+  }, [revenueView]);
+
+  const {
+    currentPage: debtsPage,
+    setCurrentPage: setDebtsPage,
+    pageSize: debtsPageSize,
+    setPageSize: setDebtsPageSize,
+    startIndex: debtsStartIndex,
+    paginate: paginateDebts
+  } = useAutoTablePagination({
+    totalItems: debtsData.customers.length,
+    rowHeight: 42,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedDebts = paginateDebts(debtsData.customers);
+
+  useEffect(() => {
+    setDebtsPage(1);
+  }, [debtSearch]);
 
   const loadRevenueData = async () => {
     try {
@@ -341,10 +386,10 @@ export const SalesReportsPage: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    revenueData.items.map((row) => (
-                      <tr key={row.stt} className="hover:bg-gray-50/80 transition-colors">
+                    paginatedRevenue.map((row, idx) => (
+                      <tr key={row.stt || idx} className="hover:bg-gray-50/80 transition-colors">
                         <td className="py-3 px-4 text-center text-gray-500 text-xs font-semibold">
-                          {row.stt}
+                          {revenueStartIndex + idx + 1}
                         </td>
                         <td className="py-3 px-4 font-mono text-xs font-bold text-gray-700 text-center">
                           {row.code}
@@ -384,6 +429,15 @@ export const SalesReportsPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            <TablePagination
+              currentPage={revenuePage}
+              pageSize={revenuePageSize}
+              totalItems={revenueData.items.length}
+              onPageChange={setRevenuePage}
+              onPageSizeChange={setRevenuePageSize}
+              itemLabel="mục báo cáo"
+            />
           </div>
         </div>
       )}
@@ -490,10 +544,10 @@ export const SalesReportsPage: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    debtsData.customers.map((c) => (
+                    paginatedDebts.map((c, idx) => (
                       <tr key={c.id} className="hover:bg-gray-50/80 transition-colors">
                         <td className="py-3 px-4 text-center text-gray-500 text-xs font-semibold">
-                          {c.stt}
+                          {debtsStartIndex + idx + 1}
                         </td>
                         <td className="py-3 px-4">
                           <div className="font-bold text-gray-900">{c.name}</div>
@@ -540,6 +594,15 @@ export const SalesReportsPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            <TablePagination
+              currentPage={debtsPage}
+              pageSize={debtsPageSize}
+              totalItems={debtsData.customers.length}
+              onPageChange={setDebtsPage}
+              onPageSizeChange={setDebtsPageSize}
+              itemLabel="khách hàng"
+            />
           </div>
         </div>
       )}

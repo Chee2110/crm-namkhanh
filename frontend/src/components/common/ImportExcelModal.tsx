@@ -674,7 +674,7 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-gray-100 text-gray-700 font-semibold sticky top-0">
                     <tr>
-                      <th className="p-2 border-b border-gray-200 text-center w-10">#</th>
+                      <th className="p-2 border-b border-gray-200 text-center w-10">STT</th>
                       {headers.map((h, i) => (
                         <th key={i} className="p-2 border-b border-gray-200 whitespace-nowrap text-center">
                           {h}

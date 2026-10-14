@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Building2,
   Plus,
@@ -18,7 +18,10 @@ import { api } from '../../services/api';
 import { Department, User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
+import { TablePagination } from '../../components/common/TablePagination';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
+import { SearchInput } from '../../components/common/SearchInput';
 
 const DEPT_STATUS_OPTIONS: StatusOption[] = [
   { value: 'ACTIVE', label: 'Đang hoạt động', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
@@ -67,6 +70,37 @@ export const DepartmentsPage: React.FC = () => {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Danh sách đơn vị lọc theo tìm kiếm và trạng thái
+  const filteredDepartments = departmentsFlat.filter(d => {
+    if (statusFilter && d.status !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const codeMatch = d.code?.toLowerCase().includes(q);
+      const nameMatch = d.name?.toLowerCase().includes(q);
+      const managerMatch = d.manager?.fullName?.toLowerCase().includes(q);
+      if (!codeMatch && !nameMatch && !managerMatch) return false;
+    }
+    return true;
+  });
+
+  // Pagination (vừa vặn màn hình laptop, tự động co giãn thêm/bớt dòng theo zoom)
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    startIndex,
+    paginate: paginateDepartments
+  } = useAutoTablePagination({
+    totalItems: filteredDepartments.length,
+    rowHeight: 45,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedDepartments = paginateDepartments(filteredDepartments);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -79,27 +113,48 @@ export const DepartmentsPage: React.FC = () => {
     status: 'ACTIVE'
   });
 
-  const loadData = async (silent: boolean | unknown = false) => {
-    const isSilent = silent === true;
+  const loadMetadata = async () => {
     try {
-      if (!isSilent) setLoading(true);
-      const [resTree, resFlat, resUsers] = await Promise.all([
-        api.get<Department[]>(`/departments?format=tree&status=${statusFilter}&search=${search}`),
-        api.get<Department[]>(`/departments?format=flat`),
-        api.get<User[]>(`/users?pageSize=100`)
+      const [resFlat, resUsers] = await Promise.all([
+        api.get<Department[]>('/departments?format=flat'),
+        api.get<User[]>('/users?pageSize=100')
       ]);
-      setDepartmentsTree(resTree.data || []);
       setDepartmentsFlat(resFlat.data || []);
       setUsers(resUsers.data || []);
     } catch (err: any) {
       console.error(err);
-    } finally {
-      if (!isSilent) setLoading(false);
     }
   };
 
+  const loadTree = async (silent: boolean = false) => {
+    try {
+      if (!silent) setLoading(true);
+      const resTree = await api.get<Department[]>(`/departments?format=tree&status=${statusFilter}&search=${search}`);
+      setDepartmentsTree(resTree.data || []);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  const loadData = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
+    if (departmentsFlat.length === 0 || users.length === 0) {
+      loadMetadata();
+    }
+    await loadTree(isSilent);
+  };
+
+  const isFirstMount = useRef(true);
   useEffect(() => {
-    loadData();
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      loadMetadata();
+      loadTree(false);
+      return;
+    }
+    loadTree(true);
   }, [statusFilter, search]);
 
   const openAddModal = (parentId?: string) => {
@@ -370,17 +425,13 @@ export const DepartmentsPage: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '280px' }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: '320px' }}>
-            <Search size={16} style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.75rem', color: '#9CA3AF' }} />
-            <input
-              type="text"
-              placeholder="Tìm kiếm mã, tên phòng ban..."
-              className="input"
-              style={{ paddingLeft: '2.25rem' }}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(val) => setSearch(val)}
+            onSearchImmediate={() => loadTree(true)}
+            placeholder="Tìm kiếm mã, tên phòng ban..."
+            wrapperStyle={{ flex: 1, maxWidth: '320px' }}
+          />
 
           <select
             className="input"
@@ -524,16 +575,16 @@ export const DepartmentsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {departmentsFlat.length === 0 ? (
+              {filteredDepartments.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: '#9CA3AF' }}>
                     Không tìm thấy bản ghi nào
                   </td>
                 </tr>
               ) : (
-                departmentsFlat.map((d, index) => (
+                paginatedDepartments.map((d, index) => (
                   <tr key={d.id} className="table-tr">
-                    <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{index + 1}</td>
+                    <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{startIndex + index + 1}</td>
                     <td className="table-td text-center whitespace-nowrap overflow-hidden">
                       <span className="font-semibold text-xs text-[#E53935] font-mono">{d.code}</span>
                     </td>
@@ -599,6 +650,14 @@ export const DepartmentsPage: React.FC = () => {
               )}
             </tbody>
           </table>
+          <TablePagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalItems={filteredDepartments.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="đơn vị"
+          />
         </div>
       )}
 

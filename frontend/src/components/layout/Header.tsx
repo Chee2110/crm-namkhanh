@@ -122,6 +122,7 @@ export const Header: React.FC<HeaderProps> = ({
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const isSearchComposingRef = useRef(false);
 
   const { readKey, deletedKey } = useMemo(
     () => getStorageKeys(user?.id || user?.email),
@@ -408,10 +409,18 @@ export const Header: React.FC<HeaderProps> = ({
                   type="text"
                   placeholder="Tìm nhanh dữ liệu..."
                   value={searchValue}
+                  onCompositionStart={() => {
+                    isSearchComposingRef.current = true;
+                  }}
+                  onCompositionEnd={(e) => {
+                    isSearchComposingRef.current = false;
+                    setSearchValue(e.currentTarget.value);
+                  }}
                   onChange={(e) => setSearchValue(e.target.value)}
                   className="bg-transparent border-none outline-none text-xs text-slate-800 placeholder:text-slate-400 w-full"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
+                      if (isSearchComposingRef.current) return;
                       if (onNavigateTab) {
                         onNavigateTab('orders');
                       }

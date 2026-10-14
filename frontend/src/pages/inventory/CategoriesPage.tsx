@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Layers,
   Plus,
@@ -13,9 +13,16 @@ import {
 import { api } from '../../services/api';
 import { Category, Warehouse } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { TablePagination } from '../../components/common/TablePagination';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
+import { SearchInput } from '../../components/common/SearchInput';
 import { useTableResize } from '../../hooks/useTableResize';
 
-export const CategoriesPage: React.FC = () => {
+interface CategoriesPageProps {
+  headerSlot?: React.ReactNode;
+}
+
+export const CategoriesPage: React.FC<CategoriesPageProps> = ({ headerSlot }) => {
   const { hasPermission } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -23,28 +30,44 @@ export const CategoriesPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState('');
 
+  // Pagination (vừa vặn màn hình laptop, tự động tăng/giảm dòng khi zoom)
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    startIndex,
+    paginate: paginateCategories
+  } = useAutoTablePagination({
+    totalItems: categories.length,
+    rowHeight: 42,
+    topOffset: 290,
+    minRows: 4,
+    maxRows: 50,
+  });
+
   const defaultCategoryWidths: Record<string, number> = {
     stt: 60,
-    code: 150,
+    code: 140,
     name: 260,
-    warehouse: 200,
-    types: 150,
-    skuCount: 150,
-    actions: 140
+    warehouse: 250,
+    types: 130,
+    skuCount: 140,
+    actions: 95
   };
 
-  const { columnWidths, startResize, getTableWidth } = useTableResize({
-    tableKey: 'categories',
+  const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
+    tableKey: 'categories_v2',
     defaultWidths: defaultCategoryWidths,
     minWidth: 60,
     minWidths: {
       stt: 50,
-      code: 120,
+      code: 110,
       name: 180,
-      warehouse: 150,
-      types: 130,
-      skuCount: 130,
-      actions: 120
+      warehouse: 180,
+      types: 110,
+      skuCount: 120,
+      actions: 80
     }
   });
 
@@ -60,33 +83,55 @@ export const CategoriesPage: React.FC = () => {
     status: 'ACTIVE'
   });
 
-  const loadData = async () => {
+  const loadWarehouses = async () => {
     try {
-      setLoading(true);
+      const resWh = await api.get<Warehouse[]>('/warehouses');
+      setWarehouses(resWh.data || []);
+    } catch (err) {
+      console.error('Lỗi khi tải kho:', err);
+    }
+  };
+
+  const loadCategories = async (silent: boolean = false) => {
+    try {
+      if (!silent) setLoading(true);
       const query = new URLSearchParams();
       if (search) query.append('search', search);
       if (warehouseFilter) query.append('warehouseId', warehouseFilter);
 
-      const [resCat, resWh] = await Promise.all([
-        api.get<Category[]>(`/categories?${query.toString()}`),
-        api.get<Warehouse[]>('/warehouses')
-      ]);
+      const resCat = await api.get<Category[]>(`/categories?${query.toString()}`);
       setCategories(resCat.data || []);
-      setWarehouses(resWh.data || []);
     } catch (err) {
       console.error('Lỗi khi tải danh mục hàng hóa:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
+  const loadData = async (silent: boolean = false) => {
+    if (warehouses.length === 0) {
+      loadWarehouses();
+    }
+    await loadCategories(silent);
+  };
+
+  const isFirstMount = useRef(true);
   useEffect(() => {
-    loadData();
-  }, [warehouseFilter]);
+    setCurrentPage(1);
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      loadWarehouses();
+      loadCategories(false);
+      return;
+    }
+    loadCategories(true);
+  }, [search, warehouseFilter]);
+
+  const paginatedCategories = paginateCategories(categories);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    loadData();
+    loadCategories(true);
   };
 
   const openAddModal = () => {
@@ -152,52 +197,46 @@ export const CategoriesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* HEADER & FILTER */}
-      <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-namkhanh-50 text-namkhanh-600 flex items-center justify-center font-bold shadow-inner">
-              <Layers className="w-5 h-5" />
-            </div>
-            <span>Danh Mục Hàng Hóa (Cấp 1)</span>
-          </h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
-            Phân loại cấp cao nhất của ngành hàng văn phòng phẩm & phân bổ kho lưu trữ
-          </p>
-        </div>
+    <div className="space-y-3 pb-3">
+      {/* KHỐI TẬP TRUNG: TIÊU ĐỀ, TABS & THANH CÔNG CỤ (GỘP THÀNH 1 KHỐI) */}
+      <div className="card p-3 sm:px-4 sm:py-2.5 rounded-2xl border border-slate-100/90 shadow-sm bg-white/95 backdrop-blur-md space-y-2">
+        {headerSlot}
+        {headerSlot && <div className="border-t border-slate-100" />}
 
-        <div className="toolbar-pill flex items-center gap-3 w-full sm:w-auto flex-wrap">
-          <select
-            value={warehouseFilter}
-            onChange={(e) => setWarehouseFilter(e.target.value)}
-            className="input input-pill text-xs font-semibold border border-slate-200 px-4 py-2 bg-white focus:outline-none focus:border-namkhanh-500"
-          >
-            <option value="">Tất cả kho</option>
-            {warehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
+        {/* THANH CÔNG CỤ: BỘ LỌC, TÌM KIẾM & NÚT THAO TÁC */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 flex-1 flex-wrap">
+            <select
+              value={warehouseFilter}
+              onChange={(e) => setWarehouseFilter(e.target.value)}
+              className="input text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-namkhanh-500"
+              style={{ width: '200px', height: '32px' }}
+            >
+              <option value="">-- Tất cả kho lưu trữ --</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
 
-          <form onSubmit={handleSearch} className="relative flex-1 sm:w-56">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Tìm mã, tên danh mục..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input input-pill pl-10 text-xs font-medium"
-            />
-          </form>
+            <form onSubmit={handleSearch} className="flex-1 min-w-[200px] max-w-sm">
+              <SearchInput
+                value={search}
+                onChange={(val) => setSearch(val)}
+                onSearchImmediate={() => loadCategories(true)}
+                placeholder="Tìm mã, tên danh mục..."
+              />
+            </form>
+          </div>
 
           {hasPermission('C_CATEGORIES', 'create') && (
             <button
               onClick={openAddModal}
-              className="btn btn-primary text-xs shadow-glow flex items-center gap-2 whitespace-nowrap"
+              className="btn btn-primary btn-sm flex items-center gap-1.5 whitespace-nowrap shadow-glow"
+              style={{ padding: '0.35rem 0.75rem', fontSize: '12.5px', height: '32px' }}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>Thêm Danh Mục</span>
             </button>
           )}
@@ -217,31 +256,31 @@ export const CategoriesPage: React.FC = () => {
           >
             <thead>
               <tr className="bg-slate-50/90 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider whitespace-nowrap">
-                <th className="py-3 px-3.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.stt || defaultCategoryWidths.stt}px`, position: 'relative' }}>
+                <th className="py-1.5 px-2.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.stt || defaultCategoryWidths.stt}px`, position: 'relative' }}>
                   <span>STT</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('stt', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
-                <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.code || defaultCategoryWidths.code}px`, position: 'relative' }}>
+                <th className="py-1.5 px-2.5 select-none overflow-hidden" style={{ width: `${columnWidths.code || defaultCategoryWidths.code}px`, position: 'relative' }}>
                   <span>Mã danh mục</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
-                <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.name || defaultCategoryWidths.name}px`, position: 'relative' }}>
+                <th className="py-1.5 px-2.5 select-none overflow-hidden" style={{ width: `${columnWidths.name || defaultCategoryWidths.name}px`, position: 'relative' }}>
                   <span>Tên danh mục</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('name', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
-                <th className="py-3 px-3.5 select-none overflow-hidden" style={{ width: `${columnWidths.warehouse || defaultCategoryWidths.warehouse}px`, position: 'relative' }}>
+                <th className="py-1.5 px-2.5 select-none overflow-hidden" style={{ width: `${columnWidths.warehouse || defaultCategoryWidths.warehouse}px`, position: 'relative' }}>
                   <span>Kho vật lý lưu trữ</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('warehouse', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
-                <th className="py-3 px-3.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.types || defaultCategoryWidths.types}px`, position: 'relative' }}>
-                  <span>Loại hàng Cấp 2</span>
+                <th className="py-1.5 px-2.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.types || defaultCategoryWidths.types}px`, position: 'relative' }}>
+                  <span>Số loại</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('types', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
-                <th className="py-3 px-3.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.skuCount || defaultCategoryWidths.skuCount}px`, position: 'relative' }}>
-                  <span>Số lượng SKU</span>
+                <th className="py-1.5 px-2.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.skuCount || defaultCategoryWidths.skuCount}px`, position: 'relative' }}>
+                  <span>Số hàng hóa</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('skuCount', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
-                <th className="py-3 px-3.5 text-center sticky-action-th" style={{ width: `${columnWidths.actions || defaultCategoryWidths.actions}px` }}>
+                <th className="py-1.5 px-2.5 text-center sticky-action-th" style={{ width: `${columnWidths.actions || defaultCategoryWidths.actions}px` }}>
                   <span>Thao tác</span>
                 </th>
               </tr>
@@ -249,55 +288,48 @@ export const CategoriesPage: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-500">
+                  <td colSpan={7} className="py-8 text-center text-gray-500">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#E53935] mb-2"></div>
                     <p>Đang tải danh mục hàng hóa...</p>
                   </td>
                 </tr>
               ) : categories.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-500">
+                  <td colSpan={7} className="py-8 text-center text-gray-500">
                     Chưa có danh mục nào
                   </td>
                 </tr>
               ) : (
-                categories.map((cat, idx) => (
+                paginatedCategories.map((cat, idx) => (
                   <tr key={cat.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
-                      {idx + 1}
+                    <td className="py-1 px-2.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                      {startIndex + idx + 1}
                     </td>
-                    <td className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
+                    <td className="py-1 px-2.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
                       {cat.code}
                     </td>
-                    <td className="py-2.5 px-3.5 overflow-hidden">
-                      <div className="min-w-0" title={`${cat.name}${cat.description ? ` • ${cat.description}` : ''}`}>
-                        <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
-                          {cat.name}
-                        </div>
-                        {cat.description && (
-                          <div className="text-xs text-gray-400 truncate mt-0.5">
-                            {cat.description}
-                          </div>
-                        )}
+                    <td className="py-1 px-2.5 overflow-hidden">
+                      <div className="font-semibold text-gray-900 text-xs truncate leading-normal" title={cat.name}>
+                        {cat.name}
                       </div>
                     </td>
-                    <td className="py-3 px-3.5 text-xs font-medium text-gray-700 whitespace-nowrap overflow-hidden">
+                    <td className="py-1 px-2.5 text-xs font-medium text-gray-700">
                       <div className="flex items-center gap-1.5 min-w-0" title={cat.warehouse?.name || 'Chưa chỉ định'}>
                         <WarehouseIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                        <span className="truncate max-w-[180px]">{cat.warehouse?.name || 'Chưa chỉ định'}</span>
+                        <span className="whitespace-normal break-words leading-tight">{cat.warehouse?.name || 'Chưa chỉ định'}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700">
-                        {cat._count?.productTypes || 0} Loại hàng
+                    <td className="py-1 px-2.5 text-center whitespace-nowrap overflow-hidden">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700">
+                        {cat._count?.productTypes || 0} Loại
                       </span>
                     </td>
-                    <td className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
-                        {cat._count?.products || 0} SKU
+                    <td className="py-1 px-2.5 text-center whitespace-nowrap overflow-hidden">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700">
+                        {cat._count?.products || 0} Hàng hóa
                       </span>
                     </td>
-                    <td className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
+                    <td className="py-1 px-2.5 text-center sticky-action-td whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1 w-full">
                         {hasPermission('C_CATEGORIES', 'update') && (
                           <button
@@ -305,7 +337,7 @@ export const CategoriesPage: React.FC = () => {
                             className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                             title="Sửa danh mục"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {hasPermission('C_CATEGORIES', 'delete') && (
@@ -314,7 +346,7 @@ export const CategoriesPage: React.FC = () => {
                             className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                             title="Xóa danh mục"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
@@ -325,6 +357,14 @@ export const CategoriesPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={categories.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="danh mục"
+        />
       </div>
 
       {/* MODAL THÊM / SỬA DANH MỤC */}

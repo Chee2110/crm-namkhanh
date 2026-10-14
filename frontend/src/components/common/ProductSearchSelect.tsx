@@ -70,6 +70,7 @@ export const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isComposingRef = useRef(false);
 
   // Tìm product hiện tại nếu có
   const currentProduct = products.find((p) => p.id === selectedProductId);
@@ -208,6 +209,16 @@ export const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({
           ref={inputRef}
           type="text"
           value={isOpen ? searchQuery : resolvedDisplay}
+          onCompositionStart={() => {
+            isComposingRef.current = true;
+          }}
+          onCompositionEnd={(e) => {
+            isComposingRef.current = false;
+            setSearchQuery(e.currentTarget.value);
+            if (!isOpen) {
+              setIsOpen(true);
+            }
+          }}
           onChange={(e) => {
             setSearchQuery(e.target.value);
             if (!isOpen) {

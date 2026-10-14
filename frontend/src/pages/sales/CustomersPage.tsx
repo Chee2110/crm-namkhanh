@@ -56,6 +56,7 @@ import { Toast } from '../../components/common/Toast';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { withActionsLast } from '../../utils/columnOrder';
+import { SearchInput } from '../../components/common/SearchInput';
 
 const CUSTOMER_STATUS_OPTIONS: StatusOption[] = [
   { value: 'ACTIVE', label: 'Hoạt động', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
@@ -366,16 +367,17 @@ export const CustomersPage: React.FC = () => {
   const startIndex = (currentPage - 1) * pageSize;
   const currentCustomers = customers.slice(startIndex, startIndex + pageSize);
 
-  // 2. Phân trang cột danh sách trong trang chi tiết (Mặc định 5 dòng/trang, tự động thêm/bớt theo zoom)
+  // 2. Phân trang cột danh sách trong trang chi tiết (Tự động tính theo chiều cao màn hình)
   const [detailListPage, setDetailListPage] = useState<number>(1);
-  const [detailListPageSize, setDetailPageSize] = useState<number>(5);
+  const [detailListPageSize, setDetailPageSize] = useState<number>(7);
   const [isAutoDetailListPageSize, setIsAutoDetailListPageSize] = useState<boolean>(true);
 
   const computeDetailRowsFromZoom = () => {
     const vh = window.innerHeight;
-    const baseH = initialViewportHeightRef.current || 820;
-    const deltaRows = Math.round((vh - baseH) / 100);
-    return Math.max(3, Math.min(20, 5 + deltaRows));
+    // Chiều cao khả dụng cho danh sách khách hàng = vh - 100px (layout & toolbar) - 45px (header) - 42px (footer) - 2px
+    const availableH = vh - 189;
+    // Mỗi dòng khách hàng cao ~67px, chuẩn hóa theo ảnh 7 dòng
+    return Math.max(3, Math.min(25, Math.floor((availableH + 5) / 67)));
   };
 
   useEffect(() => {
@@ -408,22 +410,24 @@ export const CustomersPage: React.FC = () => {
   const startDetailListIdx = (detailListPage - 1) * detailListPageSize;
   const currentDetailCustomers = customers.slice(startDetailListIdx, startDetailListIdx + detailListPageSize);
 
-  // 3. Phân trang Lịch sử giao dịch & Chăm sóc (Timeline) - Mặc định 4 dòng/trang, tự động thêm/bớt theo zoom
+  // 3. Phân trang Lịch sử giao dịch & Chăm sóc (Timeline) - Tự động theo chiều cao màn hình và form thêm nhật ký
   const [timelinePage, setTimelinePage] = useState<number>(1);
   const [timelinePageSize, setTimelinePageSize] = useState<number>(4);
   const [isAutoTimelinePageSize, setIsAutoTimelinePageSize] = useState<boolean>(true);
 
-  const computeTimelineRowsFromZoom = () => {
+  const computeTimelineRowsFromZoom = (addingLog = isAddingLog) => {
     const vh = window.innerHeight;
-    const baseH = initialViewportHeightRef.current || 820;
-    const deltaRows = Math.round((vh - baseH) / 120);
-    return Math.max(2, Math.min(15, 4 + deltaRows));
+    // Chiều cao khả dụng = vh - 100px (layout) - 40px (header) - 30px (summary) - 42px (footer) - (form thêm nhật ký ~185px nếu mở)
+    const baseSubtract = addingLog ? 409 : 219;
+    const availableH = vh - baseSubtract;
+    // Mỗi thẻ hoạt động timeline cao ~96px (bao gồm gap), chuẩn hóa theo ảnh 4 thẻ
+    return Math.max(2, Math.min(15, Math.floor((availableH + 10) / 96)));
   };
 
   useEffect(() => {
     const handleZoom = () => {
       if (isAutoTimelinePageSize) {
-        setTimelinePageSize(computeTimelineRowsFromZoom());
+        setTimelinePageSize(computeTimelineRowsFromZoom(isAddingLog));
       }
     };
     handleZoom();
@@ -433,7 +437,7 @@ export const CustomersPage: React.FC = () => {
       window.removeEventListener('resize', handleZoom);
       window.visualViewport?.removeEventListener('resize', handleZoom);
     };
-  }, [isAutoTimelinePageSize]);
+  }, [isAutoTimelinePageSize, isAddingLog]);
 
   useEffect(() => {
     setTimelinePage(1);
@@ -726,8 +730,11 @@ export const CustomersPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadCustomers();
     loadUsers();
+  }, []);
+
+  useEffect(() => {
+    loadCustomers();
   }, [search, customerType, source, statusFilter, debtPreset, customDebtAmount]);
 
   const handleSelectCustomer = async (id: string) => {
@@ -1019,25 +1026,19 @@ export const CustomersPage: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '280px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: '220px', maxWidth: '340px' }}>
-            <Search size={14} style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.75rem', color: '#9CA3AF' }} />
-            <input
-              type="text"
-              className="input"
-              style={{
-                height: '34px',
-                paddingTop: 0,
-                paddingBottom: 0,
-                paddingLeft: '2.1rem',
-                paddingRight: '0.75rem',
-                fontSize: '13px',
-                borderRadius: '8px'
-              }}
-              placeholder="Tìm theo tên, MST, SĐT, người liên hệ..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(val) => setSearch(val)}
+            placeholder="Tìm theo tên, MST, SĐT, người liên hệ..."
+            style={{
+              height: '34px',
+              paddingTop: 0,
+              paddingBottom: 0,
+              fontSize: '13px',
+              borderRadius: '8px'
+            }}
+            wrapperStyle={{ flex: 1, minWidth: '220px', maxWidth: '340px' }}
+          />
 
           {/* Lọc Trạng thái */}
           <select
@@ -1216,32 +1217,41 @@ export const CustomersPage: React.FC = () => {
 
       {/* GIAO DIỆN HIỂN THỊ: 3 PHẦN (SPLIT) HOẶC BẢNG DATAGRID (TABLE) */}
       {viewMode === 'split' ? (
-        /* GIAO DIỆN ĐẶC THÙ CHIA 3 PHẦN KHI QUẢN TRỊ KHÁCH HÀNG (CỘT 2 RỘNG HƠN) */
-        <div style={{ display: 'grid', gridTemplateColumns: '280px minmax(0, 1.35fr) minmax(0, 1fr)', gap: '0.625rem', alignItems: 'start' }}>
-          {/* CỘT 1: DANH SÁCH & THÔNG TIN KHÁCH HÀNG (PHÂN TRANG 5-6 DÒNG) */}
-          <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-            <div style={{ padding: '0.85rem 1rem', borderBottom: '1px solid #F3F4F6', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: '700', fontSize: '14.3px', color: '#374151' }}>
+        /* GIAO DIỆN ĐẶC THÙ CHIA 3 PHẦN KHI QUẢN TRỊ KHÁCH HÀNG (CỘT DANH SÁCH THU HẸP, CHIỀU CAO CỐ ĐỊNH ĐỒNG BỘ) */
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(260px, 0.75fr) minmax(0, 1.125fr) minmax(0, 1.125fr)',
+            gap: '0.625rem',
+            alignItems: 'stretch',
+            height: 'calc(100vh - 100px)',
+            maxHeight: 'calc(100vh - 100px)'
+          }}
+        >
+          {/* CỘT 1: DANH SÁCH & THÔNG TIN KHÁCH HÀNG */}
+          <div className="card" style={{ padding: '0', overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '0.75rem 0.85rem', borderBottom: '1px solid #F3F4F6', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <span style={{ fontWeight: '700', fontSize: '14px', color: '#374151' }}>
                 Khách hàng ({customers.length})
               </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <button
                   type="button"
                   onClick={() => setViewMode('table')}
                   className="btn btn-secondary btn-sm"
-                  style={{ padding: '0.2rem 0.55rem', fontSize: '12.1px', gap: '0.25rem', color: '#4B5563' }}
+                  style={{ padding: '0.2rem 0.5rem', fontSize: '11.5px', gap: '0.2rem', color: '#4B5563', borderRadius: '9999px' }}
                   title="Quay lại bảng dữ liệu khách hàng"
                 >
                   <ArrowLeft size={12} />
                   <span>Về bảng</span>
                 </button>
-                <button onClick={() => loadCustomers()} title="Tải lại" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}>
-                  <RefreshCw size={14} />
+                <button onClick={() => loadCustomers()} title="Tải lại" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <RefreshCw size={13} />
                 </button>
               </div>
             </div>
 
-            <div style={{ maxHeight: '720px', overflowY: 'auto' }}>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               {currentDetailCustomers.map((c) => {
                 const isSelected = c.id === selectedCustomerId;
                 return (
@@ -1249,7 +1259,7 @@ export const CustomersPage: React.FC = () => {
                     key={c.id}
                     onClick={() => handleSelectCustomer(c.id)}
                     style={{
-                      padding: '0.85rem 1rem',
+                      padding: '0.75rem 0.85rem',
                       borderBottom: '1px solid #F3F4F6',
                       cursor: 'pointer',
                       backgroundColor: isSelected ? '#FFEBEE' : '#FFFFFF',
@@ -1257,20 +1267,20 @@ export const CustomersPage: React.FC = () => {
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.25rem' }}>
-                      <div style={{ fontWeight: '700', fontSize: '14.3px', color: isSelected ? '#B91C1C' : '#111827' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', gap: '0.35rem' }}>
+                      <div style={{ fontWeight: '700', fontSize: '13.8px', color: isSelected ? '#B91C1C' : '#111827' }} className="truncate" title={c.name}>
                         {c.name}
                       </div>
-                      <span className="badge badge-gray" style={{ fontSize: '12.1px' }}>
+                      <span className="badge badge-gray shrink-0" style={{ fontSize: '11.5px' }}>
                         {c.code}
                       </span>
                     </div>
-                    <div style={{ fontSize: '12.65px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
-                      <div style={{ color: '#6B7280', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <Phone size={12} />
-                        <span>{c.phone || '—'}</span>
+                    <div style={{ fontSize: '12.5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', gap: '0.35rem' }}>
+                      <div style={{ color: '#6B7280', display: 'flex', alignItems: 'center', gap: '0.35rem' }} className="truncate">
+                        <Phone size={12} className="shrink-0" />
+                        <span className="truncate">{c.phone || '—'}</span>
                       </div>
-                      <span style={{ color: (c.totalDebt || 0) > 0 ? '#DC2626' : '#10B981', fontWeight: '700' }}>
+                      <span style={{ color: (c.totalDebt || 0) > 0 ? '#DC2626' : '#10B981', fontWeight: '700' }} className="shrink-0">
                         Nợ: {formatMoney(c.totalDebt || 0)}
                       </span>
                     </div>
@@ -1279,17 +1289,18 @@ export const CustomersPage: React.FC = () => {
               })}
             </div>
 
-            {/* Phân trang Cột 1: 5 dòng/trang, tự động thêm/bớt dòng theo zoom */}
-            <div style={{ padding: '0.6rem 0.85rem', borderTop: '1px solid #F3F4F6', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+            {/* Phân trang Cột 1: Tự động phân trang theo chiều cao */}
+            <div style={{ padding: '0.6rem 0.85rem', borderTop: '1px solid #F3F4F6', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', flexShrink: 0 }}>
               <span style={{ color: '#6B7280' }}>
                 Trang <strong>{detailListPage}</strong>/{totalDetailListPages} ({customers.length} KH)
               </span>
-              <div style={{ display: 'flex', gap: '0.25rem' }}>
+              <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                 <button
                   type="button"
                   onClick={() => setDetailListPage((p) => Math.max(1, p - 1))}
                   disabled={detailListPage === 1}
-                  className="btn btn-secondary btn-sm !p-1 text-slate-600 disabled:opacity-40"
+                  className="btn btn-secondary btn-sm disabled:opacity-30"
+                  style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', color: '#4B5563' }}
                   title="Trang trước"
                 >
                   <ChevronLeft size={13} />
@@ -1297,8 +1308,9 @@ export const CustomersPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setDetailListPage((p) => Math.min(totalDetailListPages, p + 1))}
-                  disabled={detailListPage === totalDetailListPages}
-                  className="btn btn-secondary btn-sm !p-1 text-slate-600 disabled:opacity-40"
+                  disabled={detailListPage === totalDetailListPages || totalDetailListPages <= 1}
+                  className="btn btn-secondary btn-sm disabled:opacity-30"
+                  style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', color: '#4B5563' }}
                   title="Trang sau"
                 >
                   <ChevronRight size={13} />
@@ -1307,186 +1319,196 @@ export const CustomersPage: React.FC = () => {
             </div>
           </div>
 
-          {/* CỘT 2: THÔNG TIN KHÁCH HÀNG & GHI CHÚ */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', minWidth: 0, width: '100%' }}>
-            {selectedCustomer ? (
-              <>
-                {/* Header chi tiết khách hàng */}
-                <div className="card" style={{ padding: '1.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                        <button
-                          type="button"
-                          onClick={() => setViewMode('table')}
-                          className="btn btn-secondary btn-sm"
-                          style={{ padding: '0.25rem 0.65rem', fontSize: '12.5px', gap: '0.3rem', color: '#374151', borderRadius: '9999px' }}
-                          title="Quay lại giao diện bảng dữ liệu"
-                        >
-                          <ArrowLeft size={13} />
-                          <span>Quay lại bảng</span>
-                        </button>
-                        <h2 style={{ fontSize: '1.265rem', fontWeight: '700', color: '#111827', margin: 0 }}>
-                          {selectedCustomer.name}
-                        </h2>
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '13.2px', color: '#6B7280' }}>
-                        <span>Mã: <strong>{selectedCustomer.code}</strong></span>
-                        <span>•</span>
-                        <span>MST: <strong>{selectedCustomer.taxCode || 'Chưa cập nhật'}</strong></span>
-                        <span>•</span>
-                        <span>Loại: <strong>{getCustomerTypeBadge(selectedCustomer.customerType).label}</strong></span>
-                      </div>
-                    </div>
+          {/* CỘT 2: THÔNG TIN KHÁCH HÀNG & GHI CHÚ (MỘT CARD DUY NHẤT ĐỒNG BỘ CỐ ĐỊNH CHIỀU CAO) */}
+          {selectedCustomer ? (
+            <div className="card" style={{ padding: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {/* Header & Thông tin cơ bản */}
+              <div style={{ padding: '0.85rem 1rem 0.4rem 1rem', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                  <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', marginRight: '0.5rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('table')}
+                      className="btn btn-secondary btn-sm shrink-0"
+                      style={{ padding: '0.2rem 0.6rem', fontSize: '12px', gap: '0.25rem', color: '#374151', borderRadius: '9999px' }}
+                      title="Quay lại giao diện bảng dữ liệu"
+                    >
+                      <ArrowLeft size={12} />
+                      <span>Quay lại bảng</span>
+                    </button>
+                    <h2 className="truncate" style={{ fontSize: '1.15rem', fontWeight: '700', color: '#111827', margin: 0 }} title={selectedCustomer.name}>
+                      {selectedCustomer.name}
+                    </h2>
+                  </div>
 
-                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                  <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
+                    <button
+                      onClick={() => openHandoverModal(selectedCustomer)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ width: '28px', height: '28px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+                      title="Bàn giao khách hàng cho nhân viên khác"
+                    >
+                      <UserCheck size={14} color="#EA332A" />
+                    </button>
+                    {hasPermission('B_CUSTOMERS', 'update') && (
                       <button
-                        onClick={() => openHandoverModal(selectedCustomer)}
+                        onClick={() => openEditModal(selectedCustomer)}
                         className="btn btn-secondary btn-sm"
-                        title="Bàn giao khách hàng cho nhân viên khác"
+                        style={{ width: '28px', height: '28px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+                        title="Chỉnh sửa thông tin khách hàng"
                       >
-                        <UserCheck size={14} color="#E53935" />
+                        <Edit2 size={14} />
                       </button>
-                      {hasPermission('B_CUSTOMERS', 'update') && (
-                        <button
-                          onClick={() => openEditModal(selectedCustomer)}
-                          className="btn btn-secondary btn-sm"
-                          title="Chỉnh sửa thông tin khách hàng"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                      )}
-                      {hasPermission('B_CUSTOMERS', 'delete') && (
-                        <button
-                          onClick={() => openDeleteModal(selectedCustomer)}
-                          className="btn btn-secondary btn-sm"
-                          style={{ color: '#DC2626' }}
-                          title="Xóa khách hàng"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
+                    )}
+                    {hasPermission('B_CUSTOMERS', 'delete') && (
+                      <button
+                        onClick={() => openDeleteModal(selectedCustomer)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ width: '28px', height: '28px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', color: '#DC2626' }}
+                        title="Xóa khách hàng"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
+                </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '13.75px', color: '#4B5563', backgroundColor: '#F9FAFB', padding: '0.75rem', borderRadius: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Phone size={13} className="text-gray-400 shrink-0" /> <span><strong>Điện thoại:</strong> {selectedCustomer.phone}</span></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><UserCheck size={13} className="text-gray-400 shrink-0" /> <span><strong>Liên hệ:</strong> {selectedCustomer.contactPerson || 'Chưa có'}</span></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><MapPin size={13} className="text-gray-400 shrink-0" /> <span><strong>Địa chỉ:</strong> {selectedCustomer.address || 'Chưa có'}</span></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Truck size={13} className="text-gray-400 shrink-0" /> <span><strong>Giao hàng:</strong> {selectedCustomer.deliveryAddress || selectedCustomer.address || 'Chưa có'}</span></div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', fontSize: '12px', color: '#6B7280', marginBottom: '0.5rem' }}>
+                  <span>Mã: <strong>{selectedCustomer.code}</strong></span>
+                  <span>•</span>
+                  <span>MST: <strong>{selectedCustomer.taxCode || 'Chưa cập nhật'}</strong></span>
+                  <span>•</span>
+                  <span>Loại: <strong>{getCustomerTypeBadge(selectedCustomer.customerType).label}</strong></span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '12.5px', color: '#4B5563', backgroundColor: '#F9FAFB', padding: '0.55rem 0.75rem', borderRadius: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Phone size={12} className="text-gray-400 shrink-0" />
+                    <span className="truncate"><strong>Điện thoại:</strong> {selectedCustomer.phone || '—'}</span>
                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <UserCheck size={12} className="text-gray-400 shrink-0" />
+                    <span className="truncate"><strong>Liên hệ:</strong> {selectedCustomer.contactPerson || 'Chưa có'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <MapPin size={12} className="text-gray-400 shrink-0" />
+                    <span className="truncate" title={selectedCustomer.address || 'Chưa có'}><strong>Địa chỉ:</strong> {selectedCustomer.address || 'Chưa có'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Truck size={12} className="text-gray-400 shrink-0" />
+                    <span className="truncate" title={selectedCustomer.deliveryAddress || selectedCustomer.address || 'Chưa có'}><strong>Giao hàng:</strong> {selectedCustomer.deliveryAddress || selectedCustomer.address || 'Chưa có'}</span>
+                  </div>
+                </div>
 
-                  {/* Quản lý Kiểm soát công nợ & Đối chiếu công nợ A4 */}
-                  {(() => {
-                    const creditLimit = Number(selectedCustomer.creditLimit) || 50000000;
-                    const totalDebt = selectedCustomer.analytics?.totalDebt || 0;
-                    const totalPaid = selectedCustomer.analytics?.totalPaid || 0;
-                    const totalSpent = selectedCustomer.analytics?.totalSpent || (totalDebt + totalPaid);
-                    const totalIncurred = totalSpent > 0 ? totalSpent : (totalDebt + totalPaid);
-                    const paymentRate = totalIncurred > 0 ? Math.min(100, Math.round((totalPaid / totalIncurred) * 100)) : 100;
-                    const isOver = totalDebt > creditLimit;
-                    const available = Math.max(0, creditLimit - totalDebt);
+                {/* Quản lý Kiểm soát công nợ & Đối chiếu công nợ A4 */}
+                {(() => {
+                  const creditLimit = Number(selectedCustomer.creditLimit) || 50000000;
+                  const totalDebt = selectedCustomer.analytics?.totalDebt || 0;
+                  const totalPaid = selectedCustomer.analytics?.totalPaid || 0;
+                  const totalSpent = selectedCustomer.analytics?.totalSpent || (totalDebt + totalPaid);
+                  const totalIncurred = totalSpent > 0 ? totalSpent : (totalDebt + totalPaid);
+                  const paymentRate = totalIncurred > 0 ? Math.min(100, Math.round((totalPaid / totalIncurred) * 100)) : 100;
+                  const isOver = totalDebt > creditLimit;
 
-                    return (
-                      <div className="mt-3 p-3.5 bg-gray-50/90 rounded-xl border border-gray-200 text-xs">
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="flex items-center gap-1.5 font-bold text-gray-800 uppercase text-[11px]">
-                            {isOver ? <ShieldAlert className="w-4 h-4 text-red-600" /> : <ShieldCheck className="w-4 h-4 text-emerald-600" />}
-                            <span>Kiểm soát công nợ</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setIsDebtModalOpen(true)}
-                            className="btn btn-secondary btn-sm !py-1 !px-2.5 text-[11.5px] flex items-center gap-1.5 text-[#E53935] bg-white border border-red-200 hover:bg-red-50 cursor-pointer shadow-xs"
-                          >
-                            <Printer size={13} />
-                            <span>In đối chiếu công nợ A4</span>
-                          </button>
+                  return (
+                    <div className="mt-2 p-2.5 bg-gray-50/90 rounded-xl border border-gray-200 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-gray-800 uppercase text-[11px] mb-1">
+                        {isOver ? <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> : <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                        <span className="truncate">Kiểm soát công nợ</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 py-0.5 text-gray-700">
+                        <div>
+                          <span className="text-gray-500 text-[10.5px] block">Tổng giá trị:</span>
+                          <strong className="text-gray-900 text-xs">{formatMoney(totalIncurred)}</strong>
                         </div>
-
-                        <div className="grid grid-cols-3 gap-2 py-1 text-gray-700">
-                          <div>
-                            <span className="text-gray-500 text-[11px] block">Tổng giá trị:</span>
-                            <strong className="text-gray-900 text-xs">{formatMoney(totalIncurred)}</strong>
-                          </div>
-                          <div>
-                            <span className="text-gray-500 text-[11px] block">Thực thu:</span>
-                            <strong className="text-emerald-700 text-xs">{formatMoney(totalPaid)}</strong>
-                          </div>
-                          <div>
-                            <span className="text-gray-500 text-[11px] block">Còn nợ:</span>
-                            <strong className={totalDebt > 0 ? 'text-red-600 text-xs' : 'text-gray-900 text-xs'}>
-                              {formatMoney(totalDebt)}
-                            </strong>
-                          </div>
+                        <div>
+                          <span className="text-gray-500 text-[10.5px] block">Thực thu:</span>
+                          <strong className="text-emerald-700 text-xs">{formatMoney(totalPaid)}</strong>
                         </div>
-
-                        {/* Thanh tỷ lệ thanh toán (tính theo tổng công nợ và thực thu) */}
-                        <div className="mt-2 space-y-1">
-                          <div className="flex justify-between text-[11px]">
-                            <span className="text-gray-500">Tỷ lệ thanh toán:</span>
-                            <span className={paymentRate >= 100 ? 'font-bold text-emerald-600' : 'font-semibold text-gray-700'}>
-                              {paymentRate}% {isOver && '(VƯỢT HẠN MỨC!)'}
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                            <div
-                              className={`h-2 rounded-full transition-all duration-500 ${
-                                isOver ? 'bg-red-600' : paymentRate >= 100 ? 'bg-emerald-500' : paymentRate >= 50 ? 'bg-blue-500' : 'bg-amber-500'
-                              }`}
-                              style={{ width: `${Math.min(100, Math.max(0, paymentRate))}%` }}
-                            />
-                          </div>
-                          <div className="flex justify-between items-center text-[10px] text-gray-400 pt-0.5">
-                            <span>Thời hạn nợ tối đa: <strong>{selectedCustomer.maxDebtDays || 30} ngày</strong></span>
-                            <span>Hạn mức tín dụng: <strong>{formatMoney(creditLimit)}</strong></span>
-                          </div>
+                        <div>
+                          <span className="text-gray-500 text-[10.5px] block">Còn nợ:</span>
+                          <strong className={totalDebt > 0 ? 'text-red-600 text-xs' : 'text-gray-900 text-xs'}>
+                            {formatMoney(totalDebt)}
+                          </strong>
                         </div>
                       </div>
-                    );
-                  })()}
-                </div>
 
-                {/* Ghi chú chăm sóc */}
-                <div className="card" style={{ padding: '1.25rem' }}>
-                  <h3 style={{ fontSize: '13.75px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <FileText size={14} className="text-[#E53935]" />
-                    <span>Ghi chú chăm sóc</span>
-                  </h3>
-                  <div style={{ fontSize: '13.75px', color: '#4B5563', lineHeight: '1.6', minHeight: '120px', backgroundColor: '#FEF9C3', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid #FEF08A' }}>
-                    {selectedCustomer?.notes || 'Chưa có ghi chú chăm sóc đặc thù cho khách hàng này.'}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="card" style={{ padding: '3rem', textAlign: 'center', color: '#9CA3AF', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                <div>Vui lòng chọn một khách hàng bên cột trái để xem hồ sơ và lịch sử</div>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('table')}
-                  className="btn btn-secondary btn-sm"
-                  style={{ gap: '0.35rem' }}
-                >
-                  <ArrowLeft size={13} />
-                  <span>Quay lại bảng danh sách</span>
-                </button>
+                      {/* Thanh tỷ lệ thanh toán (tính theo tổng công nợ và thực thu) */}
+                      <div className="mt-1 space-y-0.5">
+                        <div className="flex justify-between text-[10.5px]">
+                          <span className="text-gray-500">Tỷ lệ thanh toán:</span>
+                          <span className={paymentRate >= 100 ? 'font-bold text-emerald-600' : 'font-semibold text-gray-700'}>
+                            {paymentRate}% {isOver && '(VƯỢT HẠN MỨC!)'}
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className={`h-1.5 rounded-full transition-all duration-500 ${
+                              isOver ? 'bg-red-600' : paymentRate >= 100 ? 'bg-emerald-500' : paymentRate >= 50 ? 'bg-blue-500' : 'bg-amber-500'
+                            }`}
+                            style={{ width: `${Math.min(100, Math.max(0, paymentRate))}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] text-gray-400 pt-0.5">
+                          <span>Thời hạn nợ tối đa: <strong>{selectedCustomer.maxDebtDays || 30} ngày</strong></span>
+                          <span>Hạn mức tín dụng: <strong>{formatMoney(creditLimit)}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-            )}
-          </div>
+
+              {/* Ghi chú chăm sóc - Co giãn lấp đầy không gian còn lại */}
+              <div style={{ padding: '0.4rem 1rem 0.25rem 1rem', flexShrink: 0 }}>
+                <h3 style={{ fontSize: '12.5px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem', margin: 0 }}>
+                  <FileText size={13} className="text-[#E53935]" />
+                  <span>Ghi chú chăm sóc</span>
+                </h3>
+              </div>
+              <div style={{ flex: 1, minHeight: 0, padding: '0 1rem 0.65rem 1rem' }}>
+                <div style={{ fontSize: '13px', color: '#4B5563', lineHeight: '1.6', height: '100%', overflowY: 'auto', backgroundColor: '#FEF9C3', padding: '0.75rem 0.85rem', borderRadius: '0.5rem', border: '1px solid #FEF08A' }}>
+                  {selectedCustomer?.notes || 'Chưa có ghi chú chăm sóc đặc thù cho khách hàng này.'}
+                </div>
+              </div>
+
+              {/* Footer Cột 2 */}
+              <div style={{ padding: '0.6rem 0.85rem', borderTop: '1px solid #F3F4F6', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#6B7280', flexShrink: 0 }}>
+                <span>Hồ sơ khách hàng</span>
+                <span className="text-[11px] font-medium text-slate-500">
+                  Ngày tạo: {selectedCustomer?.createdAt ? new Date(selectedCustomer.createdAt).toLocaleDateString('vi-VN') : 'Mới'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="card" style={{ padding: '3rem', textAlign: 'center', color: '#9CA3AF', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', height: '100%' }}>
+              <div>Vui lòng chọn một khách hàng bên cột trái để xem hồ sơ và lịch sử</div>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className="btn btn-secondary btn-sm"
+                style={{ gap: '0.35rem' }}
+              >
+                <ArrowLeft size={13} />
+                <span>Quay lại bảng danh sách</span>
+              </button>
+            </div>
+          )}
 
           {/* CỘT 3: LỊCH SỬ GIAO DỊCH & CHĂM SÓC (TIMELINE) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', minWidth: 0, width: '100%' }}>
-            {selectedCustomer ? (
-              <div className="card" style={{ padding: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <h3 style={{ fontSize: '13.5px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '0.35rem', margin: 0 }}>
+          {selectedCustomer ? (
+            <div className="card" style={{ padding: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: '0.75rem 1rem 0.45rem 1rem', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                  <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '0.35rem', margin: 0 }}>
                     <Clock size={14} className="text-gray-500" />
                     <span>Lịch sử giao dịch & Chăm sóc</span>
                   </h3>
                   <button
                     type="button"
                     onClick={() => setIsAddingLog((prev) => !prev)}
-                    className="btn btn-secondary btn-sm !py-1 !px-2.5 text-[11.5px] flex items-center gap-1 text-[#EA332A] bg-red-50 border border-red-200 hover:bg-red-100 cursor-pointer font-semibold shadow-xs"
+                    className="btn btn-secondary btn-sm !py-1 !px-2 text-[11.5px] flex items-center gap-1 text-[#EA332A] bg-red-50 border border-red-200 hover:bg-red-100 cursor-pointer font-semibold shadow-xs"
                     title="Thêm nhật ký chăm sóc / cuộc gọi / gặp gỡ khách hàng"
                   >
                     <Plus size={12} />
@@ -1499,15 +1521,15 @@ export const CustomersPage: React.FC = () => {
                   <form
                     onSubmit={handleAddLog}
                     style={{
-                      marginBottom: '0.85rem',
-                      padding: '0.85rem',
+                      marginBottom: '0.5rem',
+                      padding: '0.65rem',
                       backgroundColor: '#FFFBEB',
                       border: '1px solid #FDE68A',
                       borderRadius: '0.5rem'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#92400E', textTransform: 'uppercase' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#92400E', textTransform: 'uppercase' }}>
                         Thêm nhật ký chăm sóc / tương tác
                       </span>
                       <button
@@ -1520,7 +1542,7 @@ export const CustomersPage: React.FC = () => {
                     </div>
 
                     {/* Lựa chọn loại tương tác */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.4rem' }}>
                       {[
                         { type: 'CALL', label: '📞 Gọi điện', title: 'Cuộc gọi tư vấn' },
                         { type: 'MEETING', label: '🤝 Gặp gỡ', title: 'Gặp trực tiếp khách hàng' },
@@ -1535,7 +1557,7 @@ export const CustomersPage: React.FC = () => {
                             setLogActionType(item.type);
                             setLogTitle(item.title);
                           }}
-                          className={`px-2 py-0.5 rounded text-[11.5px] border cursor-pointer font-medium transition-colors ${
+                          className={`px-2 py-0.5 rounded text-[11px] border cursor-pointer font-medium transition-colors ${
                             logActionType === item.type
                               ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
                               : 'bg-white text-gray-700 border-amber-200 hover:bg-amber-100'
@@ -1546,7 +1568,7 @@ export const CustomersPage: React.FC = () => {
                       ))}
                     </div>
 
-                    <div style={{ marginBottom: '0.45rem' }}>
+                    <div style={{ marginBottom: '0.4rem' }}>
                       <input
                         type="text"
                         value={logTitle}
@@ -1556,7 +1578,7 @@ export const CustomersPage: React.FC = () => {
                       />
                     </div>
 
-                    <div style={{ marginBottom: '0.5rem' }}>
+                    <div style={{ marginBottom: '0.4rem' }}>
                       <textarea
                         value={logNotes}
                         onChange={(e) => setLogNotes(e.target.value)}
@@ -1571,14 +1593,14 @@ export const CustomersPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsAddingLog(false)}
-                        className="btn btn-secondary btn-sm !py-1 !px-2 text-xs cursor-pointer"
+                        className="btn btn-secondary btn-sm !py-0.5 !px-2 text-xs cursor-pointer"
                       >
                         Hủy
                       </button>
                       <button
                         type="submit"
                         disabled={isSubmittingLog || !logNotes.trim()}
-                        className="btn btn-primary btn-sm !py-1 !px-3 text-xs bg-[#EA332A] hover:bg-[#d62820] text-white font-semibold disabled:opacity-50 cursor-pointer"
+                        className="btn btn-primary btn-sm !py-0.5 !px-3 text-xs bg-[#EA332A] hover:bg-[#d62820] text-white font-semibold disabled:opacity-50 cursor-pointer"
                       >
                         {isSubmittingLog ? 'Đang lưu...' : 'Lưu nhật ký'}
                       </button>
@@ -1586,7 +1608,7 @@ export const CustomersPage: React.FC = () => {
                   </form>
                 )}
 
-                <div style={{ fontSize: '12.1px', color: '#6B7280', display: 'flex', gap: '1.25rem', marginBottom: '0.85rem', paddingBottom: '0.5rem', borderBottom: '1px solid #F3F4F6' }}>
+                <div style={{ fontSize: '12px', color: '#6B7280', display: 'flex', gap: '1.25rem', paddingTop: '0.2rem', paddingBottom: '0.35rem', borderBottom: '1px solid #F3F4F6' }}>
                   <div>Tổng số đơn: <strong>{selectedCustomer.analytics?.orderCount || 0}</strong></div>
                   <div>
                     Đơn hàng gần nhất:{' '}
@@ -1597,218 +1619,213 @@ export const CustomersPage: React.FC = () => {
                     </strong>
                   </div>
                 </div>
+              </div>
 
+              {/* Timeline items list */}
+              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: '0.35rem 0.85rem' }}>
                 {loadingDetails ? (
                   <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>Đang tải lịch sử...</div>
                 ) : timeline.length === 0 ? (
                   <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>Chưa có hoạt động nào phát sinh với khách hàng này</div>
                 ) : (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', maxHeight: '680px', overflowY: 'auto' }}>
-                      {currentTimeline.map((item, idx) => {
-                        let iconBg = '#E0E7FF';
-                        let iconColor = '#4F46E5';
-                        let IconComp: any = Clock;
-                        let typeBadge = 'Hành động';
-                        let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {currentTimeline.map((item, idx) => {
+                      let iconBg = '#E0E7FF';
+                      let iconColor = '#4F46E5';
+                      let IconComp: any = Clock;
+                      let typeBadge = 'Hành động';
+                      let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
 
-                        if (item.type === 'ORDER') {
-                          iconBg = '#DCFCE7';
-                          iconColor = '#16A34A';
-                          IconComp = ShoppingBag;
-                          typeBadge = 'Đơn bán hàng';
-                          badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                        } else if (item.type === 'QUOTATION') {
-                          iconBg = '#FEF3C7';
-                          iconColor = '#D97706';
-                          IconComp = FileSpreadsheet;
-                          typeBadge = 'Báo giá';
-                          badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
-                        } else if (item.type === 'RECEIPT') {
-                          iconBg = '#E0F2FE';
-                          iconColor = '#0284C7';
-                          IconComp = CreditCard;
-                          typeBadge = 'Phiếu thu';
-                          badgeColor = 'bg-sky-50 text-sky-700 border-sky-200';
-                        } else if (item.type === 'HANDOVER') {
-                          iconBg = '#F3E8FF';
-                          iconColor = '#9333EA';
-                          IconComp = ArrowLeftRight;
-                          typeBadge = 'Bàn giao';
-                          badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
-                        } else if (item.type === 'CARE_LOG') {
-                          iconBg = '#FFEDD5';
-                          iconColor = '#EA580C';
-                          IconComp = item.actionType === 'CALL' ? Phone : item.actionType === 'MEETING' ? Users : item.actionType === 'EMAIL' ? Mail : FileText;
-                          typeBadge = 'Nhật ký chăm sóc';
-                          badgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
-                        } else if (item.type === 'CREATION') {
-                          iconBg = '#DBEAFE';
-                          iconColor = '#2563EB';
-                          IconComp = UserCheck;
-                          typeBadge = 'Khởi tạo hồ sơ';
-                          badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
-                        } else if (item.type === 'UPDATE') {
-                          iconBg = '#F1F5F9';
-                          iconColor = '#475569';
-                          IconComp = Edit2;
-                          typeBadge = 'Cập nhật';
-                          badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
-                        }
+                      if (item.type === 'ORDER') {
+                        iconBg = '#DCFCE7';
+                        iconColor = '#16A34A';
+                        IconComp = ShoppingBag;
+                        typeBadge = 'Đơn bán hàng';
+                        badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                      } else if (item.type === 'QUOTATION') {
+                        iconBg = '#FEF3C7';
+                        iconColor = '#D97706';
+                        IconComp = FileSpreadsheet;
+                        typeBadge = 'Báo giá';
+                        badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+                      } else if (item.type === 'RECEIPT') {
+                        iconBg = '#E0F2FE';
+                        iconColor = '#0284C7';
+                        IconComp = CreditCard;
+                        typeBadge = 'Phiếu thu';
+                        badgeColor = 'bg-sky-50 text-sky-700 border-sky-200';
+                      } else if (item.type === 'HANDOVER') {
+                        iconBg = '#F3E8FF';
+                        iconColor = '#9333EA';
+                        IconComp = ArrowLeftRight;
+                        typeBadge = 'Bàn giao';
+                        badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
+                      } else if (item.type === 'CARE_LOG') {
+                        iconBg = '#FFEDD5';
+                        iconColor = '#EA580C';
+                        IconComp = item.actionType === 'CALL' ? Phone : item.actionType === 'MEETING' ? Users : item.actionType === 'EMAIL' ? Mail : FileText;
+                        typeBadge = 'Nhật ký chăm sóc';
+                        badgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
+                      } else if (item.type === 'CREATION') {
+                        iconBg = '#DBEAFE';
+                        iconColor = '#2563EB';
+                        IconComp = UserCheck;
+                        typeBadge = 'Khởi tạo hồ sơ';
+                        badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+                      } else if (item.type === 'UPDATE') {
+                        iconBg = '#F1F5F9';
+                        iconColor = '#475569';
+                        IconComp = Edit2;
+                        typeBadge = 'Cập nhật';
+                        badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
+                      }
 
-                        return (
+                      return (
+                        <div
+                          key={item.id || idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '0.65rem',
+                            padding: '0.5rem 0.75rem',
+                            backgroundColor: '#FAFAFA',
+                            borderRadius: '0.5rem',
+                            border: '1px solid #F3F4F6'
+                          }}
+                        >
                           <div
-                            key={item.id || idx}
                             style={{
+                              width: '30px',
+                              height: '30px',
+                              borderRadius: '8px',
+                              backgroundColor: iconBg,
+                              color: iconColor,
                               display: 'flex',
-                              alignItems: 'flex-start',
-                              gap: '0.75rem',
-                              padding: '0.75rem',
-                              backgroundColor: '#FAFAFA',
-                              borderRadius: '0.5rem',
-                              border: '1px solid #F3F4F6'
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
                             }}
                           >
-                            <div
-                              style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '8px',
-                                backgroundColor: iconBg,
-                                color: iconColor,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}
-                            >
-                              <IconComp size={16} />
-                            </div>
-
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                                  <span style={{ fontWeight: '600', fontSize: '13.5px', color: '#111827' }}>
-                                    {item.title}
-                                  </span>
-                                  <span className={`text-[10.5px] px-1.5 py-0.2 rounded border font-medium ${badgeColor}`}>
-                                    {typeBadge}
-                                  </span>
-                                  {item.status && (
-                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 font-medium">
-                                      {item.type === 'QUOTATION' ? getQuotationStatusLabel(item.status) : getOrderStatusLabel(item.status)}
-                                    </span>
-                                  )}
-                                  {item.paymentStatus && (
-                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 font-medium">
-                                      {getPaymentStatusLabel(item.paymentStatus)}
-                                    </span>
-                                  )}
-                                </div>
-                                <span style={{ fontSize: '11.5px', color: '#9CA3AF', whiteSpace: 'nowrap' }}>
-                                  {new Date(item.date).toLocaleDateString('vi-VN')}
-                                </span>
-                              </div>
-
-                              {item.type === 'RECEIPT' && (
-                                <div style={{ fontSize: '12.5px', color: '#374151', marginBottom: '0.2rem' }}>
-                                  Đã thu: <strong style={{ color: '#0284C7' }}>{formatMoney(item.amount || 0)}</strong>
-                                  {item.paymentMethod && (
-                                    <span style={{ marginLeft: '0.5rem', color: '#4B5563' }}>
-                                      ({getPaymentMethodLabel(item.paymentMethod)})
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-
-                              {(item.type === 'ORDER' || item.type === 'QUOTATION') && item.amount !== undefined && (
-                                <div style={{ fontSize: '12.5px', color: '#374151', marginBottom: '0.2rem' }}>
-                                  Giá trị: <strong>{formatMoney(item.amount)}</strong>
-                                  {item.paid !== undefined && (
-                                    <span style={{ marginLeft: '0.5rem', color: '#16A34A' }}>
-                                      (Đã thu: {formatMoney(item.paid)})
-                                    </span>
-                                  )}
-                                  {item.remaining !== undefined && item.remaining > 0 && (
-                                    <span style={{ marginLeft: '0.5rem', color: '#DC2626', fontWeight: '600' }}>
-                                      [Còn nợ: {formatMoney(item.remaining)}]
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-
-                              {item.reason && (
-                                <div style={{ fontSize: '12.5px', color: '#4B5563', fontStyle: 'italic', marginBottom: '0.2rem' }}>
-                                  Lý do: {item.reason} {item.from && item.to ? `(${item.from} → ${item.to})` : ''}
-                                </div>
-                              )}
-
-                              {item.notes && (
-                                <div style={{ fontSize: '12.5px', color: '#4B5563', backgroundColor: item.type === 'CARE_LOG' ? '#FFFBEB' : 'transparent', padding: item.type === 'CARE_LOG' ? '0.35rem 0.5rem' : '0', borderRadius: '4px', border: item.type === 'CARE_LOG' ? '1px dashed #FDE68A' : 'none', marginTop: '0.15rem' }}>
-                                  {item.notes}
-                                </div>
-                              )}
-
-                              {item.actor && (
-                                <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '0.25rem' }}>
-                                  Thực hiện bởi: <strong className="text-gray-600">{item.actor}</strong>
-                                </div>
-                              )}
-                            </div>
+                            <IconComp size={15} />
                           </div>
-                        );
-                      })}
-                    </div>
 
-                  {/* Phân trang Timeline: Mặc định 4 dòng/trang, tự động thêm/bớt dòng theo zoom */}
-                  <div style={{ padding: '0.65rem 0.25rem 0', marginTop: '0.5rem', borderTop: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', fontSize: '12px', color: '#6B7280' }}>
-                    <span>
-                      {timeline.length > 0 ? (
-                        <>
-                          <span className="font-semibold text-slate-700">{startTimelineIdx + 1}</span> -{' '}
-                          <span className="font-semibold text-slate-700">{Math.min(startTimelineIdx + timelinePageSize, timeline.length)}</span> /{' '}
-                          <span className="font-semibold text-slate-700">{timeline.length}</span> giao dịch
-                        </>
-                      ) : (
-                        '0 giao dịch'
-                      )}
-                    </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.15rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }} className="truncate">
+                                  {item.title}
+                                </span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded border font-medium ${badgeColor}`}>
+                                  {typeBadge}
+                                </span>
+                                {item.status && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 font-medium">
+                                    {item.type === 'QUOTATION' ? getQuotationStatusLabel(item.status) : getOrderStatusLabel(item.status)}
+                                  </span>
+                                )}
+                                {item.paymentStatus && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 font-medium">
+                                    {getPaymentStatusLabel(item.paymentStatus)}
+                                  </span>
+                                )}
+                              </div>
+                              <span style={{ fontSize: '11px', color: '#9CA3AF', whiteSpace: 'nowrap' }} className="shrink-0">
+                                {new Date(item.date).toLocaleDateString('vi-VN')}
+                              </span>
+                            </div>
 
-                    {totalTimelinePages > 1 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <button
-                          type="button"
-                          onClick={() => setTimelinePage((p) => Math.max(1, p - 1))}
-                          disabled={timelinePage === 1}
-                          className="btn btn-secondary btn-sm !p-1 text-slate-600 disabled:opacity-40"
-                          title="Trang trước"
-                        >
-                          <ChevronLeft size={13} />
-                        </button>
-                        <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#374151' }}>
-                          {timelinePage}/{totalTimelinePages}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setTimelinePage((p) => Math.min(totalTimelinePages, p + 1))}
-                          disabled={timelinePage === totalTimelinePages}
-                          className="btn btn-secondary btn-sm !p-1 text-slate-600 disabled:opacity-40"
-                          title="Trang sau"
-                        >
-                          <ChevronRight size={13} />
-                        </button>
-                      </div>
-                    )}
+                            {item.type === 'RECEIPT' && (
+                              <div style={{ fontSize: '12px', color: '#374151', marginBottom: '0.15rem' }}>
+                                Đã thu: <strong style={{ color: '#0284C7' }}>{formatMoney(item.amount || 0)}</strong>
+                                {item.paymentMethod && (
+                                  <span style={{ marginLeft: '0.4rem', color: '#4B5563' }}>
+                                    ({getPaymentMethodLabel(item.paymentMethod)})
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {(item.type === 'ORDER' || item.type === 'QUOTATION') && item.amount !== undefined && (
+                              <div style={{ fontSize: '12px', color: '#374151', marginBottom: '0.15rem' }}>
+                                Giá trị: <strong>{formatMoney(item.amount)}</strong>
+                                {item.paid !== undefined && (
+                                  <span style={{ marginLeft: '0.4rem', color: '#16A34A' }}>
+                                    (Đã thu: {formatMoney(item.paid)})
+                                  </span>
+                                )}
+                                {item.remaining !== undefined && item.remaining > 0 && (
+                                  <span style={{ marginLeft: '0.4rem', color: '#DC2626', fontWeight: '600' }}>
+                                    [Còn nợ: {formatMoney(item.remaining)}]
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {item.reason && (
+                              <div style={{ fontSize: '12px', color: '#4B5563', fontStyle: 'italic', marginBottom: '0.15rem' }} className="truncate" title={item.reason}>
+                                Lý do: {item.reason} {item.from && item.to ? `(${item.from} → ${item.to})` : ''}
+                              </div>
+                            )}
+
+                            {item.notes && (
+                              <div style={{ fontSize: '12px', color: '#4B5563', backgroundColor: item.type === 'CARE_LOG' ? '#FFFBEB' : 'transparent', padding: item.type === 'CARE_LOG' ? '0.25rem 0.45rem' : '0', borderRadius: '4px', border: item.type === 'CARE_LOG' ? '1px dashed #FDE68A' : 'none', marginTop: '0.15rem' }} className="line-clamp-2" title={item.notes}>
+                                {item.notes}
+                              </div>
+                            )}
+
+                            {item.actor && (
+                              <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '0.15rem' }}>
+                                Thực hiện bởi: <strong className="text-gray-600">{item.actor}</strong>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </>
-              )}
-            </div>
-            ) : (
-              <div className="card" style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>
-                Chưa chọn khách hàng
+                )}
               </div>
-            )}
-          </div>
+
+              {/* Phân trang Timeline: Tự động phân trang khi vượt quá chiều cao */}
+              <div style={{ padding: '0.6rem 0.85rem', borderTop: '1px solid #F3F4F6', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', flexShrink: 0 }}>
+                <span style={{ color: '#6B7280' }}>
+                  {timeline.length > 0 ? (
+                    <>
+                      Trang <strong>{timelinePage}</strong>/{totalTimelinePages} ({timeline.length} hoạt động)
+                    </>
+                  ) : (
+                    '0 hoạt động'
+                  )}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setTimelinePage((p) => Math.max(1, p - 1))}
+                    disabled={timelinePage === 1}
+                    className="btn btn-secondary btn-sm disabled:opacity-30"
+                    style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', color: '#4B5563' }}
+                    title="Trang trước"
+                  >
+                    <ChevronLeft size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimelinePage((p) => Math.min(totalTimelinePages, p + 1))}
+                    disabled={timelinePage === totalTimelinePages || totalTimelinePages <= 1}
+                    className="btn btn-secondary btn-sm disabled:opacity-30"
+                    style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', color: '#4B5563' }}
+                    title="Trang sau"
+                  >
+                    <ChevronRight size={13} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="card" style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              Chưa chọn khách hàng
+            </div>
+          )}
         </div>
       ) : (
         /* GIAO DIỆN BẢNG DATAGRID ĐẦY ĐỦ VỚI KÉO THẢ CỘT (DRAG & DROP) */

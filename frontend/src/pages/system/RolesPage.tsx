@@ -4,6 +4,8 @@ import { api } from '../../services/api';
 import { Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
+import { TablePagination } from '../../components/common/TablePagination';
+import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
 
 interface RolesPageProps {
   onNavigateToPermissions: (roleId: string) => void;
@@ -42,6 +44,24 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Pagination (vừa vặn màn hình laptop, tự động co giãn thêm/bớt dòng theo zoom)
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    startIndex,
+    paginate: paginateRoles
+  } = useAutoTablePagination({
+    totalItems: roles.length,
+    rowHeight: 48,
+    topOffset: 340,
+    minRows: 4,
+    maxRows: 50,
+  });
+
+  const paginatedRoles = paginateRoles(roles);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -215,9 +235,9 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
                 </td>
               </tr>
             ) : (
-              roles.map((r, index) => (
+              paginatedRoles.map((r, index) => (
                 <tr key={r.id} className="table-tr">
-                  <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{index + 1}</td>
+                  <td className="table-td text-center text-xs text-gray-500 font-mono overflow-hidden">{startIndex + index + 1}</td>
                   <td className="table-td text-center whitespace-nowrap overflow-hidden">
                     <span className="font-semibold text-xs text-[#E53935] font-mono">
                       {r.code}
@@ -287,6 +307,14 @@ export const RolesPage: React.FC<RolesPageProps> = ({ onNavigateToPermissions })
             )}
           </tbody>
         </table>
+        <TablePagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={roles.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="vai trò"
+        />
       </div>
 
       {/* MODAL THÊM / SỬA VAI TRÒ */}
