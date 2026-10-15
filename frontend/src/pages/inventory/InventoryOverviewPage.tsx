@@ -10,7 +10,8 @@ import {
   BarChart3,
   ShieldAlert,
   ArrowUpRight,
-  CheckCircle2
+  CheckCircle2,
+  PackagePlus
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { InventoryOverview } from '../../types';
@@ -56,9 +57,18 @@ export const InventoryOverviewPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-bold bg-red-50 text-[#EA332A] px-3.5 py-1.5 rounded-full border border-red-100">
-          <WarehouseIcon className="w-4 h-4" />
-          <span>Hệ thống {data?.kpis.totalWarehouses || 2} Tổng kho Nam Khánh</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 text-xs font-bold bg-red-50 text-[#EA332A] px-3.5 py-1.5 rounded-full border border-red-100">
+            <WarehouseIcon className="w-4 h-4" />
+            <span>Hệ thống {data?.kpis.totalWarehouses || 2} Tổng kho Nam Khánh</span>
+          </div>
+          <a
+            href="#/inbound-receipts"
+            className="flex items-center gap-1.5 text-xs font-bold bg-[#E53935] hover:bg-[#D32F2F] text-white px-3.5 py-1.5 rounded-full transition-colors shadow-sm"
+          >
+            <PackagePlus className="w-4 h-4" />
+            <span>Quản lý Nhập kho</span>
+          </a>
         </div>
       </div>
 

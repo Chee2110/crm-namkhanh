@@ -798,4 +798,97 @@ export interface DashboardProfit {
   updatedAt: string;
 }
 
+// ==========================================
+// PHÂN HỆ C: QUẢN LÝ NHẬP KHO (INBOUND RECEIPTS)
+// ==========================================
+
+export type InboundReceiptType = 'PURCHASE' | 'FINISHED_GOODS' | 'RETURN' | 'ADJUSTMENT';
+
+export type InboundReceiptStatus = 'DRAFT' | 'CHECKING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+export interface InboundReceiptItem {
+  id: string;
+  receiptId: string;
+  productId?: string | null;
+  product?: Product | null;
+  productCode: string;
+  productName: string;
+  unit: string;
+  expectedQuantity: number;
+  actualQuantity: number;
+  acceptedQuantity: number;
+  rejectedQuantity: number;
+  unitPrice: number;
+  amount: number;
+  vatRate: number;
+  total: number;
+  batchNumber?: string | null;
+  productionDate?: string | null;
+  expiryDate?: string | null;
+  locationArea?: string | null;
+  locationRack?: string | null;
+  locationShelf?: string | null;
+  locationBin?: string | null;
+  qualityStatus: 'PASSED' | 'CONDITIONAL' | 'FAILED';
+  qualityNotes?: string | null;
+  createdAt?: string;
+}
+
+export interface InboundReceiptHistory {
+  id: string;
+  receiptId: string;
+  action: string;
+  title: string;
+  description?: string | null;
+  performedById?: string | null;
+  performedBy?: { id: string; fullName: string; code: string } | null;
+  performedAt: string;
+}
+
+export interface InboundReceipt {
+  id: string;
+  code: string;
+  receiptDate: string;
+  type: InboundReceiptType;
+  warehouseId: string;
+  warehouse: Warehouse;
+  supplierId?: string | null;
+  supplier?: Supplier | null;
+  sourceName?: string | null;
+  documentNumber?: string | null;
+  documentDate?: string | null;
+  status: InboundReceiptStatus;
+  subtotal: number;
+  vatRate: number;
+  vatAmount: number;
+  totalAmount: number;
+  notes?: string | null;
+  createdById?: string | null;
+  createdBy?: { id: string; fullName: string; code: string; email?: string } | null;
+  checkedById?: string | null;
+  checkedBy?: { id: string; fullName: string; code: string; email?: string } | null;
+  checkedAt?: string | null;
+  approvedById?: string | null;
+  approvedBy?: { id: string; fullName: string; code: string; email?: string } | null;
+  approvedAt?: string | null;
+  rejectedReason?: string | null;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: InboundReceiptItem[];
+  history?: InboundReceiptHistory[];
+  _count?: { items: number; history: number };
+}
+
+export interface InboundReceiptKPIs {
+  totalReceipts: number;
+  pendingReceipts: number;
+  approvedReceipts: number;
+  rejectedReceipts: number;
+  totalValue: number;
+  totalItemsAccepted: number;
+}
+
+
 

@@ -22,6 +22,7 @@ import {
   Package,
   Barcode,
   Truck,
+  PackagePlus,
   Settings,
   ChevronLeft,
   ChevronRight
@@ -61,6 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user, logout } = useAuth();
   const [pendingOrdersCount, setPendingOrdersCount] = useState<number | null>(null);
   const [lowStockCount, setLowStockCount] = useState<number | null>(null);
+  const [pendingInboundCount, setPendingInboundCount] = useState<number | null>(null);
 
   // Trạng thái hiển thị tooltip bay ngoài thanh cuộn (dùng khi ở chế độ đóng)
   const [hoveredTooltip, setHoveredTooltip] = useState<{
@@ -89,6 +91,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (isMounted && Array.isArray(res.data)) {
           const count = res.data.filter((p: any) => Number(p.stockQuantity) <= (Number(p.minStockLevel) || 20)).length;
           setLowStockCount(count);
+        }
+      })
+      .catch(() => {});
+
+    // Tải số lượng phiếu nhập kho đang chờ kiểm/duyệt
+    api.get('/inbound-receipts?status=CHECKING')
+      .then((res: any) => {
+        if (isMounted && res.data?.kpis) {
+          setPendingInboundCount(res.data.kpis.pendingReceipts);
         }
       })
       .catch(() => {});
@@ -126,6 +137,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       group: 'KHO & HÀNG HÓA',
       items: [
         { id: 'inventory-overview', label: 'Tổng quan kho', icon: Boxes },
+        {
+          id: 'inbound-receipts',
+          label: 'Quản lý Nhập kho',
+          icon: PackagePlus,
+          badge: pendingInboundCount && pendingInboundCount > 0 ? `${pendingInboundCount} chờ duyệt` : undefined
+        },
         { id: 'warehouses', label: 'Quản lý kho vật lý', icon: Warehouse },
         {
           id: 'products',

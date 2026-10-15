@@ -32,6 +32,7 @@ import { useTableResize } from '../../hooks/useTableResize';
 import { TablePagination } from '../../components/common/TablePagination';
 import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
 import { ProductSearchSelect } from '../../components/common/ProductSearchSelect';
+import { CustomerAutocompleteInput } from '../../components/common/CustomerAutocompleteInput';
 import { Toast } from '../../components/common/Toast';
 import { exportQuotationToExcel, exportQuotationsListToExcel } from '../../utils/crmExcelExport';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
@@ -936,20 +937,13 @@ export const QuotationsPage: React.FC = () => {
                     <span>+ Tạo nhanh KH</span>
                   </button>
                 </div>
-                <select
-                  className="input"
-                  style={{ padding: '0.38rem 0.65rem' }}
+                <CustomerAutocompleteInput
                   value={formData.customerId}
-                  onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+                  onChange={(customerId) => setFormData({ ...formData, customerId })}
+                  customers={customers}
                   required
-                >
-                  <option value="">-- Chọn khách hàng nhận báo giá --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.code}) - {c.phone}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="-- Chọn khách hàng nhận báo giá --"
+                />
               </div>
 
               <div>

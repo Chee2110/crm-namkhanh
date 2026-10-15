@@ -41,6 +41,7 @@ import { Order, Customer, Product, User, OrderReturn } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { OrderPrintModal } from './components/OrderPrintModal';
 import { OrderReturnPrintModal } from './components/OrderReturnPrintModal';
+import { CustomerAutocompleteInput } from '../../components/common/CustomerAutocompleteInput';
 import { printA4 } from '../../utils/printA4';
 import { exportOrderToExcel, exportOrdersListToExcel } from '../../utils/crmExcelExport';
 import '../../styles/print-a4.css';
@@ -1502,19 +1503,13 @@ export const OrdersPage: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Khách hàng đặt hàng <span className="text-red-500">*</span>
                 </label>
-                <select
+                <CustomerAutocompleteInput
                   value={createData.customerId}
-                  onChange={(e) => handleCustomerSelect(e.target.value)}
+                  onChange={(customerId) => handleCustomerSelect(customerId)}
+                  customers={customers}
                   required
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
-                >
-                  <option value="">-- Chọn khách hàng --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.code}) - {c.phone}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="-- Chọn khách hàng --"
+                />
               </div>
 
               <div>

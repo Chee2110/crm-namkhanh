@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   KeyRound,
   CheckSquare,
@@ -7,11 +7,14 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Search,
+  RotateCcw
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Role, RolePermission } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { SYSTEM_MODULES, ORDERED_GROUPS } from '../../constants/modules';
 
 interface PermissionsPageProps {
   initialRoleId?: string;
@@ -26,6 +29,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [searchKeyword, setSearchKeyword] = useState('');
 
   // Tải danh sách roles
   useEffect(() => {
@@ -48,7 +52,26 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
     api
       .get<{ role: Role; permissions: RolePermission[] }>(`/roles/${selectedRoleId}/permissions`)
       .then((res) => {
-        setPermissions(res.data.permissions || []);
+        const serverPerms = res.data.permissions || [];
+        const serverPermMap = new Map<string, RolePermission>(serverPerms.map((p) => [p.moduleCode, p]));
+        const isSuperRole = res.data.role?.code === 'ADMIN' || res.data.role?.code === 'CEO';
+
+        // Hợp nhất toàn bộ 29 phân hệ chuẩn của hệ thống với quyền máy chủ trả về
+        const fullMatrix: RolePermission[] = SYSTEM_MODULES.map((m) => {
+          const p = serverPermMap.get(m.code);
+          return {
+            moduleCode: m.code,
+            moduleName: m.name,
+            group: m.group,
+            canRead: p ? p.canRead : isSuperRole,
+            canCreate: p ? p.canCreate : isSuperRole,
+            canUpdate: p ? p.canUpdate : isSuperRole,
+            canDelete: p ? p.canDelete : isSuperRole,
+            dataScope: p ? p.dataScope : (isSuperRole ? 'ALL' : 'PERSONAL')
+          };
+        });
+
+        setPermissions(fullMatrix);
       })
       .catch((err) => {
         setSaveError(err.message || 'Lỗi tải ma trận quyền');
@@ -65,7 +88,20 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
     setPermissions((prev) =>
       prev.map((p) => {
         if (p.moduleCode === moduleCode) {
-          return { ...p, [field]: !p[field] };
+          const newVal = !p[field];
+          const updated = { ...p, [field]: newVal };
+
+          // Logic RBAC chuẩn: Bật thêm/sửa/xóa tự động bật Xem
+          if (newVal && (field === 'canCreate' || field === 'canUpdate' || field === 'canDelete')) {
+            updated.canRead = true;
+          }
+          // Tắt quyền Xem thì tự động tắt luôn Thêm/Sửa/Xóa
+          if (!newVal && field === 'canRead') {
+            updated.canCreate = false;
+            updated.canUpdate = false;
+            updated.canDelete = false;
+          }
+          return updated;
         }
         return p;
       })
@@ -83,6 +119,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
     );
   };
 
+  // Chọn toàn bộ quyền tất cả các trang
   const handleSelectAll = () => {
     setPermissions((prev) =>
       prev.map((p) => ({
@@ -95,6 +132,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
     );
   };
 
+  // Bỏ chọn toàn bộ quyền
   const handleDeselectAll = () => {
     setPermissions((prev) =>
       prev.map((p) => ({
@@ -104,6 +142,44 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
         canUpdate: false,
         canDelete: false
       }))
+    );
+  };
+
+  // Bật/tắt tất cả quyền cho một phân hệ nhóm cụ thể
+  const handleToggleGroup = (groupName: string, select: boolean) => {
+    setPermissions((prev) =>
+      prev.map((p) => {
+        if (p.group === groupName) {
+          return {
+            ...p,
+            canRead: select,
+            canCreate: select,
+            canUpdate: select,
+            canDelete: select
+          };
+        }
+        return p;
+      })
+    );
+  };
+
+  // Bật/tắt nhanh toàn bộ một cột quyền (Xem / Thêm / Sửa / Xóa)
+  const handleToggleColumn = (field: 'canRead' | 'canCreate' | 'canUpdate' | 'canDelete') => {
+    const allChecked = permissions.every((p) => p[field]);
+    const nextVal = !allChecked;
+    setPermissions((prev) =>
+      prev.map((p) => {
+        const updated = { ...p, [field]: nextVal };
+        if (nextVal && (field === 'canCreate' || field === 'canUpdate' || field === 'canDelete')) {
+          updated.canRead = true;
+        }
+        if (!nextVal && field === 'canRead') {
+          updated.canCreate = false;
+          updated.canUpdate = false;
+          updated.canDelete = false;
+        }
+        return updated;
+      })
     );
   };
 
@@ -133,15 +209,33 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
     }
   };
 
-  // Nhóm các permissions theo group
-  const groupedPermissions: Record<string, RolePermission[]> = {};
-  permissions.forEach((p) => {
-    const groupName = p.group || 'Khác';
-    if (!groupedPermissions[groupName]) {
-      groupedPermissions[groupName] = [];
-    }
-    groupedPermissions[groupName].push(p);
-  });
+  // Nhóm các permissions theo đúng thứ tự 5 phân hệ chuẩn của CRM Nam Khánh
+  const groupedPermissions = useMemo(() => {
+    const groups: Record<string, RolePermission[]> = {};
+    ORDERED_GROUPS.forEach((g) => {
+      groups[g] = [];
+    });
+
+    const filtered = permissions.filter((p) => {
+      if (!searchKeyword.trim()) return true;
+      const kw = searchKeyword.toLowerCase();
+      return (
+        (p.moduleName && p.moduleName.toLowerCase().includes(kw)) ||
+        p.moduleCode.toLowerCase().includes(kw) ||
+        (p.group && p.group.toLowerCase().includes(kw))
+      );
+    });
+
+    filtered.forEach((p) => {
+      const g = p.group || 'Khác';
+      if (!groups[g]) {
+        groups[g] = [];
+      }
+      groups[g].push(p);
+    });
+
+    return groups;
+  }, [permissions, searchKeyword]);
 
   const selectedRole = roles.find((r) => r.id === selectedRoleId);
 
@@ -155,7 +249,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '0.5rem',
+          gap: '0.75rem',
           padding: '0.65rem 1.25rem'
         }}
       >
@@ -166,7 +260,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
             </span>
             <select
               className="input"
-              style={{ width: '220px', fontWeight: '600', color: '#E53935' }}
+              style={{ width: '250px', fontWeight: '600', color: '#E53935' }}
               value={selectedRoleId}
               onChange={(e) => setSelectedRoleId(e.target.value)}
             >
@@ -185,12 +279,51 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-          <button type="button" onClick={handleSelectAll} className="btn btn-secondary btn-sm">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
+          {/* Ô tìm kiếm nhanh chức năng */}
+          <div style={{ position: 'relative', width: '200px' }}>
+            <Search
+              size={14}
+              style={{
+                position: 'absolute',
+                left: '9px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#9CA3AF'
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Lọc trang / module..."
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              className="input"
+              style={{
+                paddingLeft: '28px',
+                paddingRight: '10px',
+                paddingTop: '4px',
+                paddingBottom: '4px',
+                fontSize: '13px',
+                height: '32px'
+              }}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSelectAll}
+            className="btn btn-secondary btn-sm"
+            title="Tích chọn toàn bộ quyền của tất cả các trang"
+          >
             <CheckSquare size={14} />
             <span>Chọn tất cả</span>
           </button>
-          <button type="button" onClick={handleDeselectAll} className="btn btn-secondary btn-sm">
+          <button
+            type="button"
+            onClick={handleDeselectAll}
+            className="btn btn-secondary btn-sm"
+            title="Bỏ chọn tất cả quyền"
+          >
             <Square size={14} />
             <span>Bỏ chọn tất cả</span>
           </button>
@@ -245,18 +378,46 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
         </div>
       )}
 
-      {/* BẢNG MA TRẬN PHÂN QUYỀN 25 MODULES */}
+      {/* BẢNG MA TRẬN PHÂN QUYỀN ĐẦY ĐỦ TẤT CẢ CÁC TRANG (29 CHỨC NĂNG / 5 PHÂN HỆ) */}
       <div className="table-container">
         <table className="table-custom">
           <thead>
             <tr>
-              <th className="table-th" style={{ width: '60px', textAlign: 'center' }}>STT</th>
-              <th className="table-th" style={{ width: '36%', textAlign: 'center' }}>Phân hệ / Chức năng con</th>
-              <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[XEM]</th>
-              <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[THÊM]</th>
-              <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[SỬA]</th>
-              <th className="table-th" style={{ width: '10%', textAlign: 'center' }}>[XÓA]</th>
-              <th className="table-th" style={{ width: '20%', textAlign: 'center' }}>Phạm vi dữ liệu (Data Scope)</th>
+              <th className="table-th" style={{ width: '50px', textAlign: 'center' }}>STT</th>
+              <th className="table-th" style={{ width: '38%', textAlign: 'left' }}>Phân hệ / Chức năng con</th>
+              <th
+                className="table-th"
+                style={{ width: '9%', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => handleToggleColumn('canRead')}
+                title="Bấm để bật / tắt toàn bộ cột [XEM]"
+              >
+                [XEM]
+              </th>
+              <th
+                className="table-th"
+                style={{ width: '9%', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => handleToggleColumn('canCreate')}
+                title="Bấm để bật / tắt toàn bộ cột [THÊM]"
+              >
+                [THÊM]
+              </th>
+              <th
+                className="table-th"
+                style={{ width: '9%', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => handleToggleColumn('canUpdate')}
+                title="Bấm để bật / tắt toàn bộ cột [SỬA]"
+              >
+                [SỬA]
+              </th>
+              <th
+                className="table-th"
+                style={{ width: '9%', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => handleToggleColumn('canDelete')}
+                title="Bấm để bật / tắt toàn bộ cột [XÓA]"
+              >
+                [XÓA]
+              </th>
+              <th className="table-th" style={{ width: '26%', textAlign: 'center' }}>Phạm vi dữ liệu (Data Scope)</th>
             </tr>
           </thead>
           <tbody>
@@ -268,22 +429,60 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
               </tr>
             ) : (() => {
               let globalIndex = 0;
-              return Object.entries(groupedPermissions).map(([groupName, items]) => (
+              const entries = Object.entries(groupedPermissions).filter(([_, items]) => items.length > 0);
+
+              if (entries.length === 0) {
+                return (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: '#6B7280' }}>
+                      Không tìm thấy chức năng nào phù hợp với từ khóa "{searchKeyword}".
+                    </td>
+                  </tr>
+                );
+              }
+
+              return entries.map(([groupName, items]) => (
                 <React.Fragment key={groupName}>
-                  {/* Dòng Header phân nhóm */}
+                  {/* Dòng Header phân nhóm 5 phân hệ */}
                   <tr style={{ backgroundColor: '#F3F4F6' }}>
                     <td
                       colSpan={7}
                       style={{
-                        padding: '0.5rem 1rem',
-                        fontSize: '12.65px',
+                        padding: '0.55rem 1rem',
+                        fontSize: '12.8px',
                         fontWeight: '700',
-                        color: '#374151',
+                        color: '#1F2937',
                         textTransform: 'uppercase',
-                        letterSpacing: '0.05em'
+                        letterSpacing: '0.04em',
+                        borderTop: '2px solid #E5E7EB',
+                        borderBottom: '1px solid #E5E7EB'
                       }}
                     >
-                      {groupName} ({items.length} chức năng)
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>
+                          {groupName} ({items.length} chức năng)
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'none', fontWeight: '500' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleGroup(groupName, true)}
+                            className="btn btn-secondary btn-xs"
+                            style={{ fontSize: '11px', padding: '2px 7px', height: '22px' }}
+                            title={`Bật tất cả quyền của nhóm ${groupName}`}
+                          >
+                            Bật cả nhóm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleGroup(groupName, false)}
+                            className="btn btn-secondary btn-xs"
+                            style={{ fontSize: '11px', padding: '2px 7px', height: '22px' }}
+                            title={`Tắt tất cả quyền của nhóm ${groupName}`}
+                          >
+                            Tắt cả nhóm
+                          </button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
 
@@ -296,75 +495,81 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
                           {globalIndex}
                         </td>
                         <td className="table-td">
-                          <div style={{ fontWeight: '600', color: '#111827' }}>
+                          <div style={{ fontWeight: '600', color: '#111827', fontSize: '13.8px' }}>
                             {item.moduleName || item.moduleCode}
                           </div>
-                          <div style={{ fontSize: '12.1px', color: '#6B7280' }}>
-                            {item.moduleCode}
+                          <div style={{ fontSize: '11.8px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <span style={{ fontFamily: 'monospace', color: '#4B5563', backgroundColor: '#F3F4F6', padding: '1px 5px', borderRadius: '3px' }}>
+                              {item.moduleCode}
+                            </span>
                           </div>
                         </td>
 
-                      {/* Checkbox Xem */}
-                      <td className="table-td" style={{ textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
-                          checked={item.canRead}
-                          onChange={() => handleToggle(item.moduleCode, 'canRead')}
-                        />
-                      </td>
+                        {/* Checkbox Xem */}
+                        <td className="table-td" style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
+                            checked={item.canRead}
+                            onChange={() => handleToggle(item.moduleCode, 'canRead')}
+                            title={`Quyền Xem: ${item.moduleName}`}
+                          />
+                        </td>
 
-                      {/* Checkbox Thêm */}
-                      <td className="table-td" style={{ textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
-                          checked={item.canCreate}
-                          onChange={() => handleToggle(item.moduleCode, 'canCreate')}
-                        />
-                      </td>
+                        {/* Checkbox Thêm */}
+                        <td className="table-td" style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
+                            checked={item.canCreate}
+                            onChange={() => handleToggle(item.moduleCode, 'canCreate')}
+                            title={`Quyền Thêm: ${item.moduleName}`}
+                          />
+                        </td>
 
-                      {/* Checkbox Sửa */}
-                      <td className="table-td" style={{ textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
-                          checked={item.canUpdate}
-                          onChange={() => handleToggle(item.moduleCode, 'canUpdate')}
-                        />
-                      </td>
+                        {/* Checkbox Sửa */}
+                        <td className="table-td" style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
+                            checked={item.canUpdate}
+                            onChange={() => handleToggle(item.moduleCode, 'canUpdate')}
+                            title={`Quyền Sửa: ${item.moduleName}`}
+                          />
+                        </td>
 
-                      {/* Checkbox Xóa */}
-                      <td className="table-td" style={{ textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
-                          checked={item.canDelete}
-                          onChange={() => handleToggle(item.moduleCode, 'canDelete')}
-                        />
-                      </td>
+                        {/* Checkbox Xóa */}
+                        <td className="table-td" style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
+                            checked={item.canDelete}
+                            onChange={() => handleToggle(item.moduleCode, 'canDelete')}
+                            title={`Quyền Xóa: ${item.moduleName}`}
+                          />
+                        </td>
 
-                      {/* Dropdown Data Scope */}
-                      <td className="table-td">
-                        <select
-                          className="input"
-                          style={{ fontSize: '13.2px', padding: '0.25rem 0.5rem', width: '100%' }}
-                          value={item.dataScope}
-                          onChange={(e) =>
-                            handleScopeChange(
-                              item.moduleCode,
-                              e.target.value as 'ALL' | 'DEPARTMENT' | 'PERSONAL'
-                            )
-                          }
-                        >
-                          <option value="ALL">Toàn công ty (Tất cả)</option>
-                          <option value="DEPARTMENT">Toàn phòng ban</option>
-                          <option value="PERSONAL">Cá nhân phụ trách</option>
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        {/* Dropdown Data Scope */}
+                        <td className="table-td">
+                          <select
+                            className="input"
+                            style={{ fontSize: '13px', padding: '0.25rem 0.5rem', width: '100%', height: '32px' }}
+                            value={item.dataScope}
+                            onChange={(e) =>
+                              handleScopeChange(
+                                item.moduleCode,
+                                e.target.value as 'ALL' | 'DEPARTMENT' | 'PERSONAL'
+                              )
+                            }
+                          >
+                            <option value="ALL">Toàn công ty (Tất cả)</option>
+                            <option value="DEPARTMENT">Toàn phòng ban</option>
+                            <option value="PERSONAL">Cá nhân phụ trách</option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </React.Fragment>
               ));
             })()}

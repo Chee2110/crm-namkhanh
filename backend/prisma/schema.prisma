@@ -92,6 +92,10 @@ model User {
   createdReceiptVouchers  ReceiptVoucher[]     @relation("ReceiptVoucherCreator")
   approvedReceiptVouchers ReceiptVoucher[]     @relation("ReceiptVoucherApprover")
   createdOrderReturns     OrderReturn[]        @relation("OrderReturnCreator")
+  createdInboundReceipts  InboundReceipt[]     @relation("InboundReceiptCreator")
+  approvedInboundReceipts InboundReceipt[]     @relation("InboundReceiptApprover")
+  checkedInboundReceipts  InboundReceipt[]     @relation("InboundReceiptChecker")
+  inboundHistories        InboundReceiptHistory[] @relation("InboundHistoryUser")
 
   @@map("users")
 }
@@ -178,6 +182,7 @@ model Warehouse {
 
   categories   Category[]
   products     Product[]
+  inboundReceipts InboundReceipt[]
 
   @@map("warehouses")
 }
@@ -234,6 +239,7 @@ model Supplier {
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   products      Product[]
+  inboundReceipts InboundReceipt[]
 
   @@map("suppliers")
 }
@@ -281,6 +287,7 @@ model Product {
   quotationItems QuotationItem[]
   orderItems     OrderItem[]
   returnItems    OrderReturnItem[]
+  inboundItems   InboundReceiptItem[]
 
   @@map("products")
 }
@@ -685,4 +692,109 @@ model OrderReturnItem {
 
   @@map("order_return_items")
 }
+
+// ==========================================
+// PHÂN HỆ C: QUẢN LÝ NHẬP KHO (INBOUND RECEIPTS)
+// ==========================================
+
+model InboundReceipt {
+  id              String                  @id @default(uuid())
+  code            String                  @unique // PNK-2026-0001
+  receiptDate     DateTime                @default(now()) @map("receipt_date") @db.Date
+  type            String                  @default("PURCHASE") // PURCHASE ("Nhập mua hàng"), FINISHED_GOODS ("Nhập thành phẩm"), RETURN ("Nhập hàng hoàn"), ADJUSTMENT ("Nhập điều chỉnh")
+  warehouseId     String                  @map("warehouse_id")
+  warehouse       Warehouse               @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  supplierId      String?                 @map("supplier_id")
+  supplier        Supplier?               @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  sourceName      String?                 @map("source_name") // Nguồn nhập tự do (nếu không theo NCC)
+  documentNumber  String?                 @map("document_number") // Số hóa đơn / Số PO / Số chứng từ gốc
+  documentDate    DateTime?               @map("document_date") @db.Date
+  status          String                  @default("DRAFT") // DRAFT ("Bản nháp"), CHECKING ("Đang kiểm hàng"), APPROVED ("Đã duyệt & Đã nhập kho"), REJECTED ("Từ chối duyệt"), CANCELLED ("Đã hủy")
+  subtotal        Decimal                 @default(0) @db.Decimal(15, 2)
+  vatRate         Int                     @default(0) @map("vat_rate")
+  vatAmount       Decimal                 @default(0) @map("vat_amount") @db.Decimal(15, 2)
+  totalAmount     Decimal                 @default(0) @map("total_amount") @db.Decimal(15, 2)
+  notes           String?                 @db.Text
+
+  // Thông tin kiểm hàng & phê duyệt
+  createdById     String?                 @map("created_by_id")
+  createdBy       User?                   @relation("InboundReceiptCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  checkedById     String?                 @map("checked_by_id")
+  checkedBy       User?                   @relation("InboundReceiptChecker", fields: [checkedById], references: [id], onDelete: SetNull)
+  checkedAt       DateTime?               @map("checked_at")
+  approvedById    String?                 @map("approved_by_id")
+  approvedBy      User?                   @relation("InboundReceiptApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt      DateTime?               @map("approved_at")
+  rejectedReason  String?                 @map("rejected_reason") @db.Text
+  fileUrl         String?                 @map("file_url")
+  fileName        String?                 @map("file_name")
+
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  items           InboundReceiptItem[]
+  history         InboundReceiptHistory[]
+
+  @@index([status])
+  @@index([receiptDate])
+  @@index([warehouseId])
+  @@index([supplierId])
+  @@map("inbound_receipts")
+}
+
+model InboundReceiptItem {
+  id               String         @id @default(uuid())
+  receiptId        String         @map("receipt_id")
+  receipt          InboundReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  productId        String?        @map("product_id")
+  product          Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productCode      String         @map("product_code")
+  productName      String         @map("product_name")
+  unit             String
+  expectedQuantity Int            @default(1) @map("expected_quantity") // Số lượng theo chứng từ
+  actualQuantity   Int            @default(1) @map("actual_quantity") // Số lượng thực tế giao tới
+  acceptedQuantity Int            @default(1) @map("accepted_quantity") // Số lượng được duyệt nhập kho
+  rejectedQuantity Int            @default(0) @map("rejected_quantity") // Số lượng từ chối / lỗi
+  unitPrice        Decimal        @default(0) @map("unit_price") @db.Decimal(15, 2)
+  amount           Decimal        @default(0) @db.Decimal(15, 2)
+  vatRate          Int            @default(0) @map("vat_rate")
+  total            Decimal        @default(0) @db.Decimal(15, 2)
+
+  // Quản lý lô hàng & hạn sử dụng
+  batchNumber      String?        @map("batch_number") // Mã lô hàng
+  productionDate   DateTime?      @map("production_date") @db.Date // Ngày sản xuất
+  expiryDate       DateTime?      @map("expiry_date") @db.Date // Hạn sử dụng
+
+  // Vị trí lưu kho chi tiết
+  locationArea     String?        @map("location_area") // Khu vực lưu kho (Khu A, Khu B...)
+  locationRack     String?        @map("location_rack") // Kệ / Dãy (Kệ 01, Kệ 02...)
+  locationShelf    String?        @map("location_shelf") // Tầng / Ngăn (Tầng 1, Tầng 2...)
+  locationBin      String?        @map("location_bin") // Ô lưu trữ (Ô 01, Bin A-03...)
+
+  // Kiểm tra chất lượng hàng
+  qualityStatus    String         @default("PASSED") @map("quality_status") // PASSED ("Đạt chuẩn 100%"), CONDITIONAL ("Đạt có điều kiện"), FAILED ("Không đạt chất lượng")
+  qualityNotes     String?        @map("quality_notes") @db.Text
+
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([receiptId])
+  @@index([productId])
+  @@map("inbound_receipt_items")
+}
+
+model InboundReceiptHistory {
+  id            String         @id @default(uuid())
+  receiptId     String         @map("receipt_id")
+  receipt       InboundReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  action        String         // CREATE, UPDATE, SUBMIT_FOR_CHECK, VERIFY, APPROVE, REJECT, CANCEL
+  title         String
+  description   String?        @db.Text
+  performedById String?        @map("performed_by_id")
+  performedBy   User?          @relation("InboundHistoryUser", fields: [performedById], references: [id], onDelete: SetNull)
+  performedAt   DateTime       @default(now()) @map("performed_at")
+
+  @@index([receiptId])
+  @@map("inbound_receipt_histories")
+}
+
 

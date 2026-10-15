@@ -49,31 +49,57 @@ export const SuppliersPage: React.FC = () => {
 
   const paginatedSuppliers = paginateSuppliers(suppliers);
 
-  // Cấu hình ẩn / hiện cột
+  // Cấu hình ẩn / hiện cột (Tách riêng biệt từng trường thông tin theo form Thêm NCC)
   const defaultVisibleCols: Record<string, boolean> = {
     stt: true,
     code: true,
     name: true,
-    contact: true,
+    contactPerson: true,
+    phone: true,
+    email: true,
+    taxCode: true,
+    address: true,
+    notes: true,
     products: true,
     actions: true
   };
 
-  const defaultColOrder = ['stt', 'code', 'name', 'contact', 'products', 'actions'];
+  const defaultColOrder = [
+    'stt',
+    'code',
+    'name',
+    'contactPerson',
+    'phone',
+    'email',
+    'taxCode',
+    'address',
+    'notes',
+    'products',
+    'actions'
+  ];
 
   const columnLabels: Record<string, string> = {
     stt: 'STT',
     code: 'Mã NCC',
-    name: 'Tên Nhà Cung Cấp & MST',
-    contact: 'Liên hệ & Địa chỉ',
+    name: 'Tên Nhà Cung Cấp',
+    contactPerson: 'Người liên hệ',
+    phone: 'Số điện thoại',
+    email: 'Email',
+    taxCode: 'Mã số thuế',
+    address: 'Địa chỉ trụ sở / Nhà máy',
+    notes: 'Ghi chú chính sách',
     products: 'Sản phẩm cung cấp',
     actions: 'Thao tác'
   };
 
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_suppliers_visible_cols');
-      return saved ? JSON.parse(saved) : defaultVisibleCols;
+      const saved = localStorage.getItem('namkhanh_suppliers_visible_cols_v3');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...defaultVisibleCols, ...parsed };
+      }
+      return defaultVisibleCols;
     } catch {
       return defaultVisibleCols;
     }
@@ -81,8 +107,16 @@ export const SuppliersPage: React.FC = () => {
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_suppliers_col_order');
-      return saved ? withActionsLast(JSON.parse(saved), defaultColOrder) : defaultColOrder;
+      const saved = localStorage.getItem('namkhanh_suppliers_col_order_v3');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const merged = [...parsed];
+        defaultColOrder.forEach((k) => {
+          if (!merged.includes(k)) merged.push(k);
+        });
+        return withActionsLast(merged, defaultColOrder);
+      }
+      return defaultColOrder;
     } catch {
       return defaultColOrder;
     }
@@ -90,24 +124,34 @@ export const SuppliersPage: React.FC = () => {
 
   const defaultSupplierWidths: Record<string, number> = {
     stt: 60,
-    code: 140,
-    name: 320,
-    contact: 280,
-    products: 180,
-    actions: 140
+    code: 110,
+    name: 240,
+    contactPerson: 160,
+    phone: 130,
+    email: 180,
+    taxCode: 130,
+    address: 230,
+    notes: 200,
+    products: 150,
+    actions: 120
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'suppliers',
+    tableKey: 'suppliers_v3',
     defaultWidths: defaultSupplierWidths,
     minWidth: 60,
     minWidths: {
       stt: 50,
-      code: 110,
-      name: 200,
-      contact: 180,
-      products: 150,
-      actions: 120
+      code: 90,
+      name: 180,
+      contactPerson: 120,
+      phone: 100,
+      email: 120,
+      taxCode: 100,
+      address: 150,
+      notes: 130,
+      products: 120,
+      actions: 100
     }
   });
 
@@ -115,7 +159,7 @@ export const SuppliersPage: React.FC = () => {
     const normalized = withActionsLast(newOrder, defaultColOrder);
     setColumnOrder(normalized);
     try {
-      localStorage.setItem('namkhanh_suppliers_col_order', JSON.stringify(normalized));
+      localStorage.setItem('namkhanh_suppliers_col_order_v3', JSON.stringify(normalized));
     } catch (e) {
       console.error(e);
     }
@@ -125,7 +169,7 @@ export const SuppliersPage: React.FC = () => {
     const updated = { ...visibleColumns, [colKey]: !visibleColumns[colKey] };
     setVisibleColumns(updated);
     try {
-      localStorage.setItem('namkhanh_suppliers_visible_cols', JSON.stringify(updated));
+      localStorage.setItem('namkhanh_suppliers_visible_cols_v3', JSON.stringify(updated));
     } catch (e) {
       console.error(e);
     }
@@ -136,8 +180,8 @@ export const SuppliersPage: React.FC = () => {
     setColumnOrder(defaultColOrder);
     resetWidths();
     try {
-      localStorage.setItem('namkhanh_suppliers_visible_cols', JSON.stringify(defaultVisibleCols));
-      localStorage.removeItem('namkhanh_suppliers_col_order');
+      localStorage.setItem('namkhanh_suppliers_visible_cols_v3', JSON.stringify(defaultVisibleCols));
+      localStorage.removeItem('namkhanh_suppliers_col_order_v3');
     } catch (e) {
       console.error(e);
     }
@@ -337,8 +381,13 @@ export const SuppliersPage: React.FC = () => {
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      className={`py-3 px-3.5 select-none overflow-hidden ${colKey === 'actions' ? 'sticky-action-th text-center' : colKey === 'stt' || colKey === 'products' ? 'text-center' : ''
-                        }`}
+                      className={`py-3 px-3.5 select-none overflow-hidden ${
+                        colKey === 'actions'
+                          ? 'sticky-action-th text-center'
+                          : colKey === 'stt' || colKey === 'code' || colKey === 'phone' || colKey === 'taxCode' || colKey === 'products'
+                          ? 'text-center'
+                          : 'th-left'
+                      }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultSupplierWidths[colKey]}px`,
                         position: colKey === 'actions' ? 'sticky' : 'relative'
@@ -355,14 +404,14 @@ export const SuppliersPage: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 6} className="py-12 text-center text-gray-500">
+                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 11} className="py-12 text-center text-gray-500">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#E53935] mb-2"></div>
                     <p>Đang tải danh sách nhà cung cấp...</p>
                   </td>
                 </tr>
               ) : suppliers.length === 0 ? (
                 <tr>
-                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 6} className="py-12 text-center text-gray-500">
+                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 11} className="py-12 text-center text-gray-500">
                     Chưa có nhà cung cấp nào
                   </td>
                 </tr>
@@ -375,72 +424,122 @@ export const SuppliersPage: React.FC = () => {
                         switch (colKey) {
                           case 'stt':
                             return (
-                              <td key={colKey} className="py-3 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                              <td key={colKey} className="py-2.5 px-3.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
                                 {startIndex + idx + 1}
                               </td>
                             );
                           case 'code':
                             return (
-                              <td key={colKey} className="py-3 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
+                              <td key={colKey} className="py-2.5 px-3.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
                                 {s.code}
                               </td>
                             );
                           case 'name':
                             return (
                               <td key={colKey} className="py-2.5 px-3.5 overflow-hidden">
-                                <div className="min-w-0" title={`${s.name} - MST: ${s.taxCode || 'N/A'}${s.contactPerson ? ` • Người liên hệ: ${s.contactPerson}` : ''}`}>
-                                  <div className="font-semibold text-gray-900 text-sm truncate leading-snug">
-                                    {s.name}
-                                  </div>
-                                  {(s.taxCode || s.contactPerson) && (
-                                    <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5 truncate">
-                                      {s.contactPerson && (
-                                        <span className="truncate text-gray-600">LH: {s.contactPerson}</span>
-                                      )}
-                                      {s.contactPerson && s.taxCode && <span className="text-gray-300">•</span>}
-                                      {s.taxCode && (
-                                        <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-1 py-0.2 rounded shrink-0">MST: {s.taxCode}</span>
-                                      )}
-                                    </div>
-                                  )}
+                                <div className="font-semibold text-gray-900 text-sm truncate leading-snug" title={s.name}>
+                                  {s.name}
                                 </div>
                               </td>
                             );
-                          case 'contact':
+                          case 'contactPerson':
+                            return (
+                              <td key={colKey} className="py-2.5 px-3.5 text-xs text-gray-700 overflow-hidden">
+                                {s.contactPerson ? (
+                                  <div className="truncate font-medium text-gray-800" title={s.contactPerson}>
+                                    {s.contactPerson}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 italic text-[11px]">-</span>
+                                )}
+                              </td>
+                            );
+                          case 'phone':
+                            return (
+                              <td key={colKey} className="py-2.5 px-3.5 text-xs text-center overflow-hidden">
+                                {s.phone ? (
+                                  <a
+                                    href={`tel:${s.phone}`}
+                                    className="inline-flex items-center gap-1 font-mono font-semibold text-blue-600 hover:text-blue-800 hover:underline truncate"
+                                    title={s.phone}
+                                  >
+                                    <Phone className="w-3 h-3 text-blue-500 shrink-0" />
+                                    <span>{s.phone}</span>
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-400 italic text-[11px]">-</span>
+                                )}
+                              </td>
+                            );
+                          case 'email':
                             return (
                               <td key={colKey} className="py-2.5 px-3.5 text-xs text-gray-600 overflow-hidden">
-                                <div className="min-w-0" title={`SĐT: ${s.phone || 'N/A'} - Email: ${s.email || 'N/A'} - Đ/C: ${s.address || 'N/A'}`}>
-                                  {s.phone && (
-                                    <div className="flex items-center gap-1 font-mono font-medium text-gray-800 truncate">
-                                      <Phone className="w-3 h-3 text-gray-400 shrink-0" />
-                                      <span>{s.phone}</span>
-                                      {s.email && <span className="text-gray-400 font-sans truncate">({s.email})</span>}
-                                    </div>
-                                  )}
-                                  {s.address && (
-                                    <div className="flex items-center gap-1 text-gray-500 truncate mt-0.5">
-                                      <MapPin className="w-3 h-3 text-gray-400 shrink-0" />
-                                      <span className="truncate">{s.address}</span>
-                                    </div>
-                                  )}
-                                </div>
+                                {s.email ? (
+                                  <a
+                                    href={`mailto:${s.email}`}
+                                    className="inline-flex items-center gap-1 text-gray-700 hover:text-blue-600 hover:underline truncate"
+                                    title={s.email}
+                                  >
+                                    <Mail className="w-3 h-3 text-gray-400 shrink-0" />
+                                    <span className="truncate">{s.email}</span>
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-400 italic text-[11px]">-</span>
+                                )}
+                              </td>
+                            );
+                          case 'taxCode':
+                            return (
+                              <td key={colKey} className="py-2.5 px-3.5 text-xs text-center overflow-hidden">
+                                {s.taxCode ? (
+                                  <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200" title={s.taxCode}>
+                                    {s.taxCode}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 italic text-[11px]">-</span>
+                                )}
+                              </td>
+                            );
+                          case 'address':
+                            return (
+                              <td key={colKey} className="py-2.5 px-3.5 text-xs text-gray-600 overflow-hidden">
+                                {s.address ? (
+                                  <div className="flex items-center gap-1 truncate text-gray-600" title={s.address}>
+                                    <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                    <span className="truncate">{s.address}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 italic text-[11px]">-</span>
+                                )}
+                              </td>
+                            );
+                          case 'notes':
+                            return (
+                              <td key={colKey} className="py-2.5 px-3.5 text-xs text-gray-500 overflow-hidden">
+                                {s.notes ? (
+                                  <div className="truncate text-gray-600" title={s.notes}>
+                                    {s.notes}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 italic text-[11px]">-</span>
+                                )}
                               </td>
                             );
                           case 'products':
                             return (
-                              <td key={colKey} className="py-3 px-3.5 text-center whitespace-nowrap overflow-hidden">
+                              <td key={colKey} className="py-2.5 px-3.5 text-center whitespace-nowrap overflow-hidden">
                                 <button
                                   onClick={() => openProductsModal(s)}
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
                                 >
                                   <Package className="w-3.5 h-3.5" />
-                                  {s._count?.products || 0} Mặt hàng
+                                  <span>{s._count?.products || 0} Mặt hàng</span>
                                 </button>
                               </td>
                             );
                           case 'actions':
                             return (
-                              <td key={colKey} className="py-3 px-3.5 text-center sticky-action-td whitespace-nowrap">
+                              <td key={colKey} className="py-2.5 px-3.5 text-center sticky-action-td whitespace-nowrap">
                                 <div className="flex items-center justify-center gap-1 w-full">
                                   <button
                                     onClick={() => openProductsModal(s)}

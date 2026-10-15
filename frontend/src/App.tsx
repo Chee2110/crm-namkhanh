@@ -24,6 +24,7 @@ import { SalesPlansPage } from './pages/sales/SalesPlansPage';
 
 // Phân hệ Kho & Hàng hóa
 import { InventoryOverviewPage } from './pages/inventory/InventoryOverviewPage';
+import { InboundReceiptsPage } from './pages/inventory/InboundReceiptsPage';
 import { WarehousesPage } from './pages/inventory/WarehousesPage';
 import { GoodsManagementPage } from './pages/inventory/GoodsManagementPage';
 import { SuppliersPage } from './pages/inventory/SuppliersPage';
@@ -50,6 +51,7 @@ const VALID_TABS = [
   'sales-reports',
   'sales-plans',
   'inventory-overview',
+  'inbound-receipts',
   'warehouses',
   'categories',
   'product-types',
@@ -93,6 +95,7 @@ const TAB_TITLES: Record<string, string> = {
   'sales-reports': 'Báo cáo Doanh thu & Nợ',
   'sales-plans': 'Kế hoạch Kinh doanh',
   'inventory-overview': 'Tổng quan kho',
+  'inbound-receipts': 'Quản lý Nhập kho',
   warehouses: 'Quản lý kho vật lý',
   categories: 'Quản lý hàng hóa',
   'product-types': 'Quản lý hàng hóa',
@@ -227,6 +230,8 @@ const AppContent: React.FC = () => {
       // Phân hệ Kho & Hàng hóa
       case 'inventory-overview':
         return <InventoryOverviewPage />;
+      case 'inbound-receipts':
+        return <InboundReceiptsPage />;
       case 'warehouses':
         return <WarehousesPage />;
       case 'categories':

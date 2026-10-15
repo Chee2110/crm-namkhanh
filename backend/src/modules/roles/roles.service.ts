@@ -103,8 +103,9 @@ export class RolesService {
     });
     if (!role) throw new Error('Vai trò không tồn tại');
 
-    // Ghép với danh mục 25 modules đầy đủ để đảm bảo không thiếu module nào
+    // Ghép với danh mục 29 modules đầy đủ để đảm bảo không thiếu module/trang nào
     const permissionMap = new Map<string, any>(role.permissions.map((p: any) => [p.moduleCode, p]));
+    const isSuperRole = role.code === 'ADMIN' || role.code === 'CEO';
 
     const fullMatrix = MODULE_DEFINITIONS.map((m) => {
       const p = permissionMap.get(m.code);
@@ -112,11 +113,11 @@ export class RolesService {
         moduleCode: m.code,
         moduleName: m.name,
         group: m.group,
-        canRead: p ? p.canRead : false,
-        canCreate: p ? p.canCreate : false,
-        canUpdate: p ? p.canUpdate : false,
-        canDelete: p ? p.canDelete : false,
-        dataScope: p ? p.dataScope : 'PERSONAL'
+        canRead: p ? p.canRead : isSuperRole,
+        canCreate: p ? p.canCreate : isSuperRole,
+        canUpdate: p ? p.canUpdate : isSuperRole,
+        canDelete: p ? p.canDelete : isSuperRole,
+        dataScope: p ? p.dataScope : (isSuperRole ? 'ALL' : 'PERSONAL')
       };
     });
 

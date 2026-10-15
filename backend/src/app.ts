@@ -26,6 +26,7 @@ import categoriesRoutes from './modules/categories/categories.routes';
 import productTypesRoutes from './modules/product-types/product-types.routes';
 import suppliersRoutes from './modules/suppliers/suppliers.routes';
 import inventoryRoutes from './modules/inventory/inventory.routes';
+import inboundReceiptsRoutes from './modules/inbound-receipts/inbound-receipts.routes';
 
 // Các tuyến API Phân hệ E (Thu - Chi & Tài chính)
 import expenseCategoriesRoutes from './modules/finances/expense-categories/expense-categories.routes';
@@ -88,6 +89,7 @@ app.use('/api/v1/categories', categoriesRoutes);
 app.use('/api/v1/product-types', productTypesRoutes);
 app.use('/api/v1/suppliers', suppliersRoutes);
 app.use('/api/v1/inventory', inventoryRoutes);
+app.use('/api/v1/inbound-receipts', inboundReceiptsRoutes);
 
 // Các tuyến API Phân hệ E (Thu - Chi & Tài chính Doanh nghiệp)
 app.use('/api/v1/expense-categories', expenseCategoriesRoutes);
