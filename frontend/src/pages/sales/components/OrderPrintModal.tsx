@@ -1,10 +1,11 @@
 import React from 'react';
-import { Printer, X } from 'lucide-react';
+import { Printer, X, FileSpreadsheet } from 'lucide-react';
 import { Order } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
 import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
 import { printA4 } from '../../../utils/printA4';
 import { formatVND, formatNumber } from '../../../utils/formatCurrency';
+import { exportOrderToExcel } from '../../../utils/crmExcelExport';
 import '../../../styles/print-a4.css';
 
 interface OrderPrintModalProps {
@@ -39,6 +40,14 @@ export const OrderPrintModal: React.FC<OrderPrintModalProps> = ({
             </h3>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => exportOrderToExcel(order)}
+              className="btn-secondary !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-sm border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+              title="Xuất đơn hàng ra file Excel chuẩn biểu mẫu (.xlsx)"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+              <span>Xuất Excel</span>
+            </button>
             <button
               onClick={handlePrint}
               className="btn-primary !py-1.5 !px-4 text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
@@ -233,14 +242,12 @@ export const OrderPrintModal: React.FC<OrderPrintModalProps> = ({
                 <p className="a4-sign-title">Người lập phiếu</p>
                 <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
                 <div className="a4-sign-space"></div>
-                <p className="a4-sign-name">{order.manager?.fullName || ''}</p>
               </div>
 
               <div>
                 <p className="a4-sign-title">Người nhận hàng</p>
                 <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
                 <div className="a4-sign-space"></div>
-                <p className="a4-sign-name">{order.contactPerson || ''}</p>
               </div>
 
               <div>

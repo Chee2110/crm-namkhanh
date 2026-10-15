@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShoppingBag,
   Plus,
@@ -42,6 +42,7 @@ import { useAuth } from '../../context/AuthContext';
 import { OrderPrintModal } from './components/OrderPrintModal';
 import { OrderReturnPrintModal } from './components/OrderReturnPrintModal';
 import { printA4 } from '../../utils/printA4';
+import { exportOrderToExcel, exportOrdersListToExcel } from '../../utils/crmExcelExport';
 import '../../styles/print-a4.css';
 import { ImportItemsModal } from '../../components/common/ImportItemsModal';
 import { useTableResize } from '../../hooks/useTableResize';
@@ -68,6 +69,124 @@ const INVOICE_STATUS_OPTIONS: StatusOption[] = [
   { value: 'ISSUED', label: 'Đã xuất HĐ', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' }
 ];
 
+interface NumericCurrencyInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {
+  value: number;
+  max?: number;
+  min?: number;
+  onChange: (val: number) => void;
+  onCommit?: (val: number) => void;
+  className?: string;
+}
+
+const NumericCurrencyInput: React.FC<NumericCurrencyInputProps> = ({
+  value,
+  max,
+  min = 0,
+  onChange,
+  onCommit,
+  className,
+  ...props
+}) => {
+  const [displayVal, setDisplayVal] = useState<string>(() => (value > 0 ? formatNumber(value) : '0'));
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setDisplayVal(value > 0 ? formatNumber(value) : '0');
+    }
+  }, [value, isFocused]);
+
+  const commitValue = () => {
+    setIsFocused(false);
+    const parsed = parseNumberFromFormatted(displayVal);
+    let finalVal = Math.max(min, parsed);
+    if (max !== undefined && max > 0) {
+      finalVal = Math.min(max, finalVal);
+    }
+    setDisplayVal(formatNumber(finalVal));
+    onChange(finalVal);
+    onCommit?.(finalVal);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const raw = input.value;
+    const cursorPos = input.selectionStart || 0;
+
+    if (raw === '' || raw === '-') {
+      setDisplayVal('');
+      onChange(0);
+      return;
+    }
+
+    const digitsBeforeCursor = raw.slice(0, cursorPos).replace(/\D/g, '').length;
+    const cleanDigits = raw.replace(/\D/g, '');
+    if (!cleanDigits) {
+      setDisplayVal('');
+      onChange(0);
+      return;
+    }
+
+    const num = parseInt(cleanDigits, 10) || 0;
+    const formatted = formatNumber(num);
+    setDisplayVal(formatted);
+    // Cập nhật số trị lên state cha nhưng KHÔNG clamp Math.min ở đây để tránh giật số khi đang gõ
+    onChange(num);
+
+    requestAnimationFrame(() => {
+      if (!inputRef.current) return;
+      let digitsCount = 0;
+      let newPos = 0;
+      for (let i = 0; i < formatted.length; i++) {
+        if (/\d/.test(formatted[i])) {
+          digitsCount++;
+        }
+        if (digitsCount === digitsBeforeCursor) {
+          newPos = i + 1;
+          break;
+        }
+      }
+      if (digitsBeforeCursor === 0) newPos = 0;
+      if (newPos > formatted.length) newPos = formatted.length;
+      inputRef.current.setSelectionRange(newPos, newPos);
+    });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      setDisplayVal(value > 0 ? formatNumber(value) : '0');
+      setIsFocused(false);
+      e.currentTarget.blur();
+    }
+    props.onKeyDown?.(e);
+  };
+
+  return (
+    <input
+      {...props}
+      ref={inputRef}
+      type="text"
+      inputMode="numeric"
+      value={displayVal}
+      onFocus={(e) => {
+        setIsFocused(true);
+        e.target.select();
+        props.onFocus?.(e);
+      }}
+      onChange={handleChange}
+      onBlur={(e) => {
+        commitValue();
+        props.onBlur?.(e);
+      }}
+      onKeyDown={handleKeyDown}
+      className={className}
+    />
+  );
+};
+
 interface InlinePaidInputProps {
   orderId: string;
   totalAmount: number;
@@ -79,6 +198,7 @@ interface InlinePaidInputProps {
 const InlinePaidInput: React.FC<InlinePaidInputProps> = ({ orderId, totalAmount, paidAmount, canEdit, onSave }) => {
   const [val, setVal] = useState<string>(() => (paidAmount > 0 ? formatNumber(paidAmount) : '0'));
   const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isFocused) {
@@ -89,7 +209,8 @@ const InlinePaidInput: React.FC<InlinePaidInputProps> = ({ orderId, totalAmount,
   const commitChange = () => {
     setIsFocused(false);
     const parsed = parseNumberFromFormatted(val);
-    const validPaid = Math.max(0, Math.min(Number(totalAmount), parsed));
+    const maxVal = Number(totalAmount || 0);
+    const validPaid = maxVal > 0 ? Math.max(0, Math.min(maxVal, parsed)) : Math.max(0, parsed);
     setVal(formatNumber(validPaid));
     if (validPaid !== Number(paidAmount)) {
       onSave(orderId, validPaid);
@@ -106,6 +227,46 @@ const InlinePaidInput: React.FC<InlinePaidInputProps> = ({ orderId, totalAmount,
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const raw = input.value;
+    const cursorPos = input.selectionStart || 0;
+
+    if (raw === '' || raw === '-') {
+      setVal('');
+      return;
+    }
+
+    const digitsBeforeCursor = raw.slice(0, cursorPos).replace(/\D/g, '').length;
+    const cleanDigits = raw.replace(/\D/g, '');
+    if (!cleanDigits) {
+      setVal('');
+      return;
+    }
+
+    const num = parseInt(cleanDigits, 10) || 0;
+    const formatted = formatNumber(num);
+    setVal(formatted);
+
+    requestAnimationFrame(() => {
+      if (!inputRef.current) return;
+      let digitsCount = 0;
+      let newPos = 0;
+      for (let i = 0; i < formatted.length; i++) {
+        if (/\d/.test(formatted[i])) {
+          digitsCount++;
+        }
+        if (digitsCount === digitsBeforeCursor) {
+          newPos = i + 1;
+          break;
+        }
+      }
+      if (digitsBeforeCursor === 0) newPos = 0;
+      if (newPos > formatted.length) newPos = formatted.length;
+      inputRef.current.setSelectionRange(newPos, newPos);
+    });
+  };
+
   if (!canEdit) {
     return <span className="font-semibold text-emerald-600 tabular-nums">{formatVND(paidAmount)}</span>;
   }
@@ -117,6 +278,7 @@ const InlinePaidInput: React.FC<InlinePaidInputProps> = ({ orderId, totalAmount,
       onMouseDown={(e) => e.stopPropagation()}
     >
       <input
+        ref={inputRef}
         type="text"
         inputMode="numeric"
         value={val}
@@ -125,16 +287,7 @@ const InlinePaidInput: React.FC<InlinePaidInputProps> = ({ orderId, totalAmount,
           setIsFocused(true);
           e.target.select();
         }}
-        onChange={(e) => {
-          const raw = e.target.value;
-          if (raw === '') {
-            setVal('');
-            return;
-          }
-          const parsed = parseNumberFromFormatted(raw);
-          const clamped = Math.min(Number(totalAmount), parsed);
-          setVal(formatNumber(clamped));
-        }}
+        onChange={handleChange}
         onBlur={commitChange}
         onKeyDown={handleKeyDown}
         className={`w-full text-center text-xs font-bold text-emerald-600 tabular-nums py-1 px-1.5 rounded-md transition-all ${
@@ -762,10 +915,37 @@ export const OrdersPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      await api.put(`/orders/${selectedOrder.id}`, updatePaymentData);
+      const newPaid = Number(updatePaymentData.paidAmount) || 0;
+      const total = Number(selectedOrder.totalAmount || 0);
+      const newRemaining = Math.max(0, total - newPaid);
+      const newPaymentStatus = newPaid >= total && total > 0 ? 'PAID' : newPaid > 0 ? 'PARTIAL_PAID' : 'UNPAID';
+
+      const res = await api.put(`/orders/${selectedOrder.id}`, {
+        ...updatePaymentData,
+        paidAmount: newPaid,
+        remainingAmount: newRemaining,
+        paymentStatus: newPaymentStatus
+      });
+      const updatedOrder = res.data?.data || res.data;
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === selectedOrder.id
+            ? { ...o, ...updatedOrder, paidAmount: newPaid, remainingAmount: newRemaining, paymentStatus: newPaymentStatus as any }
+            : o
+        )
+      );
+      setAllOrders((prev) =>
+        prev.map((o) =>
+          o.id === selectedOrder.id
+            ? { ...o, ...updatedOrder, paidAmount: newPaid, remainingAmount: newRemaining, paymentStatus: newPaymentStatus as any }
+            : o
+        )
+      );
+
       setIsPaymentModalOpen(false);
       setSelectedOrder(null);
-      loadData();
+      setToastMessage(`Đã cập nhật thanh toán đơn hàng ${selectedOrder.code}!`);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Cập nhật đơn hàng thất bại');
     } finally {
@@ -871,15 +1051,31 @@ export const OrdersPage: React.FC = () => {
 
     // 3. Gửi cập nhật lên máy chủ
     try {
-      await api.put(`/orders/${orderId}`, {
+      const res = await api.put(`/orders/${orderId}`, {
         paidAmount: newPaidAmount,
         remainingAmount: newRemaining,
         paymentStatus: newPaymentStatus
       });
+      const updatedOrder = res.data?.data || res.data;
+      if (updatedOrder && updatedOrder.id) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderId
+              ? { ...o, ...updatedOrder, paidAmount: newPaidAmount, remainingAmount: newRemaining, paymentStatus: newPaymentStatus as any }
+              : o
+          )
+        );
+        setAllOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderId
+              ? { ...o, ...updatedOrder, paidAmount: newPaidAmount, remainingAmount: newRemaining, paymentStatus: newPaymentStatus as any }
+              : o
+          )
+        );
+      }
       setToastMessage(
         `Đã cập nhật thực thu đơn ${targetOrder.code}: ${formatVND(newPaidAmount)} (Công nợ: ${formatVND(newRemaining)})`
       );
-      loadData(true);
     } catch (err: any) {
       console.error('Lỗi khi sửa trực tiếp thực thu:', err);
       // Rollback nếu có lỗi mạng/máy chủ
@@ -955,91 +1151,26 @@ export const OrdersPage: React.FC = () => {
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (orders.length === 0) {
       alert('Không có dữ liệu đơn hàng để xuất');
       return;
     }
+    try {
+      await exportOrdersListToExcel(orders);
+    } catch (err) {
+      console.error('Lỗi khi xuất danh sách đơn hàng sang Excel:', err);
+      alert('Có lỗi xảy ra khi tạo file Excel đơn hàng');
+    }
+  };
 
-    const headers = [
-      'STT',
-      'Mã đơn hàng',
-      'Khách hàng',
-      'Mã khách',
-      'Số điện thoại',
-      'Người nhận',
-      'Địa chỉ giao',
-      'Ngày đặt',
-      'Ngày hẹn giao',
-      'Giao hàng',
-      'Thanh toán',
-      'Hóa đơn VAT',
-      'Cộng tiền hàng',
-      'Thuế VAT (%)',
-      'Tiền thuế VAT',
-      'Tổng tiền đơn (VNĐ)',
-      'Thực thu (VNĐ)',
-      'Còn phải thu (VNĐ)',
-      'Tiền hoàn trả (VNĐ)',
-      'Tiền điều chỉnh (+/-)',
-      'Lý do điều chỉnh',
-      'Người phụ trách',
-      'Ghi chú'
-    ];
-
-    const getDeliveryText = (st: string) => {
-      switch (st) {
-        case 'DELIVERED': return 'Đã giao hàng';
-        case 'DELIVERING': return 'Đang giao';
-        case 'PARTIAL': return 'Giao một phần';
-        case 'CANCELLED': return 'Đã hủy đơn';
-        default: return 'Chờ xuất kho';
-      }
-    };
-
-    const getPaymentText = (st: string) => {
-      switch (st) {
-        case 'PAID': return 'Đã thanh toán đủ';
-        case 'PARTIAL_PAID': return 'Thanh toán 1 phần';
-        default: return 'Chưa thanh toán';
-      }
-    };
-
-    const rows = orders.map((o, idx) => [
-      idx + 1,
-      o.code,
-      `"${(o.customer?.name || '').replace(/"/g, '""')}"`,
-      `"${o.customer?.code || ''}"`,
-      `"${o.phone || o.customer?.phone || ''}"`,
-      `"${(o.contactPerson || '').replace(/"/g, '""')}"`,
-      `"${(o.deliveryAddress || '').replace(/"/g, '""')}"`,
-      new Date(o.orderDate).toLocaleDateString('vi-VN'),
-      o.deliveryDate ? new Date(o.deliveryDate).toLocaleDateString('vi-VN') : '',
-      getDeliveryText(o.deliveryStatus),
-      getPaymentText(o.paymentStatus),
-      o.invoiceStatus === 'ISSUED' ? 'Đã xuất HĐ' : o.invoiceStatus === 'ISSUING' ? 'Đang xuất HĐ' : 'Chưa xuất HĐ',
-      o.subtotal,
-      o.vatRate,
-      o.vatAmount,
-      o.totalAmount,
-      o.paidAmount,
-      o.remainingAmount,
-      o.refundAmount || 0,
-      o.adjustedAmount || 0,
-      `"${(o.adjustmentReason || '').replace(/"/g, '""')}"`,
-      `"${(o.manager?.fullName || '').replace(/"/g, '""')}"`,
-      `"${(o.notes || '').replace(/"/g, '""')}"`
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Don_Hang_Nam_Khanh_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportSingleOrderExcel = async (order: Order) => {
+    try {
+      await exportOrderToExcel(order);
+    } catch (err) {
+      console.error('Lỗi khi xuất đơn hàng sang Excel:', err);
+      alert('Có lỗi xảy ra khi tạo file Excel đơn hàng');
+    }
   };
 
   const openCancelRefundModal = (order: Order) => {
@@ -1174,7 +1305,10 @@ export const OrdersPage: React.FC = () => {
   const summarySource = allOrders.length > 0 ? allOrders : orders;
   const totalRevenue = summarySource.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
   const totalPaid = summarySource.reduce((sum, o) => sum + Number(o.paidAmount || 0), 0);
-  const totalRemaining = summarySource.reduce((sum, o) => sum + Number(o.remainingAmount || 0), 0);
+  const totalRemaining = summarySource.reduce(
+    (sum, o) => sum + Math.max(0, Number(o.totalAmount || 0) - Number(o.paidAmount || 0)),
+    0
+  );
   const pendingDeliveryCount = summarySource.filter((o) => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'DELIVERING').length;
   const totalOrdersCount = summarySource.length;
 
@@ -1714,14 +1848,10 @@ export const OrdersPage: React.FC = () => {
                 <div className="pt-2 border-t border-dashed border-gray-200 space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-semibold text-gray-700">Khách trả trước / Thực thu:</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={formatNumber(createData.paidAmount)}
-                      onChange={(e) => {
-                        const parsed = parseNumberFromFormatted(e.target.value);
-                        setCreateData({ ...createData, paidAmount: Math.min(totalAmount, parsed) });
-                      }}
+                    <NumericCurrencyInput
+                      value={Number(createData.paidAmount) || 0}
+                      max={totalAmount}
+                      onChange={(val) => setCreateData((prev) => ({ ...prev, paidAmount: val }))}
                       className="w-40 p-1.5 text-xs border border-emerald-300 rounded font-semibold text-emerald-700 text-right focus:outline-none focus:border-emerald-500"
                     />
                   </div>
@@ -2249,6 +2379,15 @@ export const OrdersPage: React.FC = () => {
                                       <Printer className="w-4 h-4 text-[#E53935]" />
                                     </button>
 
+                                    {/* Xuất file Excel Đơn hàng chuẩn biểu mẫu BIEU_MAU_CRM */}
+                                    <button
+                                      title="Xuất Excel Đơn hàng & Biên bản giao hàng (.xlsx)"
+                                      onClick={() => handleExportSingleOrderExcel(order)}
+                                      className="p-1 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
+                                    >
+                                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                                    </button>
+
                                     {/* Hủy đơn & Hoàn tiền cọc */}
                                     {hasPermission('B_ORDERS', 'update') && order.deliveryStatus !== 'CANCELLED' && order.deliveryStatus !== 'DELIVERED' && (
                                       <button
@@ -2365,18 +2504,15 @@ export const OrdersPage: React.FC = () => {
                 </label>
                 <div className="relative">
                   <DollarSign className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={formatNumber(updatePaymentData.paidAmount)}
-                    onChange={(e) => {
-                      const maxVal = Number(selectedOrder.totalAmount);
-                      const parsed = parseNumberFromFormatted(e.target.value);
-                      setUpdatePaymentData({
-                        ...updatePaymentData,
-                        paidAmount: Math.min(maxVal, parsed)
-                      });
-                    }}
+                  <NumericCurrencyInput
+                    value={Number(updatePaymentData.paidAmount) || 0}
+                    max={Number(selectedOrder.totalAmount || 0)}
+                    onChange={(val) =>
+                      setUpdatePaymentData((prev) => ({
+                        ...prev,
+                        paidAmount: val
+                      }))
+                    }
                     className="w-full pl-9 pr-3 py-2 text-sm font-bold border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
                   />
                 </div>
@@ -3069,6 +3205,14 @@ export const OrdersPage: React.FC = () => {
                   </button>
                 )}
                 <button
+                  onClick={() => handleExportSingleOrderExcel(selectedOrder)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  title="Xuất đơn hàng & Biên bản giao hàng ra file Excel (.xlsx)"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  Xuất Excel
+                </button>
+                <button
                   onClick={() => printA4('printable-order', `Phieu_giao_hang_${selectedOrder.code}`)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                 >
@@ -3229,7 +3373,7 @@ export const OrdersPage: React.FC = () => {
                     </div>
                     <div className="a4-line-debt">
                       <span>CÒN PHẢI THU (NỢ):</span>
-                      <span>{formatVND(Number(selectedOrder.remainingAmount))}</span>
+                      <span>{formatVND(Math.max(0, Number(selectedOrder.totalAmount || 0) - Number(selectedOrder.paidAmount || 0)))}</span>
                     </div>
                   </div>
                 </div>
@@ -3287,7 +3431,6 @@ export const OrdersPage: React.FC = () => {
                     <p className="a4-sign-title">Người lập phiếu</p>
                     <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
                     <div className="a4-sign-space"></div>
-                    <p className="a4-sign-name">{selectedOrder.manager?.fullName || 'Thủ kho'}</p>
                   </div>
                   <div>
                     <p className="a4-sign-title">Thủ kho xuất</p>
@@ -3305,7 +3448,6 @@ export const OrdersPage: React.FC = () => {
                     <p className="a4-sign-title">Người nhận hàng</p>
                     <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
                     <div className="a4-sign-space"></div>
-                    <p className="a4-sign-name">{selectedOrder.contactPerson || 'Đại diện bên nhận'}</p>
                   </div>
                 </div>
               </div>

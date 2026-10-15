@@ -314,7 +314,6 @@ export const InventoryOverviewPage: React.FC = () => {
                         <p className="font-extrabold text-amber-600">
                           Tồn: {p.stockQuantity} {p.unit}
                         </p>
-                        <p className="text-[10px] text-slate-400">Định mức: {p.minStockLevel} {p.unit}</p>
                       </div>
                     </div>
                   ))}

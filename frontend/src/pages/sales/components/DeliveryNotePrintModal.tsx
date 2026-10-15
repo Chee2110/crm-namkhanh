@@ -4,6 +4,7 @@ import { Order } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
 import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
 import { formatVND, formatNumber } from '../../../utils/formatCurrency';
+import { exportOrderToExcel } from '../../../utils/crmExcelExport';
 
 interface DeliveryNotePrintModalProps {
   isOpen: boolean;
@@ -25,62 +26,13 @@ export const DeliveryNotePrintModal: React.FC<DeliveryNotePrintModalProps> = ({
   const orderDate = new Date(order.orderDate);
   const deliveryDate = order.deliveryDate ? new Date(order.deliveryDate) : orderDate;
 
-  const handleExportExcel = () => {
-    const headers = [
-      'STT',
-      'Mã hàng',
-      'Tên sản phẩm / quy cách',
-      'Đơn vị tính',
-      'Số lượng',
-      'Đơn giá (VNĐ)',
-      'Thuế VAT (%)',
-      'Thành tiền (VNĐ)'
-    ];
-
-    const rows = (order.items || []).map((it, idx) => [
-      idx + 1,
-      `"${it.productCode}"`,
-      `"${(it.productName || '').replace(/"/g, '""')}"`,
-      `"${it.unit}"`,
-      it.quantity,
-      it.unitPrice,
-      `"${it.vatRate !== undefined ? it.vatRate : order.vatRate}%"`,
-      it.total || it.amount || it.quantity * it.unitPrice
-    ]);
-
-    const lines = [
-      '\uFEFFPHIẾU XUẤT KHO KIÊM BIÊN BẢN GIAO NHẬN HÀNG HÓA - CÔNG TY TNHH TM&DV NAM KHÁNH',
-      `Số đơn hàng: ${order.code}`,
-      `Ngày đặt hàng: ${orderDate.toLocaleDateString('vi-VN')}`,
-      `Ngày giao hàng: ${deliveryDate.toLocaleDateString('vi-VN')}`,
-      `Khách hàng: ${(order.customer?.name || '').replace(/"/g, '""')}`,
-      `Mã số thuế: ${order.customer?.taxCode || ''}`,
-      `Người nhận: ${(order.contactPerson || order.customer?.contactPerson || '').replace(/"/g, '""')}`,
-      `Số điện thoại: ${order.phone || order.customer?.phone || ''}`,
-      `Địa chỉ giao nhận: ${(order.deliveryAddress || order.customer?.deliveryAddress || order.customer?.address || '').replace(/"/g, '""')}`,
-      `Người phụ trách: ${(order.manager?.fullName || '').replace(/"/g, '""')}`,
-      '',
-      headers.join(','),
-      ...rows.map((r) => r.join(',')),
-      '',
-      `Cộng tiền hàng: ${formatNumber(Number(order.subtotal))} VNĐ`,
-      `Thuế GTGT (${order.vatRate}%): ${formatNumber(Number(order.vatAmount))} VNĐ`,
-      `Tổng giá trị đơn hàng: ${formatNumber(Number(order.totalAmount))} VNĐ`,
-      `Đã thanh toán: ${formatNumber(Number(order.paidAmount || 0))} VNĐ`,
-      `Còn phải thu khi giao: ${formatNumber(Number(order.remainingAmount || 0))} VNĐ`,
-      `Số tiền viết bằng chữ: ${numberToWords(Number(order.totalAmount))}`,
-      `Ghi chú giao hàng: ${(order.notes || '').replace(/"/g, '""')}`
-    ];
-
-    const csvContent = lines.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Phieu_Giao_Hang_${order.code}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportExcel = async () => {
+    try {
+      await exportOrderToExcel(order);
+    } catch (err) {
+      console.error('Lỗi khi xuất file Excel đơn hàng:', err);
+      alert('Có lỗi xảy ra khi tạo file Excel');
+    }
   };
 
   return (
@@ -314,7 +266,6 @@ export const DeliveryNotePrintModal: React.FC<DeliveryNotePrintModalProps> = ({
               <div className="font-bold uppercase text-gray-800">Người lập phiếu</div>
               <div className="text-[11px] text-gray-500 italic">(Ký, ghi rõ họ tên)</div>
               <div className="h-16"></div>
-              <div className="font-medium text-gray-700">{order.manager?.fullName || 'Người lập'}</div>
             </div>
             <div>
               <div className="font-bold uppercase text-gray-800">Thủ kho xuất hàng</div>

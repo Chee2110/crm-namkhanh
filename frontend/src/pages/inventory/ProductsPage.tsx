@@ -120,8 +120,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     sellingPrice: true,
     vatRate: true,
     warehouseName: true,
-    minStockLevel: true,
-    maxStockLevel: true,
+    stockQuantity: true,
     categoryName: true,
     productTypeName: true,
     subTypeCode: true,
@@ -143,8 +142,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     'sellingPrice',
     'vatRate',
     'warehouseName',
-    'minStockLevel',
-    'maxStockLevel',
+    'stockQuantity',
     'categoryName',
     'productTypeName',
     'subTypeCode',
@@ -166,8 +164,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     sellingPrice: 'Giá bán',
     vatRate: 'Thuế VAT',
     warehouseName: 'Kho',
-    minStockLevel: 'Tồn kho tối thiểu',
-    maxStockLevel: 'Tồn kho tối đa',
+    stockQuantity: 'Tồn kho',
     categoryName: 'Danh mục',
     productTypeName: 'Loại hàng hóa',
     subTypeCode: 'Mã nhóm loại',
@@ -177,16 +174,18 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
   };
 
   // Cấu hình hiển thị và thứ tự cột mặc định:
-  // Mã hàng hóa -> Hình ảnh -> Tên hàng hóa -> Thương hiệu -> ĐVT -> Màu sắc -> Giá -> Các kho -> Danh mục -> Loại -> Trạng thái -> Thao tác
+  // Mã hàng hóa -> Hình ảnh -> Tên hàng hóa -> Thương hiệu -> ĐVT -> Màu sắc -> Giá -> Các kho -> Tồn kho -> Danh mục -> Loại -> Trạng thái -> Thao tác
 
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_products_visible_cols_v6');
+      const saved = localStorage.getItem('namkhanh_products_visible_cols_v7');
       if (saved) {
         const parsed = JSON.parse(saved);
         delete parsed.warehouseCode;
         delete parsed.categoryCode;
         delete parsed.productTypeCode;
+        delete parsed.minStockLevel;
+        delete parsed.maxStockLevel;
         if (parsed.warehouseName !== undefined && parsed.code !== undefined) return parsed;
       }
       return defaultVisibleCols;
@@ -197,7 +196,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
-      // Dọn dẹp cache cũ các phiên bản v1 - v5 để đảm bảo thứ tự mặc định mới có hiệu lực ngay
+      // Dọn dẹp cache cũ các phiên bản v1 - v6 để đảm bảo thứ tự mặc định mới có hiệu lực ngay
       const oldKeys = [
         'namkhanh_products_col_order',
         'namkhanh_products_visible_cols',
@@ -208,7 +207,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         'namkhanh_products_col_order_v4',
         'namkhanh_products_visible_cols_v4',
         'namkhanh_products_col_order_v5',
-        'namkhanh_products_visible_cols_v5'
+        'namkhanh_products_visible_cols_v5',
+        'namkhanh_products_col_order_v6',
+        'namkhanh_products_visible_cols_v6'
       ];
       oldKeys.forEach((k) => {
         try {
@@ -218,11 +219,11 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         }
       });
 
-      const saved = localStorage.getItem('namkhanh_products_col_order_v6');
+      const saved = localStorage.getItem('namkhanh_products_col_order_v7');
       if (saved) {
         const parsed = JSON.parse(saved);
         const filtered = parsed.filter(
-          (c: string) => !['warehouseCode', 'categoryCode', 'productTypeCode'].includes(c)
+          (c: string) => !['warehouseCode', 'categoryCode', 'productTypeCode', 'minStockLevel', 'maxStockLevel'].includes(c)
         );
         if (filtered.includes('code')) return withActionsLast(filtered, defaultColOrder);
       }
@@ -245,8 +246,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     sellingPrice: 110,
     vatRate: 85,
     warehouseName: 120,
-    minStockLevel: 110,
-    maxStockLevel: 110,
+    stockQuantity: 105,
     categoryName: 135,
     productTypeName: 135,
     subTypeCode: 105,
@@ -256,7 +256,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'products_v6',
+    tableKey: 'products_v7',
     defaultWidths: defaultProductWidths,
     minWidth: 50,
     minWidths: {
@@ -272,8 +272,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       sellingPrice: 85,
       vatRate: 70,
       warehouseName: 90,
-      minStockLevel: 85,
-      maxStockLevel: 85,
+      stockQuantity: 75,
       categoryName: 100,
       productTypeName: 100,
       subTypeCode: 85,
@@ -287,7 +286,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     const normalized = withActionsLast(newOrder, defaultColOrder);
     setColumnOrder(normalized);
     try {
-      localStorage.setItem('namkhanh_products_col_order_v6', JSON.stringify(normalized));
+      localStorage.setItem('namkhanh_products_col_order_v7', JSON.stringify(normalized));
     } catch {
       // ignore
     }
@@ -297,7 +296,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     const updated = { ...visibleColumns, [key]: !visibleColumns[key] };
     setVisibleColumns(updated);
     try {
-      localStorage.setItem('namkhanh_products_visible_cols_v6', JSON.stringify(updated));
+      localStorage.setItem('namkhanh_products_visible_cols_v7', JSON.stringify(updated));
     } catch {
       // ignore
     }
@@ -319,7 +318,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       'namkhanh_products_visible_cols_v5',
       'namkhanh_products_col_order_v5',
       'namkhanh_products_visible_cols_v6',
-      'namkhanh_products_col_order_v6'
+      'namkhanh_products_col_order_v6',
+      'namkhanh_products_visible_cols_v7',
+      'namkhanh_products_col_order_v7'
     ];
     oldKeys.forEach((k) => {
       try {
@@ -364,8 +365,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         const costPrice = parseNum(r['Giá nhập'] || r['Giá vốn'], 0);
         const sellingPrice = parseNum(r['Giá bán'], 0);
         const vatRate = parseNum(r['Thuế VAT'] || r['VAT'], 8);
-        const minStockLevel = parseNum(r['Tồn kho tối thiểu'] || r['Tồn tối thiểu'] || r['Mức an toàn'], 20);
-        const maxStockLevel = parseNum(r['Tồn kho tối đa'] || r['Tồn tối đa'], 0);
+        const stockQuantity = parseNum(r['Tồn kho'] || r['Số lượng tồn'] || r['Số lượng'] || r['Tồn'] || r['Tồn kho tối thiểu'], 100);
 
         // NẾU CÓ HÌNH ẢNH TRÍCH XUẤT TỪ FILE EXCEL (dạng blob hoặc data:image/)
         // Upload lên backend /api/v1/products/upload-image để lưu file vật lý vào /uploads/
@@ -416,9 +416,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
           costPrice,
           sellingPrice,
           vatRate,
-          minStockLevel,
-          maxStockLevel,
-          stockQuantity: minStockLevel || 100,
+          minStockLevel: 0,
+          maxStockLevel: 0,
+          stockQuantity,
           status: 'ACTIVE'
         };
 
@@ -565,8 +565,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         costPrice: { label: 'Giá nhập', bg: 'FFD9E1F2', width: 16, align: 'right', format: '#,##0' },
         sellingPrice: { label: 'Giá bán', bg: 'FFD9E1F2', width: 16, align: 'right', format: '#,##0' },
         vatRate: { label: 'Thuế VAT', bg: 'FFD9E1F2', width: 12, align: 'center' },
-        minStockLevel: { label: 'Tồn kho tối thiểu', bg: 'FFD9E1F2', width: 16, align: 'right', format: '#,##0' },
-        maxStockLevel: { label: 'Tồn kho tối đa', bg: 'FFD9E1F2', width: 16, align: 'right', format: '#,##0' }
+        stockQuantity: { label: 'Tồn kho', bg: 'FFD9E1F2', width: 14, align: 'right', format: '#,##0' }
       };
 
       // Xác định thứ tự cột theo columnOrder hiển thị (loại bỏ cột actions)
@@ -679,11 +678,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
             case 'vatRate':
               rowData[k] = `${p.vatRate ?? 8}%`;
               break;
-            case 'minStockLevel':
-              rowData[k] = Number(p.minStockLevel) || 0;
-              break;
-            case 'maxStockLevel':
-              rowData[k] = Number(p.maxStockLevel) || 0;
+            case 'stockQuantity':
+              rowData[k] = Number(p.stockQuantity) || 0;
               break;
             default:
               rowData[k] = '';
@@ -819,8 +815,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     sellingPrice: 65000,
     vatRate: 8,
     stockQuantity: 100,
-    minStockLevel: 5000,
-    maxStockLevel: 10000,
+    minStockLevel: 0,
+    maxStockLevel: 0,
     length: 0,
     width: 0,
     height: 0,
@@ -1054,8 +1050,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       sellingPrice: Number(p.sellingPrice) || 0,
       vatRate: p.vatRate ?? 8,
       stockQuantity: p.stockQuantity ?? 0,
-      minStockLevel: p.minStockLevel ?? 20,
-      maxStockLevel: p.maxStockLevel ?? 0,
+      minStockLevel: 0,
+      maxStockLevel: 0,
       length: Number(p.length) || 0,
       width: Number(p.width) || 0,
       height: Number(p.height) || 0,
@@ -1095,8 +1091,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
           costPrice: Number(formData.costPrice) || 0,
           sellingPrice: Number(formData.sellingPrice) || 0,
           vatRate: Number(formData.vatRate) || 8,
-          minStockLevel: Number(formData.minStockLevel) || 0,
-          maxStockLevel: Number(formData.maxStockLevel) || 0,
+          minStockLevel: 0,
+          maxStockLevel: 0,
           stockQuantity: Number(formData.stockQuantity) || 0
         };
 
@@ -1725,7 +1721,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">Thuế VAT (%)</label>
                     <select
@@ -1742,50 +1738,18 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Tồn kho tối thiểu
+                      Số lượng tồn kho ({formData.unit || 'Đơn vị'})
                     </label>
                     <input
                       type="number"
                       min="0"
-                      placeholder="VD: 5000, 50..."
-                      value={formData.minStockLevel}
+                      value={formData.stockQuantity}
                       onChange={(e) =>
-                        setFormData({ ...formData, minStockLevel: Math.max(0, parseInt(e.target.value) || 0) })
+                        setFormData({ ...formData, stockQuantity: Math.max(0, parseInt(e.target.value) || 0) })
                       }
-                      className="w-full px-3 py-2 text-xs font-semibold border border-gray-200 rounded-lg"
+                      className="w-full px-3 py-2 text-xs font-bold text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
                     />
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Tồn kho tối đa
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="VD: 10000, 100..."
-                      value={formData.maxStockLevel}
-                      onChange={(e) =>
-                        setFormData({ ...formData, maxStockLevel: Math.max(0, parseInt(e.target.value) || 0) })
-                      }
-                      className="w-full px-3 py-2 text-xs font-semibold border border-gray-200 rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Số lượng tồn kho ban đầu ({formData.unit || 'Đơn vị'})
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.stockQuantity}
-                    onChange={(e) =>
-                      setFormData({ ...formData, stockQuantity: Math.max(0, parseInt(e.target.value) || 0) })
-                    }
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg"
-                  />
                 </div>
               </div>
             )}
@@ -2578,16 +2542,10 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                                   {p.vatRate ?? 8}%
                                 </td>
                               );
-                            case 'minStockLevel':
+                            case 'stockQuantity':
                               return (
-                                <td key={colKey} className="py-1 px-2 text-right text-gray-700 tabular-nums whitespace-nowrap">
-                                  {Number(p.minStockLevel || 0).toLocaleString('vi-VN')}
-                                </td>
-                              );
-                            case 'maxStockLevel':
-                              return (
-                                <td key={colKey} className="py-1 px-2 text-right text-gray-700 tabular-nums whitespace-nowrap">
-                                  {Number(p.maxStockLevel || 1000).toLocaleString('vi-VN')}
+                                <td key={colKey} className="py-1 px-2 text-right font-bold text-gray-900 tabular-nums whitespace-nowrap">
+                                  {Number(p.stockQuantity ?? 0).toLocaleString('vi-VN')}
                                 </td>
                               );
                             case 'status':
@@ -2686,8 +2644,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
           'Giá nhập',
           'Giá bán',
           'Thuế VAT',
-          'Tồn kho tối thiểu',
-          'Tồn kho tối đa'
+          'Tồn kho'
         ]}
         sampleRows={[
           [
@@ -2710,8 +2667,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
             45000,
             65000,
             8,
-            5000,
-            10000
+            5000
           ],
           [
             '2',
@@ -2733,8 +2689,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
             35000,
             65000,
             8,
-            50,
-            100
+            50
           ]
         ]}
         sampleImages={[

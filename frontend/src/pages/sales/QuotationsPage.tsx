@@ -33,6 +33,7 @@ import { TablePagination } from '../../components/common/TablePagination';
 import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
 import { ProductSearchSelect } from '../../components/common/ProductSearchSelect';
 import { Toast } from '../../components/common/Toast';
+import { exportQuotationToExcel, exportQuotationsListToExcel } from '../../utils/crmExcelExport';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
 import { withActionsLast } from '../../utils/columnOrder';
@@ -775,113 +776,26 @@ export const QuotationsPage: React.FC = () => {
     return formatVND(val);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (quotations.length === 0) {
       alert('Không có dữ liệu báo giá để xuất');
       return;
     }
-
-    const headers = [
-      'STT',
-      'Số báo giá',
-      'Khách hàng',
-      'Điện thoại',
-      'Người phụ trách',
-      'Ngày báo giá',
-      'Hiệu lực đến',
-      'Cộng tiền hàng',
-      'VAT (%)',
-      'Tiền thuế VAT',
-      'Tổng tiền (VNĐ)',
-      'Tình trạng',
-      'Ghi chú'
-    ];
-
-    const rows = quotations.map((q, idx) => [
-      idx + 1,
-      q.code,
-      `"${(q.customer?.name || '').replace(/"/g, '""')}"`,
-      `"${q.customer?.phone || ''}"`,
-      `"${(q.manager?.fullName || '').replace(/"/g, '""')}"`,
-      new Date(q.date).toLocaleDateString('vi-VN'),
-      q.validUntil ? new Date(q.validUntil).toLocaleDateString('vi-VN') : '',
-      q.subtotal,
-      q.vatRate,
-      q.vatAmount,
-      q.totalAmount,
-      q.status,
-      `"${(q.notes || '').replace(/"/g, '""')}"`
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Bao_Gia_Nam_Khanh_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      await exportQuotationsListToExcel(quotations);
+    } catch (err) {
+      console.error('Lỗi khi xuất danh sách báo giá:', err);
+      alert('Có lỗi xảy ra khi tạo file Excel');
+    }
   };
 
-  const handleExportSingleQuotationExcel = (q: Quotation) => {
-    const quotationDate = new Date(q.date);
-    const validUntilDate = q.validUntil
-      ? new Date(q.validUntil)
-      : new Date(quotationDate.getTime() + 15 * 24 * 60 * 60 * 1000);
-
-    const headers = [
-      'STT',
-      'Mã hàng',
-      'Tên sản phẩm / quy cách',
-      'Đơn vị tính',
-      'Số lượng',
-      'Đơn giá (VNĐ)',
-      'Thuế VAT (%)',
-      'Thành tiền (VNĐ)'
-    ];
-
-    const rows = (q.items || []).map((it, idx) => [
-      idx + 1,
-      `"${it.productCode}"`,
-      `"${(it.productName || '').replace(/"/g, '""')}"`,
-      `"${it.unit}"`,
-      it.quantity,
-      it.unitPrice,
-      `"${it.vatRate !== undefined ? it.vatRate : q.vatRate}%"`,
-      it.total || it.quantity * it.unitPrice
-    ]);
-
-    const lines = [
-      '\uFEFFBẢNG BÁO GIÁ VĂN PHÒNG PHẨM & THIẾT BỊ VĂN PHÒNG - CÔNG TY TNHH TM&DV NAM KHÁNH',
-      `Số báo giá: ${q.code}`,
-      `Ngày báo giá: ${quotationDate.toLocaleDateString('vi-VN')}`,
-      `Hiệu lực đến: ${validUntilDate.toLocaleDateString('vi-VN')}`,
-      `Khách hàng: ${(q.customer?.name || '').replace(/"/g, '""')}`,
-      `Mã số thuế: ${q.customer?.taxCode || ''}`,
-      `Người liên hệ: ${(q.customer?.contactPerson || '').replace(/"/g, '""')}`,
-      `Số điện thoại: ${q.customer?.phone || ''}`,
-      `Địa chỉ giao hàng: ${(q.customer?.deliveryAddress || q.customer?.address || '').replace(/"/g, '""')}`,
-      `Người phụ trách: ${(q.manager?.fullName || '').replace(/"/g, '""')}`,
-      '',
-      headers.join(','),
-      ...rows.map((r) => r.join(',')),
-      '',
-      `Cộng tiền hàng: ${Number(q.subtotal).toLocaleString('vi-VN')} VNĐ`,
-      `Thuế GTGT (${q.vatRate}%): ${Number(q.vatAmount).toLocaleString('vi-VN')} VNĐ`,
-      `Tổng cộng thanh toán: ${Number(q.totalAmount).toLocaleString('vi-VN')} VNĐ`,
-      `Ghi chú: ${(q.notes || '').replace(/"/g, '""')}`
-    ];
-
-    const csvContent = lines.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Bao_Gia_${q.code}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportSingleQuotationExcel = async (q: Quotation) => {
+    try {
+      await exportQuotationToExcel(q);
+    } catch (err) {
+      console.error('Lỗi khi xuất báo giá:', err);
+      alert('Có lỗi xảy ra khi tạo file Excel');
+    }
   };
 
   const getStatusBadge = (status: string) => {
