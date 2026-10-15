@@ -211,6 +211,18 @@ export class UsersService {
     const basicSalary = canManageSalary && data.basicSalary !== undefined ? data.basicSalary : null;
     const allowance = canManageSalary && data.allowance !== undefined ? data.allowance : null;
 
+    // Kiểm tra bảo mật: Chỉ dinhhchi2110@gmail.com mới có quyền cấp vai trò ADMIN cho người khác
+    if (data.roleIds && data.roleIds.length > 0) {
+      const adminRole = await prisma.role.findUnique({ where: { code: 'ADMIN' } });
+      if (
+        adminRole &&
+        data.roleIds.includes(adminRole.id) &&
+        currentUser.email?.trim().toLowerCase() !== 'dinhhchi2110@gmail.com'
+      ) {
+        throw new Error('Chỉ tài khoản dinhhchi2110@gmail.com mới có quyền cấp quyền quản trị cho người khác');
+      }
+    }
+
     // 3. Create user transaction
     const newUser = await prisma.$transaction(async (tx: any) => {
       const created = await tx.user.create({
@@ -289,6 +301,37 @@ export class UsersService {
       if (existing) throw new Error(`Số điện thoại '${data.phone}' đã được sử dụng`);
     }
 
+    const SUPER_ADMIN_EMAIL = 'dinhhchi2110@gmail.com';
+    const isTargetSuperAdmin = user.email?.trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+    const isOperatorSuperAdmin = currentUser.email?.trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+
+    // Không ai khác được chỉnh sửa tài khoản Quản trị viên tối cao
+    if (isTargetSuperAdmin && !isOperatorSuperAdmin) {
+      throw new Error('Không được phép chỉnh sửa thông tin của Quản trị viên tối cao');
+    }
+
+    // Kiểm tra cấp/xóa vai trò ADMIN: Chỉ dinhhchi2110@gmail.com mới có quyền
+    if (data.roleIds) {
+      const adminRole = await prisma.role.findUnique({ where: { code: 'ADMIN' } });
+      if (adminRole) {
+        const currentRoles = await prisma.userRole.findMany({
+          where: { userId: id },
+          include: { role: true }
+        });
+        const hadAdmin = currentRoles.some((ur: any) => ur.role.code === 'ADMIN');
+        const willHaveAdmin = data.roleIds.includes(adminRole.id);
+
+        if (hadAdmin !== willHaveAdmin && !isOperatorSuperAdmin) {
+          throw new Error('Chỉ tài khoản dinhhchi2110@gmail.com mới có quyền cấp hoặc xóa quyền quản trị cho người khác');
+        }
+
+        // Không cho phép thu hồi vai trò ADMIN của tài khoản super admin
+        if (isTargetSuperAdmin && !willHaveAdmin) {
+          throw new Error('Không thể thu hồi quyền quản trị của Quản trị viên tối cao');
+        }
+      }
+    }
+
     const canManageSalary =
       currentUser.roles.includes('ADMIN') ||
       currentUser.roles.includes('CEO') ||
@@ -339,6 +382,10 @@ export class UsersService {
   async updateStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) throw new Error('Người dùng không tồn tại');
+
+    if (user.email?.trim().toLowerCase() === 'dinhhchi2110@gmail.com' && status === 'INACTIVE') {
+      throw new Error('Không thể khóa tài khoản Quản trị viên tối cao');
+    }
 
     // Khóa/mở khóa trạng thái, không xóa cứng để bảo vệ dữ liệu lịch sử chứng từ
     return await prisma.user.update({

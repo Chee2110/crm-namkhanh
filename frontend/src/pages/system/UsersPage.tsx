@@ -36,7 +36,7 @@ const USER_STATUS_OPTIONS: StatusOption[] = [
 ];
 
 export const UsersPage: React.FC = () => {
-  const { hasPermission, canViewSalary } = useAuth();
+  const { user, hasPermission, canViewSalary } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -999,6 +999,10 @@ export const UsersPage: React.FC = () => {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
                         {roles.map((r) => {
                           const isChecked = formData.roleIds.includes(r.id);
+                          const isAdminRole = r.code === 'ADMIN';
+                          const isSuperAdminUser = user?.email?.trim().toLowerCase() === 'dinhhchi2110@gmail.com';
+                          const isDisabled = isAdminRole && !isSuperAdminUser;
+
                           return (
                             <label
                               key={r.id}
@@ -1011,13 +1015,16 @@ export const UsersPage: React.FC = () => {
                                 border: `1px solid ${isChecked ? '#E53935' : '#E5E7EB'}`,
                                 backgroundColor: isChecked ? '#FFEBEE' : '#FFFFFF',
                                 color: isChecked ? '#C62828' : '#374151',
-                                cursor: 'pointer',
+                                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                opacity: isDisabled ? 0.65 : 1,
                                 fontSize: '14.3px'
                               }}
+                              title={isDisabled ? 'Chỉ tài khoản dinhhchi2110@gmail.com mới có quyền cấp/xóa vai trò Quản trị viên' : undefined}
                             >
                               <input
                                 type="checkbox"
                                 checked={isChecked}
+                                disabled={isDisabled}
                                 onChange={(e) => {
                                   if (e.target.checked) {
                                     setFormData({ ...formData, roleIds: [...formData.roleIds, r.id] });
@@ -1030,6 +1037,11 @@ export const UsersPage: React.FC = () => {
                                 }}
                               />
                               <span>{r.name}</span>
+                              {isAdminRole && (
+                                <span style={{ fontSize: '11px', color: '#DC2626', fontWeight: '500' }}>
+                                  (Chỉ dinhhchi cấp)
+                                </span>
+                              )}
                             </label>
                           );
                         })}

@@ -89,6 +89,37 @@ export class RolesController {
       return errorResponse(res, error.message || 'Lỗi lấy danh mục module', 400);
     }
   }
+
+  async getAdminUsers(req: Request, res: Response) {
+    try {
+      const result = await rolesService.getAdminUsers();
+      return successResponse(res, result, 'Lấy danh sách phân quyền quản trị thành công');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Lỗi lấy danh sách phân quyền quản trị', 400);
+    }
+  }
+
+  async delegateAdminRole(req: Request, res: Response) {
+    try {
+      const { targetUserId, action } = req.body;
+      if (!targetUserId || !action || (action !== 'GRANT' && action !== 'REVOKE')) {
+        return errorResponse(res, 'targetUserId và action (GRANT hoặc REVOKE) là bắt buộc', 400);
+      }
+
+      const operatorEmail = req.user?.email || '';
+      const result = await rolesService.delegateAdminRole({
+        targetUserId,
+        action,
+        operatorEmail
+      });
+
+      return successResponse(res, result, result.message);
+    } catch (error: any) {
+      const status = error.message?.includes('Chỉ tài khoản') ? 403 : 400;
+      return errorResponse(res, error.message || 'Lỗi thao tác phân quyền quản trị', status);
+    }
+  }
 }
 
 export const rolesController = new RolesController();
+

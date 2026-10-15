@@ -15,13 +15,14 @@ import { api } from '../../services/api';
 import { Role, RolePermission } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { SYSTEM_MODULES, ORDERED_GROUPS } from '../../constants/modules';
+import { AdminDelegationModal } from './components/AdminDelegationModal';
 
 interface PermissionsPageProps {
   initialRoleId?: string;
 }
 
 export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId }) => {
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRoleId, setSelectedRoleId] = useState<string>(initialRoleId || '');
   const [permissions, setPermissions] = useState<RolePermission[]>([]);
@@ -30,6 +31,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   // Tải danh sách roles
   useEffect(() => {
@@ -309,6 +311,40 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
             />
           </div>
 
+          {/* NÚT PHÂN QUYỀN QUẢN TRỊ (CHỈ dinhhchi2110@gmail.com CÓ THẨM QUYỀN CẤP/XÓA) */}
+          <button
+            type="button"
+            onClick={() => setIsAdminModalOpen(true)}
+            className="btn btn-secondary btn-sm"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              borderColor: '#FCA5A5',
+              backgroundColor: '#FEF2F2',
+              color: '#DC2626',
+              fontWeight: '600'
+            }}
+            title="Phân quyền quản trị hệ thống (Chỉ dinhhchi2110@gmail.com có thẩm quyền cấp/xóa cho người khác)"
+          >
+            <ShieldCheck size={15} style={{ color: '#DC2626' }} />
+            <span>Phân quyền quản trị</span>
+            {user?.email?.trim().toLowerCase() === 'dinhhchi2110@gmail.com' && (
+              <span
+                style={{
+                  fontSize: '10px',
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
+                  padding: '1px 6px',
+                  borderRadius: '9999px',
+                  fontWeight: '700'
+                }}
+              >
+                Gốc
+              </span>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={handleSelectAll}
@@ -576,6 +612,13 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
           </tbody>
         </table>
       </div>
+
+      {/* MODAL PHÂN QUYỀN QUẢN TRỊ (CHỈ dinhhchi2110@gmail.com ĐƯỢC CẤP/XÓA) */}
+      <AdminDelegationModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+      />
     </div>
   );
 };
+

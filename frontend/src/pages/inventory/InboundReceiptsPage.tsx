@@ -279,38 +279,38 @@ export const InboundReceiptsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-3 pb-8">
       {/* 1. HEADER CHÍNH */}
-      <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="card px-5 py-3 rounded-2xl border border-slate-100/80 shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-red-50 text-[#E53935] flex items-center justify-center font-bold shadow-inner border border-red-100">
-              <PackagePlus className="w-5 h-5" />
+          <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-red-50 text-[#E53935] flex items-center justify-center font-bold shadow-inner border border-red-100">
+              <PackagePlus className="w-4 h-4" />
             </div>
             <span>Quản Lý Nhập Kho & Quản Lý Lô Hàng</span>
           </h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
+          <p className="text-[11.5px] text-slate-500 mt-0.5 font-medium">
             Lập phiếu, phân loại nguồn hàng, kiểm tra thực tế, định vị kệ/ô lưu trữ và tự động cộng tồn kho
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             onClick={handleExportListCSV}
-            className="px-3.5 py-2 text-xs font-semibold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
+            className="px-3 py-1.5 text-xs font-semibold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
             title="Xuất danh sách sang file CSV"
           >
-            <FileSpreadsheet className="w-4 h-4 text-green-600" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-green-600" />
             <span>Xuất Excel/CSV</span>
           </button>
 
           <button
             onClick={loadReceipts}
             disabled={loading}
-            className="p-2 text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            className="p-1.5 text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
             title="Làm mới dữ liệu"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
           {canCreate && (
@@ -319,9 +319,9 @@ export const InboundReceiptsPage: React.FC = () => {
                 setEditingReceipt(null);
                 setIsCreatePage(true);
               }}
-              className="btn btn-primary text-xs shadow-glow flex items-center gap-2 whitespace-nowrap"
+              className="btn btn-primary text-xs shadow-glow flex items-center gap-1.5 py-1.5 px-3.5 whitespace-nowrap"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>Lập phiếu nhập kho</span>
             </button>
           )}
@@ -329,61 +329,61 @@ export const InboundReceiptsPage: React.FC = () => {
       </div>
 
       {/* 2. TOP KPI CARDS (5 THẺ THỐNG KÊ NGHIỆP VỤ) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         {/* Card 1: Tổng số phiếu */}
-        <div className="card p-4 rounded-2xl border border-slate-100/80 shadow-sm bg-white flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-            <FileSpreadsheet className="w-5 h-5" />
+        <div className="card p-2.5 sm:p-3 rounded-xl border border-slate-100/80 shadow-xs bg-white flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
+            <FileSpreadsheet className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Tổng phiếu nhập</div>
-            <div className="text-lg font-black text-slate-900">{kpis?.totalReceipts || 0}</div>
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Tổng phiếu nhập</div>
+            <div className="text-base font-black text-slate-900 leading-tight">{kpis?.totalReceipts || 0}</div>
           </div>
         </div>
 
         {/* Card 2: Chờ kiểm hàng & duyệt */}
-        <div className="card p-4 rounded-2xl border border-slate-100/80 shadow-sm bg-white flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-            <Clock className="w-5 h-5" />
+        <div className="card p-2.5 sm:p-3 rounded-xl border border-slate-100/80 shadow-xs bg-white flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold shrink-0">
+            <Clock className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Chờ kiểm / Duyệt</div>
-            <div className="text-lg font-black text-amber-600">{kpis?.pendingReceipts || 0}</div>
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Chờ kiểm / Duyệt</div>
+            <div className="text-base font-black text-amber-600 leading-tight">{kpis?.pendingReceipts || 0}</div>
           </div>
         </div>
 
         {/* Card 3: Đã nhập kho thành công */}
-        <div className="card p-4 rounded-2xl border border-slate-100/80 shadow-sm bg-white flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-            <CheckCircle2 className="w-5 h-5" />
+        <div className="card p-2.5 sm:p-3 rounded-xl border border-slate-100/80 shadow-xs bg-white flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+            <CheckCircle2 className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Đã cộng tồn kho</div>
-            <div className="text-lg font-black text-emerald-600">{kpis?.approvedReceipts || 0}</div>
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Đã cộng tồn kho</div>
+            <div className="text-base font-black text-emerald-600 leading-tight">{kpis?.approvedReceipts || 0}</div>
           </div>
         </div>
 
         {/* Card 4: Tổng giá trị hàng nhập */}
-        <div className="card p-4 rounded-2xl border border-slate-100/80 shadow-sm bg-white flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-50 text-[#E53935] flex items-center justify-center font-bold">
-            <DollarSign className="w-5 h-5" />
+        <div className="card p-2.5 sm:p-3 rounded-xl border border-slate-100/80 shadow-xs bg-white flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-red-50 text-[#E53935] flex items-center justify-center font-bold shrink-0">
+            <DollarSign className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Tổng giá trị nhập</div>
-            <div className="text-base font-black text-[#E53935] truncate max-w-[130px]" title={`${(kpis?.totalValue || 0).toLocaleString('vi-VN')} đ`}>
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Tổng giá trị nhập</div>
+            <div className="text-sm font-black text-[#E53935] truncate max-w-[130px] leading-tight" title={`${(kpis?.totalValue || 0).toLocaleString('vi-VN')} đ`}>
               {(kpis?.totalValue || 0).toLocaleString('vi-VN')} đ
             </div>
           </div>
         </div>
 
         {/* Card 5: Tổng số lượng sản phẩm nhập */}
-        <div className="card p-4 rounded-2xl border border-slate-100/80 shadow-sm bg-white flex items-center gap-3 col-span-2 sm:col-span-1">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-            <Boxes className="w-5 h-5" />
+        <div className="card p-2.5 sm:p-3 rounded-xl border border-slate-100/80 shadow-xs bg-white flex items-center gap-2.5 col-span-2 sm:col-span-1">
+          <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold shrink-0">
+            <Boxes className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Tổng SP thực nhận</div>
-            <div className="text-lg font-black text-purple-600">
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Tổng SP thực nhận</div>
+            <div className="text-base font-black text-purple-600 leading-tight">
               {(kpis?.totalItemsAccepted || 0).toLocaleString('vi-VN')}
             </div>
           </div>
@@ -391,9 +391,9 @@ export const InboundReceiptsPage: React.FC = () => {
       </div>
 
       {/* 3. BỘ LỌC TÌM KIẾM & TAB TRẠNG THÁI */}
-      <div className="card p-5 rounded-3xl border border-slate-100/80 shadow-card bg-white space-y-4">
+      <div className="card px-4 py-2.5 rounded-2xl border border-slate-100/80 shadow-card bg-white space-y-2">
         {/* Hàng Tab trạng thái nhanh */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 pb-2">
           {[
             { id: 'ALL', label: 'Tất cả phiếu', count: kpis?.totalReceipts },
             { id: 'CHECKING', label: 'Chờ kiểm & duyệt', count: kpis?.pendingReceipts, color: 'text-amber-600' },
@@ -405,7 +405,7 @@ export const InboundReceiptsPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 statusFilter === tab.id
                   ? 'bg-slate-900 text-white shadow-sm'
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
@@ -501,17 +501,17 @@ export const InboundReceiptsPage: React.FC = () => {
       </div>
 
       {/* 4. BẢNG DỮ LIỆU PHIẾU NHẬP KHO */}
-      <div className="card rounded-3xl border border-slate-100/80 shadow-card bg-white overflow-hidden">
+      <div className="card rounded-2xl border border-slate-100/80 shadow-card bg-white overflow-hidden">
         {loading ? (
-          <div className="py-20 text-center text-slate-500">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#E53935] mb-2"></div>
-            <p className="text-sm font-medium">Đang tải danh sách phiếu nhập kho...</p>
+          <div className="py-12 text-center text-slate-500">
+            <div className="inline-block animate-spin rounded-full h-7 w-7 border-b-2 border-[#E53935] mb-2"></div>
+            <p className="text-xs font-medium">Đang tải danh sách phiếu nhập kho...</p>
           </div>
         ) : receipts.length === 0 ? (
-          <div className="py-20 text-center text-slate-500">
-            <PackagePlus className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-base font-bold text-slate-800">Không tìm thấy phiếu nhập kho nào</p>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+          <div className="py-12 text-center text-slate-500">
+            <PackagePlus className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm font-bold text-slate-800">Không tìm thấy phiếu nhập kho nào</p>
+            <p className="text-xs text-slate-400 mt-0.5 max-w-sm mx-auto">
               Không có phiếu nhập kho phù hợp với điều kiện tìm kiếm hoặc bạn chưa tạo phiếu nhập nào.
             </p>
             {canCreate && (
@@ -520,9 +520,9 @@ export const InboundReceiptsPage: React.FC = () => {
                   setEditingReceipt(null);
                   setIsCreatePage(true);
                 }}
-                className="mt-4 px-4 py-2 text-xs font-bold text-white bg-[#E53935] hover:bg-[#D32F2F] rounded-xl inline-flex items-center gap-1.5 shadow-md"
+                className="mt-3 px-3.5 py-1.5 text-xs font-bold text-white bg-[#E53935] hover:bg-[#D32F2F] rounded-xl inline-flex items-center gap-1.5 shadow-md"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Tạo phiếu nhập kho ngay</span>
               </button>
             )}
@@ -533,17 +533,17 @@ export const InboundReceiptsPage: React.FC = () => {
               <table className="w-full text-left text-xs min-w-[1050px]">
                 <thead>
                   <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 text-center select-none">
-                    <th className="px-3 py-3 w-12">STT</th>
-                    <th className="px-4 py-3 text-left w-36">Mã phiếu</th>
-                    <th className="px-3 py-3 w-28">Ngày nhập</th>
-                    <th className="px-3 py-3 w-36">Loại nhập</th>
-                    <th className="px-4 py-3 text-left">Nhà cung cấp / Nguồn</th>
-                    <th className="px-3 py-3 text-left w-36">Kho nhận</th>
-                    <th className="px-3 py-3 w-24 text-center">Số SP / SL</th>
-                    <th className="px-4 py-3 text-right w-32">Tổng tiền (VNĐ)</th>
-                    <th className="px-3 py-3 w-28">Người lập</th>
-                    <th className="px-3 py-3 w-32">Trạng thái</th>
-                    <th className="px-4 py-3 text-center w-28">Thao tác</th>
+                    <th className="px-2.5 py-1.5 w-12">STT</th>
+                    <th className="px-3 py-1.5 text-left w-36">Mã phiếu</th>
+                    <th className="px-2.5 py-1.5 w-28">Ngày nhập</th>
+                    <th className="px-2.5 py-1.5 w-32">Loại nhập</th>
+                    <th className="px-3 py-1.5 text-left">Nhà cung cấp / Nguồn</th>
+                    <th className="px-2.5 py-1.5 text-left w-36">Kho nhận</th>
+                    <th className="px-2.5 py-1.5 w-24 text-center">Số SP / SL</th>
+                    <th className="px-3 py-1.5 text-right w-32">Tổng tiền (VNĐ)</th>
+                    <th className="px-2.5 py-1.5 w-28">Người lập</th>
+                    <th className="px-2.5 py-1.5 w-32">Trạng thái</th>
+                    <th className="px-3 py-1.5 text-center w-28">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -561,12 +561,12 @@ export const InboundReceiptsPage: React.FC = () => {
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50/80 transition-colors group">
-                        <td className="px-3 py-3 text-center text-slate-400 font-semibold">
+                        <td className="px-2.5 py-1.5 text-center text-slate-400 font-semibold">
                           {(currentPage - 1) * pageSize + idx + 1}
                         </td>
 
                         {/* Mã phiếu clickable */}
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-1.5">
                           <button
                             type="button"
                             onClick={() => setSelectedReceiptForDetail(r)}
@@ -575,19 +575,19 @@ export const InboundReceiptsPage: React.FC = () => {
                             <span>{r.code}</span>
                           </button>
                           {r.documentNumber && (
-                            <div className="text-[10px] text-slate-400 font-mono mt-0.5" title="Số chứng từ gốc">
+                            <div className="text-[10px] text-slate-400 font-mono leading-none mt-0.5" title="Số chứng từ gốc">
                               HĐ: {r.documentNumber}
                             </div>
                           )}
                         </td>
 
                         {/* Ngày nhập */}
-                        <td className="px-3 py-3 text-center text-slate-600 font-medium">
+                        <td className="px-2.5 py-1.5 text-center text-slate-600 font-medium">
                           {new Date(r.receiptDate).toLocaleDateString('vi-VN')}
                         </td>
 
                         {/* Loại nhập kho */}
-                        <td className="px-3 py-3 text-center">
+                        <td className="px-2.5 py-1.5 text-center">
                           <span
                             className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${typeInfo.color}`}
                           >
@@ -596,39 +596,39 @@ export const InboundReceiptsPage: React.FC = () => {
                         </td>
 
                         {/* Nhà cung cấp / Nguồn hàng */}
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-slate-800 truncate max-w-[200px]">
+                        <td className="px-3 py-1.5">
+                          <div className="font-semibold text-slate-800 truncate max-w-[200px] leading-snug">
                             {r.supplier ? r.supplier.name : r.sourceName || 'Nhập nội bộ / Khác'}
                           </div>
                           {r.supplier?.phone && (
-                            <div className="text-[10px] text-slate-400">{r.supplier.phone}</div>
+                            <div className="text-[10px] text-slate-400 leading-none mt-0.5">{r.supplier.phone}</div>
                           )}
                         </td>
 
                         {/* Kho lưu trữ */}
-                        <td className="px-3 py-3 text-slate-700 font-medium">
+                        <td className="px-2.5 py-1.5 text-slate-700 font-medium">
                           {r.warehouse?.name || 'Tổng kho'}
                         </td>
 
                         {/* Số mặt hàng & tổng SL */}
-                        <td className="px-3 py-3 text-center">
+                        <td className="px-2.5 py-1.5 text-center">
                           <span className="font-bold text-slate-900">{r.items?.length || 0}</span> SP
                           <span className="text-slate-400 mx-1">•</span>
                           <span className="font-bold text-blue-600">{totalQty}</span>
                         </td>
 
                         {/* Tổng tiền */}
-                        <td className="px-4 py-3 text-right font-black text-slate-900">
+                        <td className="px-3 py-1.5 text-right font-black text-slate-900">
                           {Number(r.totalAmount).toLocaleString('vi-VN')} đ
                         </td>
 
                         {/* Người lập */}
-                        <td className="px-3 py-3 text-center text-slate-600 truncate max-w-[120px]">
+                        <td className="px-2.5 py-1.5 text-center text-slate-600 truncate max-w-[120px]">
                           {r.createdBy?.fullName || 'Người lập'}
                         </td>
 
                         {/* Trạng thái */}
-                        <td className="px-3 py-3 text-center">
+                        <td className="px-2.5 py-1.5 text-center">
                           <span
                             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusInfo.color}`}
                           >
@@ -638,12 +638,12 @@ export const InboundReceiptsPage: React.FC = () => {
                         </td>
 
                         {/* Thao tác */}
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
+                        <td className="px-3 py-1.5 text-center">
+                          <div className="flex items-center justify-center gap-0.5">
                             {/* Xem chi tiết */}
                             <button
                               onClick={() => setSelectedReceiptForDetail(r)}
-                              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                              className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
                               title="Xem chi tiết phiếu nhập"
                             >
                               <Eye className="w-4 h-4" />
@@ -652,7 +652,7 @@ export const InboundReceiptsPage: React.FC = () => {
                             {/* In phiếu */}
                             <button
                               onClick={() => setSelectedReceiptForPrint(r)}
-                              className="p-1.5 text-slate-400 hover:text-[#E53935] rounded-lg hover:bg-red-50 transition-colors"
+                              className="p-1 text-slate-400 hover:text-[#E53935] rounded-lg hover:bg-red-50 transition-colors"
                               title="In phiếu nhập kho A4"
                             >
                               <Printer className="w-4 h-4" />
@@ -662,7 +662,7 @@ export const InboundReceiptsPage: React.FC = () => {
                             {canEdit && (r.status === 'DRAFT' || r.status === 'CHECKING') && (
                               <button
                                 onClick={() => setSelectedReceiptForVerify(r)}
-                                className="p-1.5 text-blue-500 hover:text-blue-700 rounded-lg hover:bg-blue-50 transition-colors"
+                                className="p-1 text-blue-500 hover:text-blue-700 rounded-lg hover:bg-blue-50 transition-colors"
                                 title="Kiểm hàng thực tế & đối chiếu chứng từ"
                               >
                                 <ClipboardCheck className="w-4 h-4" />
@@ -673,7 +673,7 @@ export const InboundReceiptsPage: React.FC = () => {
                             {canEdit && (r.status === 'DRAFT' || r.status === 'CHECKING') && (
                               <button
                                 onClick={() => setSelectedReceiptForApprove(r)}
-                                className="p-1.5 text-emerald-500 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors"
+                                className="p-1 text-emerald-500 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors"
                                 title="Duyệt phiếu & Cộng tồn kho tự động"
                               >
                                 <CheckCircle2 className="w-4 h-4" />
@@ -687,7 +687,7 @@ export const InboundReceiptsPage: React.FC = () => {
                                   setEditingReceipt(r);
                                   setIsCreatePage(true);
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
                                 title="Chỉnh sửa phiếu"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -698,7 +698,7 @@ export const InboundReceiptsPage: React.FC = () => {
                             {canDelete && (r.status === 'DRAFT' || r.status === 'REJECTED') && (
                               <button
                                 onClick={() => setDeleteConfirm({ isOpen: true, receipt: r })}
-                                className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                                className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
                                 title="Xóa phiếu nhập kho"
                               >
                                 <Trash2 className="w-4 h-4" />

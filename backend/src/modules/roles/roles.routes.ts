@@ -10,6 +10,10 @@ router.use(authGuard);
 // Module list
 router.get('/modules', rolesController.getModules);
 
+// Phân quyền Quản trị (Chỉ dinhhchi2110@gmail.com có thẩm quyền cấp/xóa)
+router.get('/admin-users', requirePermission('A_PERMISSIONS', 'read'), rolesController.getAdminUsers);
+router.post('/admin-delegation', requirePermission('A_PERMISSIONS', 'update'), rolesController.delegateAdminRole);
+
 // Roles CRUD
 router.get('/', requirePermission('A_ROLES', 'read'), rolesController.getRoles);
 router.get('/:id', requirePermission('A_ROLES', 'read'), rolesController.getRoleById);

@@ -267,9 +267,12 @@ select.input:disabled,
 /* THẺ CARD & CONTAINER CHỨA NỘI DUNG - NỀN TRẮNG ĐỤC SẮC NÉT (KHÔNG DÙNG GLASS TRÁNH BÓNG CHỮ) */
 .card,
 .glass-card,
-.bg-white.rounded-xl,
-.bg-white.rounded-2xl,
-.bg-white.rounded-3xl {
+div.bg-white.rounded-xl,
+div.bg-white.rounded-2xl,
+div.bg-white.rounded-3xl,
+section.bg-white.rounded-xl,
+section.bg-white.rounded-2xl,
+section.bg-white.rounded-3xl {
   border-radius: 1.25rem !important;
   border: 1px solid #E2E8F0 !important;
   background: #FFFFFF !important;
