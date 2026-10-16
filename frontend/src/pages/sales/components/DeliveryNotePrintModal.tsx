@@ -4,7 +4,7 @@ import { Order } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
 import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
 import { formatVND, formatNumber } from '../../../utils/formatCurrency';
-import { exportOrderToExcel } from '../../../utils/crmExcelExport';
+import { exportOrderToExcel, exportDeliveryNoteToExcel } from '../../../utils/crmExcelExport';
 
 interface DeliveryNotePrintModalProps {
   isOpen: boolean;
@@ -28,10 +28,10 @@ export const DeliveryNotePrintModal: React.FC<DeliveryNotePrintModalProps> = ({
 
   const handleExportExcel = async () => {
     try {
-      await exportOrderToExcel(order);
+      await exportDeliveryNoteToExcel(order);
     } catch (err) {
-      console.error('Lỗi khi xuất file Excel đơn hàng:', err);
-      alert('Có lỗi xảy ra khi tạo file Excel');
+      console.error('Lỗi khi xuất Biên bản giao hàng sang Excel:', err);
+      alert('Có lỗi xảy ra khi tạo file Excel Biên bản giao hàng');
     }
   };
 

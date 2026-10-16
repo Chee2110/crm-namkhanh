@@ -1,11 +1,11 @@
 import React from 'react';
-import { Printer, X, FileSpreadsheet } from 'lucide-react';
+import { Printer, X, FileSpreadsheet, Truck } from 'lucide-react';
 import { Order } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
 import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
 import { printA4 } from '../../../utils/printA4';
 import { formatVND, formatNumber } from '../../../utils/formatCurrency';
-import { exportOrderToExcel } from '../../../utils/crmExcelExport';
+import { exportOrderToExcel, exportDeliveryNoteToExcel } from '../../../utils/crmExcelExport';
 import '../../../styles/print-a4.css';
 
 interface OrderPrintModalProps {
@@ -46,7 +46,15 @@ export const OrderPrintModal: React.FC<OrderPrintModalProps> = ({
               title="Xuất đơn hàng ra file Excel chuẩn biểu mẫu (.xlsx)"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span>Xuất Excel</span>
+              <span>Xuất Excel Đơn</span>
+            </button>
+            <button
+              onClick={() => exportDeliveryNoteToExcel(order)}
+              className="btn-secondary !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-sm border-blue-300 text-blue-700 hover:bg-blue-50"
+              title="Xuất Biên bản giao hàng ra file Excel chuẩn biểu mẫu (.xlsx)"
+            >
+              <Truck className="w-4 h-4 text-blue-600" />
+              <span>Xuất BBGH Excel</span>
             </button>
             <button
               onClick={handlePrint}

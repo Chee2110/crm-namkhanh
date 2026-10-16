@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Printer, FileSpreadsheet } from 'lucide-react';
 import { PaymentVoucher, ReceiptVoucher } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
+import { exportVoucherToExcel } from '../../../utils/crmExcelExport';
 
 interface VoucherPrintModalProps {
   voucher: PaymentVoucher | ReceiptVoucher | null;
@@ -16,6 +17,7 @@ export const VoucherPrintModal: React.FC<VoucherPrintModalProps> = ({
 }) => {
   if (!voucher) return null;
 
+  const [isExporting, setIsExporting] = useState(false);
   const isReceipt = type === 'RECEIPT';
   const title = isReceipt ? 'PHIẾU THU' : 'PHIẾU CHI';
   const personLabel = isReceipt ? 'Họ và tên người nộp tiền:' : 'Họ và tên người nhận tiền:';
@@ -29,31 +31,16 @@ export const VoucherPrintModal: React.FC<VoucherPrintModalProps> = ({
 
   const [day, month, year] = formattedDate.split('/');
 
-  const handleExportExcel = () => {
-    const lines = [
-      '\uFEFF' + (isReceipt ? 'PHIẾU THU TIỀN' : 'PHIẾU CHI TIỀN') + ' - CÔNG TY TNHH NK NAM KHÁNH',
-      `Số chứng từ: ${voucher.code}`,
-      `Ngày lập: ${formattedDate}`,
-      `Họ và tên ${isReceipt ? 'người nộp tiền' : 'người nhận tiền'}: ${personName}`,
-      `Số điện thoại: ${voucher.phone || 'N/A'}`,
-      `Địa chỉ: ${voucher.address || 'N/A'}`,
-      `Lý do: ${voucher.reason}`,
-      `Số tiền: ${Number(voucher.amount).toLocaleString('vi-VN')} VNĐ`,
-      `Số tiền viết bằng chữ: ${numberToWords(Number(voucher.amount))}`,
-      `Phương thức thanh toán: ${voucher.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : 'Tiền mặt'}`,
-      `Số hóa đơn/chứng từ gốc kèm theo: ${voucher.invoiceNumber || 'Không có'}`,
-      `Trạng thái chứng từ: ${voucher.status === 'PAID' ? (isReceipt ? 'Đã thu' : 'Đã chi') : voucher.status === 'APPROVED' ? 'Đã duyệt' : 'Chờ duyệt'}`
-    ];
-
-    const csvContent = lines.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${voucher.code}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true);
+      await exportVoucherToExcel(voucher, type);
+    } catch (err) {
+      console.error('Lỗi xuất file Excel phiếu thu/chi:', err);
+      alert('Không thể xuất file Excel. Vui lòng thử lại!');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -70,11 +57,12 @@ export const VoucherPrintModal: React.FC<VoucherPrintModalProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={handleExportExcel}
-              className="btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5 border-green-300 text-green-700 hover:bg-green-50 shadow-sm"
-              title="Xuất phiếu sang file Excel/CSV"
+              disabled={isExporting}
+              className="btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5 border-green-300 text-green-700 hover:bg-green-50 shadow-sm disabled:opacity-50"
+              title="Xuất phiếu sang file Excel theo chuẩn mẫu BIEU_MAU_CRM.xlsx"
             >
               <FileSpreadsheet className="w-4 h-4 text-green-600" />
-              <span>Xuất Excel</span>
+              <span>{isExporting ? 'Đang xuất...' : 'Xuất Excel'}</span>
             </button>
             <button
               onClick={() => window.print()}
@@ -111,8 +99,8 @@ export const VoucherPrintModal: React.FC<VoucherPrintModalProps> = ({
               </div>
             </div>
             <div className="text-right text-xs text-gray-500 space-y-0.5">
-              <div className="font-bold text-gray-700">Mẫu số 01-TT / 02-TT</div>
-              <div>(Ban hành theo TT số 200/2014/TT-BTC)</div>
+              <div className="font-bold text-gray-700">{isReceipt ? 'Mẫu số 01 - TT' : 'Mẫu số 02 - TT'}</div>
+              <div className="text-[11px] italic">(Kèm theo Thông tư số 99/2025/TT-BTC)</div>
               <div className="font-mono text-gray-900 font-bold mt-1 text-sm text-[#E53935]">
                 Số: {voucher.code}
               </div>

@@ -44,6 +44,9 @@ import { InboundReceiptDetailModal } from './components/InboundReceiptDetailModa
 import { InboundVerifyModal } from './components/InboundVerifyModal';
 import { InboundApproveModal } from './components/InboundApproveModal';
 import { InboundPrintModal } from './components/InboundPrintModal';
+import { useTableResize } from '../../hooks/useTableResize';
+import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
+import { withActionsLast } from '../../utils/columnOrder';
 
 export const InboundReceiptsPage: React.FC = () => {
   const { user, hasPermission } = useAuth();
@@ -91,6 +94,134 @@ export const InboundReceiptsPage: React.FC = () => {
     isOpen: false,
     receipt: null
   });
+
+  // Cấu hình Cột & Tùy chỉnh độ rộng cột
+  const defaultColOrder = [
+    'stt',
+    'code',
+    'receiptDate',
+    'type',
+    'supplier',
+    'warehouse',
+    'itemsCount',
+    'totalAmount',
+    'createdByName',
+    'status',
+    'actions'
+  ];
+
+  const columnLabels: Record<string, string> = {
+    stt: 'STT',
+    code: 'Mã phiếu',
+    receiptDate: 'Ngày nhập',
+    type: 'Loại nhập',
+    supplier: 'Nhà cung cấp / Nguồn',
+    warehouse: 'Kho nhận',
+    itemsCount: 'Số SP / SL',
+    totalAmount: 'Tổng tiền (VNĐ)',
+    createdByName: 'Người lập',
+    status: 'Trạng thái',
+    actions: 'Thao tác'
+  };
+
+  const defaultVisibleCols: Record<string, boolean> = {
+    stt: true,
+    code: true,
+    receiptDate: true,
+    type: true,
+    supplier: true,
+    warehouse: true,
+    itemsCount: true,
+    totalAmount: true,
+    createdByName: true,
+    status: true,
+    actions: true
+  };
+
+  const defaultInboundWidths: Record<string, number> = {
+    stt: 55,
+    code: 140,
+    receiptDate: 110,
+    type: 130,
+    supplier: 230,
+    warehouse: 160,
+    itemsCount: 120,
+    totalAmount: 140,
+    createdByName: 125,
+    status: 130,
+    actions: 140
+  };
+
+  const minInboundWidths: Record<string, number> = {
+    stt: 45,
+    code: 100,
+    receiptDate: 90,
+    type: 100,
+    supplier: 140,
+    warehouse: 110,
+    itemsCount: 85,
+    totalAmount: 100,
+    createdByName: 90,
+    status: 100,
+    actions: 120
+  };
+
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('namkhanh_inbound_visible_cols_v1');
+      return saved ? { ...defaultVisibleCols, ...JSON.parse(saved) } : defaultVisibleCols;
+    } catch {
+      return defaultVisibleCols;
+    }
+  });
+
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('namkhanh_inbound_col_order_v1');
+      return saved ? withActionsLast(JSON.parse(saved), defaultColOrder) : defaultColOrder;
+    } catch {
+      return defaultColOrder;
+    }
+  });
+
+  const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
+    tableKey: 'inbound_receipts_v1',
+    defaultWidths: defaultInboundWidths,
+    minWidth: 50,
+    minWidths: minInboundWidths
+  });
+
+  const handleReorderColumns = (newOrder: string[]) => {
+    const normalized = withActionsLast(newOrder, defaultColOrder);
+    setColumnOrder(normalized);
+    try {
+      localStorage.setItem('namkhanh_inbound_col_order_v1', JSON.stringify(normalized));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const toggleColumnVisibility = (colKey: string) => {
+    const updated = { ...visibleColumns, [colKey]: !visibleColumns[colKey] };
+    setVisibleColumns(updated);
+    try {
+      localStorage.setItem('namkhanh_inbound_visible_cols_v1', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const resetColumns = () => {
+    setVisibleColumns(defaultVisibleCols);
+    setColumnOrder(defaultColOrder);
+    resetWidths();
+    try {
+      localStorage.removeItem('namkhanh_inbound_visible_cols_v1');
+      localStorage.removeItem('namkhanh_inbound_col_order_v1');
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const canCreate =
     user?.roles?.includes('ADMIN') ||
@@ -303,6 +434,17 @@ export const InboundReceiptsPage: React.FC = () => {
             <FileSpreadsheet className="w-3.5 h-3.5 text-green-600" />
             <span>Xuất Excel/CSV</span>
           </button>
+
+          <ColumnCustomizerDropdown
+            columnOrder={columnOrder}
+            columnLabels={columnLabels}
+            visibleColumns={visibleColumns}
+            onToggleColumn={toggleColumnVisibility}
+            onReorderColumns={handleReorderColumns}
+            onReset={resetColumns}
+            disabledKeys={['code']}
+            buttonClassName="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
+          />
 
           <button
             onClick={loadReceipts}
@@ -530,28 +672,60 @@ export const InboundReceiptsPage: React.FC = () => {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs min-w-[1050px]">
+              <table
+                className="w-full text-left text-xs border-collapse"
+                style={{
+                  width: `${getTableWidth(columnOrder.filter((k) => visibleColumns[k]))}px`,
+                  minWidth: '100%',
+                  tableLayout: 'fixed'
+                }}
+              >
                 <thead>
-                  <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 text-center select-none">
-                    <th className="px-2.5 py-1.5 w-12">STT</th>
-                    <th className="px-3 py-1.5 text-left w-36">Mã phiếu</th>
-                    <th className="px-2.5 py-1.5 w-28">Ngày nhập</th>
-                    <th className="px-2.5 py-1.5 w-32">Loại nhập</th>
-                    <th className="px-3 py-1.5 text-left">Nhà cung cấp / Nguồn</th>
-                    <th className="px-2.5 py-1.5 text-left w-36">Kho nhận</th>
-                    <th className="px-2.5 py-1.5 w-24 text-center">Số SP / SL</th>
-                    <th className="px-3 py-1.5 text-right w-32">Tổng tiền (VNĐ)</th>
-                    <th className="px-2.5 py-1.5 w-28">Người lập</th>
-                    <th className="px-2.5 py-1.5 w-32">Trạng thái</th>
-                    <th className="px-3 py-1.5 text-center w-28">Thao tác</th>
+                  <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 select-none">
+                    {columnOrder
+                      .filter((colKey) => visibleColumns[colKey])
+                      .map((colKey) => {
+                        const width = columnWidths[colKey] || defaultInboundWidths[colKey] || 100;
+                        const isAction = colKey === 'actions';
+                        const alignClass =
+                          colKey === 'code' || colKey === 'supplier' || colKey === 'warehouse'
+                            ? 'text-left'
+                            : colKey === 'totalAmount'
+                            ? 'text-right'
+                            : 'text-center';
+
+                        return (
+                          <th
+                            key={colKey}
+                            className={`py-2 px-2.5 select-none overflow-hidden relative ${alignClass} ${
+                              isAction ? 'sticky-action-th' : ''
+                            }`}
+                            style={{
+                              width: `${width}px`,
+                              position: isAction ? 'sticky' : 'relative',
+                              ...(isAction ? { right: 0 } : {})
+                            }}
+                          >
+                            <span className="truncate">{columnLabels[colKey]}</span>
+                            {!isAction && (
+                              <div
+                                className="col-resizer"
+                                onMouseDown={(e) => startResize(colKey, e)}
+                                onClick={(e) => e.stopPropagation()}
+                                title="Kéo để chỉnh độ rộng"
+                              />
+                            )}
+                          </th>
+                        );
+                      })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {paginatedReceipts.map((r, idx) => {
-                    const typeInfo = typeConfig[r.type] || { label: r.type, color: 'bg-slate-50 text-slate-700' };
+                    const typeInfo = typeConfig[r.type] || { label: r.type, color: 'bg-slate-50 text-slate-700 border-slate-200' };
                     const statusInfo = statusConfig[r.status] || {
                       label: r.status,
-                      color: 'bg-slate-50 text-slate-700',
+                      color: 'bg-slate-50 text-slate-700 border-slate-200',
                       dot: 'bg-slate-400'
                     };
                     const totalQty = r.items?.reduce(
@@ -561,151 +735,175 @@ export const InboundReceiptsPage: React.FC = () => {
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50/80 transition-colors group">
-                        <td className="px-2.5 py-1.5 text-center text-slate-400 font-semibold">
-                          {(currentPage - 1) * pageSize + idx + 1}
-                        </td>
+                        {columnOrder
+                          .filter((colKey) => visibleColumns[colKey])
+                          .map((colKey) => {
+                            switch (colKey) {
+                              case 'stt':
+                                return (
+                                  <td key={colKey} className="px-2.5 py-1.5 text-center text-slate-400 font-semibold whitespace-nowrap overflow-hidden">
+                                    {(currentPage - 1) * pageSize + idx + 1}
+                                  </td>
+                                );
+                              case 'code':
+                                return (
+                                  <td key={colKey} className="px-3 py-1.5 overflow-hidden">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedReceiptForDetail(r)}
+                                      className="font-bold text-slate-900 font-mono hover:text-[#E53935] hover:underline transition-colors flex items-center gap-1 truncate max-w-full text-left"
+                                    >
+                                      <span className="truncate">{r.code}</span>
+                                    </button>
+                                    {r.documentNumber && (
+                                      <div className="text-[10px] text-slate-400 font-mono leading-none mt-0.5 truncate" title={`Số chứng từ: ${r.documentNumber}`}>
+                                        HĐ: {r.documentNumber}
+                                      </div>
+                                    )}
+                                  </td>
+                                );
+                              case 'receiptDate':
+                                return (
+                                  <td key={colKey} className="px-2.5 py-1.5 text-center text-slate-600 font-medium whitespace-nowrap overflow-hidden">
+                                    {new Date(r.receiptDate).toLocaleDateString('vi-VN')}
+                                  </td>
+                                );
+                              case 'type':
+                                return (
+                                  <td key={colKey} className="px-2.5 py-1.5 text-center whitespace-nowrap overflow-hidden">
+                                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${typeInfo.color}`}>
+                                      {typeInfo.label}
+                                    </span>
+                                  </td>
+                                );
+                              case 'supplier':
+                                return (
+                                  <td key={colKey} className="px-3 py-1.5 overflow-hidden">
+                                    <div className="font-semibold text-slate-800 truncate leading-snug" title={r.supplier ? r.supplier.name : r.sourceName || 'Nhập nội bộ / Khác'}>
+                                      {r.supplier ? r.supplier.name : r.sourceName || 'Nhập nội bộ / Khác'}
+                                    </div>
+                                    {r.supplier?.phone && (
+                                      <div className="text-[10px] text-slate-400 leading-none mt-0.5 truncate">{r.supplier.phone}</div>
+                                    )}
+                                  </td>
+                                );
+                              case 'warehouse':
+                                return (
+                                  <td key={colKey} className="px-2.5 py-1.5 text-slate-700 font-medium truncate overflow-hidden" title={r.warehouse?.name || 'Tổng kho'}>
+                                    {r.warehouse?.name || 'Tổng kho'}
+                                  </td>
+                                );
+                              case 'itemsCount':
+                                return (
+                                  <td key={colKey} className="px-2.5 py-1.5 text-center whitespace-nowrap overflow-hidden">
+                                    <span className="font-bold text-slate-900">{r.items?.length || 0}</span> SP
+                                    <span className="text-slate-400 mx-1">•</span>
+                                    <span className="font-bold text-blue-600">{totalQty}</span>
+                                  </td>
+                                );
+                              case 'totalAmount':
+                                return (
+                                  <td key={colKey} className="px-3 py-1.5 text-right font-black text-slate-900 whitespace-nowrap overflow-hidden">
+                                    {Number(r.totalAmount).toLocaleString('vi-VN')} đ
+                                  </td>
+                                );
+                              case 'createdByName':
+                                return (
+                                  <td key={colKey} className="px-2.5 py-1.5 text-center text-slate-600 truncate overflow-hidden" title={r.createdBy?.fullName || 'Người lập'}>
+                                    {r.createdBy?.fullName || 'Người lập'}
+                                  </td>
+                                );
+                              case 'status':
+                                return (
+                                  <td key={colKey} className="px-2.5 py-1.5 text-center whitespace-nowrap overflow-hidden">
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusInfo.color}`}>
+                                      <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`}></span>
+                                      <span>{statusInfo.label}</span>
+                                    </span>
+                                  </td>
+                                );
+                              case 'actions':
+                                return (
+                                  <td
+                                    key={colKey}
+                                    className="px-3 py-1.5 text-center sticky-action-td overflow-hidden"
+                                    style={{
+                                      position: 'sticky',
+                                      right: 0
+                                    }}
+                                  >
+                                    <div className="flex items-center justify-center gap-0.5">
+                                      {/* Xem chi tiết */}
+                                      <button
+                                        onClick={() => setSelectedReceiptForDetail(r)}
+                                        className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                                        title="Xem chi tiết phiếu nhập"
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                      </button>
 
-                        {/* Mã phiếu clickable */}
-                        <td className="px-3 py-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedReceiptForDetail(r)}
-                            className="font-bold text-slate-900 font-mono hover:text-[#E53935] hover:underline transition-colors flex items-center gap-1"
-                          >
-                            <span>{r.code}</span>
-                          </button>
-                          {r.documentNumber && (
-                            <div className="text-[10px] text-slate-400 font-mono leading-none mt-0.5" title="Số chứng từ gốc">
-                              HĐ: {r.documentNumber}
-                            </div>
-                          )}
-                        </td>
+                                      {/* In phiếu */}
+                                      <button
+                                        onClick={() => setSelectedReceiptForPrint(r)}
+                                        className="p-1 text-slate-400 hover:text-[#E53935] rounded-lg hover:bg-red-50 transition-colors"
+                                        title="In phiếu nhập kho A4"
+                                      >
+                                        <Printer className="w-4 h-4" />
+                                      </button>
 
-                        {/* Ngày nhập */}
-                        <td className="px-2.5 py-1.5 text-center text-slate-600 font-medium">
-                          {new Date(r.receiptDate).toLocaleDateString('vi-VN')}
-                        </td>
+                                      {/* Kiểm hàng thực tế (nếu DRAFT hoặc CHECKING) */}
+                                      {canEdit && (r.status === 'DRAFT' || r.status === 'CHECKING') && (
+                                        <button
+                                          onClick={() => setSelectedReceiptForVerify(r)}
+                                          className="p-1 text-blue-500 hover:text-blue-700 rounded-lg hover:bg-blue-50 transition-colors"
+                                          title="Kiểm hàng thực tế & đối chiếu chứng từ"
+                                        >
+                                          <ClipboardCheck className="w-4 h-4" />
+                                        </button>
+                                      )}
 
-                        {/* Loại nhập kho */}
-                        <td className="px-2.5 py-1.5 text-center">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${typeInfo.color}`}
-                          >
-                            {typeInfo.label}
-                          </span>
-                        </td>
+                                      {/* Phê duyệt nhập kho (nếu DRAFT hoặc CHECKING) */}
+                                      {canEdit && (r.status === 'DRAFT' || r.status === 'CHECKING') && (
+                                        <button
+                                          onClick={() => setSelectedReceiptForApprove(r)}
+                                          className="p-1 text-emerald-500 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors"
+                                          title="Duyệt phiếu & Cộng tồn kho tự động"
+                                        >
+                                          <CheckCircle2 className="w-4 h-4" />
+                                        </button>
+                                      )}
 
-                        {/* Nhà cung cấp / Nguồn hàng */}
-                        <td className="px-3 py-1.5">
-                          <div className="font-semibold text-slate-800 truncate max-w-[200px] leading-snug">
-                            {r.supplier ? r.supplier.name : r.sourceName || 'Nhập nội bộ / Khác'}
-                          </div>
-                          {r.supplier?.phone && (
-                            <div className="text-[10px] text-slate-400 leading-none mt-0.5">{r.supplier.phone}</div>
-                          )}
-                        </td>
+                                      {/* Sửa phiếu (nếu DRAFT hoặc REJECTED) */}
+                                      {canEdit && (r.status === 'DRAFT' || r.status === 'REJECTED') && (
+                                        <button
+                                          onClick={() => {
+                                            setEditingReceipt(r);
+                                            setIsCreatePage(true);
+                                          }}
+                                          className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                                          title="Chỉnh sửa phiếu"
+                                        >
+                                          <Edit2 className="w-4 h-4" />
+                                        </button>
+                                      )}
 
-                        {/* Kho lưu trữ */}
-                        <td className="px-2.5 py-1.5 text-slate-700 font-medium">
-                          {r.warehouse?.name || 'Tổng kho'}
-                        </td>
-
-                        {/* Số mặt hàng & tổng SL */}
-                        <td className="px-2.5 py-1.5 text-center">
-                          <span className="font-bold text-slate-900">{r.items?.length || 0}</span> SP
-                          <span className="text-slate-400 mx-1">•</span>
-                          <span className="font-bold text-blue-600">{totalQty}</span>
-                        </td>
-
-                        {/* Tổng tiền */}
-                        <td className="px-3 py-1.5 text-right font-black text-slate-900">
-                          {Number(r.totalAmount).toLocaleString('vi-VN')} đ
-                        </td>
-
-                        {/* Người lập */}
-                        <td className="px-2.5 py-1.5 text-center text-slate-600 truncate max-w-[120px]">
-                          {r.createdBy?.fullName || 'Người lập'}
-                        </td>
-
-                        {/* Trạng thái */}
-                        <td className="px-2.5 py-1.5 text-center">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusInfo.color}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`}></span>
-                            <span>{statusInfo.label}</span>
-                          </span>
-                        </td>
-
-                        {/* Thao tác */}
-                        <td className="px-3 py-1.5 text-center">
-                          <div className="flex items-center justify-center gap-0.5">
-                            {/* Xem chi tiết */}
-                            <button
-                              onClick={() => setSelectedReceiptForDetail(r)}
-                              className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
-                              title="Xem chi tiết phiếu nhập"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-
-                            {/* In phiếu */}
-                            <button
-                              onClick={() => setSelectedReceiptForPrint(r)}
-                              className="p-1 text-slate-400 hover:text-[#E53935] rounded-lg hover:bg-red-50 transition-colors"
-                              title="In phiếu nhập kho A4"
-                            >
-                              <Printer className="w-4 h-4" />
-                            </button>
-
-                            {/* Kiểm hàng thực tế (nếu DRAFT hoặc CHECKING) */}
-                            {canEdit && (r.status === 'DRAFT' || r.status === 'CHECKING') && (
-                              <button
-                                onClick={() => setSelectedReceiptForVerify(r)}
-                                className="p-1 text-blue-500 hover:text-blue-700 rounded-lg hover:bg-blue-50 transition-colors"
-                                title="Kiểm hàng thực tế & đối chiếu chứng từ"
-                              >
-                                <ClipboardCheck className="w-4 h-4" />
-                              </button>
-                            )}
-
-                            {/* Phê duyệt nhập kho (nếu DRAFT hoặc CHECKING) */}
-                            {canEdit && (r.status === 'DRAFT' || r.status === 'CHECKING') && (
-                              <button
-                                onClick={() => setSelectedReceiptForApprove(r)}
-                                className="p-1 text-emerald-500 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors"
-                                title="Duyệt phiếu & Cộng tồn kho tự động"
-                              >
-                                <CheckCircle2 className="w-4 h-4" />
-                              </button>
-                            )}
-
-                            {/* Sửa phiếu (nếu DRAFT hoặc REJECTED) */}
-                            {canEdit && (r.status === 'DRAFT' || r.status === 'REJECTED') && (
-                              <button
-                                onClick={() => {
-                                  setEditingReceipt(r);
-                                  setIsCreatePage(true);
-                                }}
-                                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
-                                title="Chỉnh sửa phiếu"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                            )}
-
-                            {/* Xóa phiếu (nếu DRAFT hoặc REJECTED) */}
-                            {canDelete && (r.status === 'DRAFT' || r.status === 'REJECTED') && (
-                              <button
-                                onClick={() => setDeleteConfirm({ isOpen: true, receipt: r })}
-                                className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                                title="Xóa phiếu nhập kho"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
+                                      {/* Xóa phiếu (nếu DRAFT hoặc REJECTED) */}
+                                      {canDelete && (r.status === 'DRAFT' || r.status === 'REJECTED') && (
+                                        <button
+                                          onClick={() => setDeleteConfirm({ isOpen: true, receipt: r })}
+                                          className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                                          title="Xóa phiếu nhập kho"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                );
+                              default:
+                                return null;
+                            }
+                          })}
                       </tr>
                     );
                   })}

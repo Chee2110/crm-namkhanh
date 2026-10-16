@@ -16,16 +16,24 @@ import {
 import { api } from '../../services/api';
 import { SalesOverview } from '../../types';
 
-// Bảng màu nhận diện thương hiệu cho các nhóm ngành hàng
+// Bảng màu nhận diện thương hiệu cho các danh mục hàng hóa
 const CATEGORY_COLORS = [
-  '#EA332A', // 1. Đỏ Nam Khánh (Giấy in văn phòng)
-  '#1A7FED', // 2. Xanh dương (Bút viết & Mực)
-  '#22BB4E', // 3. Xanh lá (File bìa còng & Lưu trữ)
-  '#F9BB12', // 4. Vàng nắng (Dụng cụ văn phòng)
-  '#8B5CF6', // 5. Tím phụ trợ (Thiết bị & Máy văn phòng)
+  '#EA332A', // 1. Đỏ Nam Khánh
+  '#1A7FED', // 2. Xanh dương
+  '#22BB4E', // 3. Xanh lá
+  '#F9BB12', // 4. Vàng nắng
+  '#8B5CF6', // 5. Tím phụ trợ
   '#06B6D4', // 6. Xanh ngọc Cyan
   '#EC4899', // 7. Hồng cánh sen
-  '#F97316'  // 8. Cam tươi
+  '#F97316', // 8. Cam tươi
+  '#14B8A6', // 9. Xanh Teal
+  '#6366F1', // 10. Chàm Indigo
+  '#84CC16', // 11. Xanh cốm Lime
+  '#EAB308', // 12. Vàng Amber
+  '#D946EF', // 13. Tím Fuchsia
+  '#0EA5E9', // 14. Xanh Sky
+  '#F43F5E', // 15. Đỏ Rose
+  '#64748B'  // 16. Xám Slate
 ];
 
 export const SalesOverviewPage: React.FC = () => {
@@ -314,7 +322,7 @@ export const SalesOverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Cơ cấu Doanh thu theo Ngành Hàng (Biểu đồ tròn tỉ lệ - Donut Proportion Chart) */}
+            {/* Biểu đồ tỷ lệ của các danh mục (Biểu đồ tròn tỉ lệ - Donut Proportion Chart) */}
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-card flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -323,8 +331,8 @@ export const SalesOverviewPage: React.FC = () => {
                       <PieChart className="w-4 h-4" />
                     </div>
                     <div>
-                      <h3 className="font-extrabold text-slate-900 text-base">Cơ Cấu Doanh Thu Ngành Hàng</h3>
-                      <p className="text-[11px] text-slate-400">Tỷ lệ đóng góp doanh số theo ngành hàng</p>
+                      <h3 className="font-extrabold text-slate-900 text-base">Biểu Đồ Tỷ Lệ Các Danh Mục</h3>
+                      <p className="text-[11px] text-slate-400">Tỷ lệ đóng góp doanh số theo danh mục</p>
                     </div>
                   </div>
                   <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
@@ -411,14 +419,14 @@ export const SalesOverviewPage: React.FC = () => {
                           100%
                         </span>
                         <span className="text-[10px] font-semibold text-slate-500 mt-0.5">
-                          {chartSlices.length > 0 ? `${chartSlices.length} ngành hàng` : 'Chưa có số liệu'}
+                          {chartSlices.length > 0 ? `${chartSlices.length} danh mục` : 'Chưa có số liệu'}
                         </span>
                       </>
                     )}
                   </div>
                 </div>
 
-                {/* Chú giải & Phân tích chi tiết tỉ lệ từng ngành hàng */}
+                {/* Chú giải & Phân tích chi tiết tỉ lệ từng danh mục */}
                 <div className="space-y-1.5 mt-2 max-h-[220px] overflow-y-auto pr-1 divide-y divide-slate-100">
                   {chartSlices.map((cat, idx) => {
                     const isHovered = hoveredCatIndex === idx;
@@ -482,7 +490,7 @@ export const SalesOverviewPage: React.FC = () => {
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400 text-center font-medium">
-                Danh mục phân phối độc quyền bởi Công ty TNHH NK Nam Khánh
+                Danh mục phân phối bởi Công ty TNHH NK Nam Khánh
               </div>
             </div>
           </div>

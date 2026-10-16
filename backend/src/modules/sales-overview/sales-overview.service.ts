@@ -22,7 +22,13 @@ export class SalesOverviewService {
         customer: { select: { id: true, name: true, code: true, phone: true } },
         manager: { select: { id: true, fullName: true } },
         items: {
-          include: { product: true }
+          include: {
+            product: {
+              include: {
+                categoryRel: true
+              }
+            }
+          }
         }
       },
       orderBy: { orderDate: 'desc' }
@@ -38,18 +44,12 @@ export class SalesOverviewService {
     const activeCustomersCount = customerIds.size;
 
     let totalVolume = 0;
-    const categoryStats: Record<string, { quantity: number; revenue: number }> = {
-      'Giấy in văn phòng': { quantity: 0, revenue: 0 },
-      'Bút viết & Mực': { quantity: 0, revenue: 0 },
-      'File bìa còng & Lưu trữ': { quantity: 0, revenue: 0 },
-      'Dụng cụ văn phòng': { quantity: 0, revenue: 0 },
-      'Thiết bị & Máy văn phòng': { quantity: 0, revenue: 0 }
-    };
+    const categoryStats: Record<string, { quantity: number; revenue: number }> = {};
 
     orders.forEach((o: any) => {
       o.items.forEach((item: any) => {
         totalVolume += item.quantity;
-        const cat = item.product?.category || 'Giấy in văn phòng';
+        const cat = item.product?.categoryRel?.name || item.product?.category || 'Danh mục khác';
         if (!categoryStats[cat]) {
           categoryStats[cat] = { quantity: 0, revenue: 0 };
         }
@@ -58,12 +58,15 @@ export class SalesOverviewService {
       });
     });
 
-    const categoryBreakdown = Object.entries(categoryStats).map(([name, stat]) => ({
-      name,
-      quantity: stat.quantity,
-      revenue: stat.revenue,
-      percentage: totalRevenue > 0 ? Math.round((stat.revenue / totalRevenue) * 100) : 0
-    }));
+    const categoryBreakdown = Object.entries(categoryStats)
+      .map(([name, stat]) => ({
+        name,
+        quantity: stat.quantity,
+        revenue: stat.revenue,
+        percentage: totalRevenue > 0 ? Number(((stat.revenue / totalRevenue) * 100).toFixed(1)) : 0
+      }))
+      .filter((cat) => cat.revenue > 0)
+      .sort((a, b) => b.revenue - a.revenue);
 
     // 3. Doanh thu 12 tháng trong năm hiện tại (ngoại trừ đơn đã hủy)
     const currentYearOrders = await prisma.order.findMany({

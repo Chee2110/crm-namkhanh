@@ -441,19 +441,14 @@ export const InboundReceiptCreateModal: React.FC<InboundReceiptCreateModalProps>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
       <div className="relative w-full max-w-6xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-red-600 to-rose-700 text-white">
+        <div className="flex items-center justify-between px-6 py-3 bg-gradient-to-r from-red-600 to-rose-700 text-white">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm">
-              <Package className="w-5 h-5 text-white" />
+            <div className="p-1.5 bg-white/10 rounded-xl backdrop-blur-sm">
+              <Package className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold">
-                {editingReceipt ? `Chỉnh sửa phiếu nhập kho: ${editingReceipt.code}` : 'Lập phiếu nhập kho mới'}
-              </h2>
-              <p className="text-xs text-red-100">
-                Ghi nhận nguồn hàng, quản lý lô hàng, hạn sử dụng, định vị kho và kiểm tra chất lượng
-              </p>
-            </div>
+            <h2 className="text-base font-bold">
+              {editingReceipt ? `Chỉnh sửa phiếu nhập kho: ${editingReceipt.code}` : 'Lập phiếu nhập kho mới'}
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -667,14 +662,6 @@ export const InboundReceiptCreateModal: React.FC<InboundReceiptCreateModalProps>
                 <Layers className="w-4 h-4 text-red-600" />
                 <span>2. Danh sách mặt hàng & Vị trí lưu kho ({items.length} mặt hàng)</span>
               </div>
-              <button
-                type="button"
-                onClick={handleAddItem}
-                className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg flex items-center gap-1 shadow-sm transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Thêm mặt hàng</span>
-              </button>
             </div>
 
             {/* Bảng sản phẩm */}
@@ -825,6 +812,19 @@ export const InboundReceiptCreateModal: React.FC<InboundReceiptCreateModalProps>
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Nút Thêm dòng chuyển xuống dưới bảng */}
+            <div className="flex items-center justify-start pt-1">
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="px-2.5 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                title="Thêm một dòng mặt hàng mới"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Thêm dòng</span>
+              </button>
             </div>
           </div>
 

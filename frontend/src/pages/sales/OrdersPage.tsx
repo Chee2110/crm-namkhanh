@@ -43,7 +43,7 @@ import { OrderPrintModal } from './components/OrderPrintModal';
 import { OrderReturnPrintModal } from './components/OrderReturnPrintModal';
 import { CustomerAutocompleteInput } from '../../components/common/CustomerAutocompleteInput';
 import { printA4 } from '../../utils/printA4';
-import { exportOrderToExcel, exportOrdersListToExcel } from '../../utils/crmExcelExport';
+import { exportOrderToExcel, exportDeliveryNoteToExcel, exportOrdersListToExcel } from '../../utils/crmExcelExport';
 import '../../styles/print-a4.css';
 import { ImportItemsModal } from '../../components/common/ImportItemsModal';
 import { useTableResize } from '../../hooks/useTableResize';
@@ -442,7 +442,7 @@ export const OrdersPage: React.FC = () => {
     paidAmount: 140,
     remainingAmount: 160,
     manager: 150,
-    actions: 170
+    actions: 195
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
@@ -1171,6 +1171,15 @@ export const OrdersPage: React.FC = () => {
     } catch (err) {
       console.error('Lỗi khi xuất đơn hàng sang Excel:', err);
       alert('Có lỗi xảy ra khi tạo file Excel đơn hàng');
+    }
+  };
+
+  const handleExportDeliveryNoteExcel = async (order: Order) => {
+    try {
+      await exportDeliveryNoteToExcel(order);
+    } catch (err) {
+      console.error('Lỗi khi xuất Biên bản giao hàng sang Excel:', err);
+      alert('Có lỗi xảy ra khi tạo file Excel Biên bản giao hàng');
     }
   };
 
@@ -2376,11 +2385,20 @@ export const OrdersPage: React.FC = () => {
 
                                     {/* Xuất file Excel Đơn hàng chuẩn biểu mẫu BIEU_MAU_CRM */}
                                     <button
-                                      title="Xuất Excel Đơn hàng & Biên bản giao hàng (.xlsx)"
+                                      title="Xuất Excel Đơn hàng (.xlsx)"
                                       onClick={() => handleExportSingleOrderExcel(order)}
                                       className="p-1 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
                                     >
                                       <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                                    </button>
+
+                                    {/* Xuất file Excel Biên bản giao hàng chuẩn biểu mẫu BIEU_MAU_CRM */}
+                                    <button
+                                      title="Xuất Excel Biên bản giao hàng (.xlsx)"
+                                      onClick={() => handleExportDeliveryNoteExcel(order)}
+                                      className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                                    >
+                                      <Truck className="w-4 h-4 text-blue-600" />
                                     </button>
 
                                     {/* Hủy đơn & Hoàn tiền cọc */}
@@ -3202,10 +3220,18 @@ export const OrdersPage: React.FC = () => {
                 <button
                   onClick={() => handleExportSingleOrderExcel(selectedOrder)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                  title="Xuất đơn hàng & Biên bản giao hàng ra file Excel (.xlsx)"
+                  title="Xuất đơn hàng ra file Excel (.xlsx)"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   Xuất Excel
+                </button>
+                <button
+                  onClick={() => handleExportDeliveryNoteExcel(selectedOrder)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  title="Xuất Biên bản giao hàng ra file Excel (.xlsx)"
+                >
+                  <Truck className="w-3.5 h-3.5" />
+                  Xuất BB giao hàng
                 </button>
                 <button
                   onClick={() => printA4('printable-order', `Phieu_giao_hang_${selectedOrder.code}`)}

@@ -581,13 +581,13 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
   return (
     <div className="space-y-6 pb-24">
       {/* 1. THANH ĐIỀU HƯỚNG TRANG & TIÊU ĐỀ */}
-      <div className="card p-6 rounded-3xl border border-slate-100/80 shadow-card bg-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
+      <div className="card px-6 py-3.5 rounded-3xl border border-slate-100/80 shadow-card bg-white flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div className="space-y-1">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded-xl transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Quay lại danh sách phiếu nhập</span>
@@ -598,25 +598,22 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
             </span>
           </div>
 
-          <h2 className="text-xl font-black text-slate-900 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-red-50 text-[#E53935] flex items-center justify-center font-bold border border-red-100 shadow-sm">
-              <Package className="w-5 h-5" />
+          <h2 className="text-lg font-black text-slate-900 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-red-50 text-[#E53935] flex items-center justify-center font-bold border border-red-100 shadow-2xs">
+              <Package className="w-4 h-4" />
             </div>
             <span>
               {editingReceipt ? `Chỉnh sửa phiếu nhập kho: ${editingReceipt.code}` : 'Lập Phiếu Nhập Kho Mới'}
             </span>
           </h2>
-          <p className="text-xs text-slate-500 font-medium">
-            Ghi nhận nguồn hàng, quản lý lô hàng, hạn sử dụng, định vị kệ/ô lưu trữ và kiểm tra chất lượng thực nhận
-          </p>
         </div>
 
         {/* Nút hành động phía trên */}
-        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
           <button
             type="button"
             onClick={onBack}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
+            className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs"
           >
             Hủy bỏ
           </button>
@@ -625,7 +622,7 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
             type="button"
             disabled={loading}
             onClick={() => handleSubmit('DRAFT')}
-            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
+            className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 text-slate-500" />}
             <span>Lưu bản nháp</span>
@@ -635,7 +632,7 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
             type="button"
             disabled={loading}
             onClick={() => handleSubmit('CHECKING')}
-            className="px-5 py-2 text-xs font-bold text-white bg-[#E53935] hover:bg-[#D32F2F] rounded-xl flex items-center gap-1.5 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+            className="px-4 py-1.5 text-xs font-bold text-white bg-[#E53935] hover:bg-[#D32F2F] rounded-xl flex items-center gap-1.5 transition-all shadow-sm hover:shadow-md disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
             <span>{editingReceipt ? 'Cập nhật phiếu nhập kho' : 'Tạo phiếu & Chờ kiểm hàng'}</span>
@@ -902,17 +899,6 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
               <span>Nhập file Excel/CSV</span>
             </button>
-
-            {/* Nút Thêm mặt hàng mới */}
-            <button
-              type="button"
-              onClick={handleAddItem}
-              className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#E53935] hover:bg-[#D32F2F] rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-              title="Thêm một dòng mặt hàng mới chưa có trong hệ thống"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ Thêm mặt hàng mới</span>
-            </button>
           </div>
         </div>
 
@@ -1058,6 +1044,19 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Nút Thêm dòng chuyển xuống dưới bảng */}
+        <div className="flex items-center justify-start pt-1">
+          <button
+            type="button"
+            onClick={handleAddItem}
+            className="px-2.5 py-1 text-xs font-medium text-white bg-[#E53935] hover:bg-[#D32F2F] rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+            title="Thêm một dòng mặt hàng mới chưa có trong hệ thống"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Thêm dòng</span>
+          </button>
         </div>
       </div>
 

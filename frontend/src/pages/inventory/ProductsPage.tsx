@@ -77,9 +77,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     paginate: paginateProducts
   } = useAutoTablePagination({
     totalItems: products.length,
-    rowHeight: 38,
-    topOffset: 295,
-    minRows: 4,
+    rowHeight: 35,
+    topOffset: 270,
+    minRows: 6,
     maxRows: 50,
   });
 
@@ -1953,9 +1953,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', paddingBottom: '0.75rem' }}>
+    <div className="flex flex-col justify-between min-h-[calc(100vh-82px)] min-h-[calc(100dvh-82px)] pb-1">
       {/* KHỐI TẬP TRUNG: TIÊU ĐỀ, TABS & THANH CÔNG CỤ (GỘP THÀNH 1 KHỐI) */}
-      <div className="card p-3 sm:px-4 sm:py-2.5 rounded-2xl border border-slate-100/90 shadow-sm bg-white/95 backdrop-blur-md space-y-2">
+      <div className="card p-3 sm:px-4 sm:py-2.5 rounded-2xl border border-slate-100/90 shadow-sm bg-white/95 backdrop-blur-md space-y-2 shrink-0 mb-2.5">
         {headerSlot}
         {headerSlot && <div className="border-t border-slate-100" />}
 
@@ -2082,10 +2082,11 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       </div>
 
       {/* BẢNG DATAGRID SẢN PHẨM SKU */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card rounded-2xl border border-slate-100/80 shadow-card overflow-hidden p-0 flex flex-col flex-1 min-h-0">
         <div
+          className="shrink-0"
           style={{
-            padding: '0.75rem 1.25rem',
+            padding: '0.65rem 1.25rem',
             borderBottom: '1px solid #F3F4F6',
             backgroundColor: '#FAFAFA',
             display: 'flex',
@@ -2108,7 +2109,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0 custom-scrollbar">
           <table
             className="w-full text-left text-sm"
             style={{
@@ -2119,8 +2120,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
               borderSpacing: 0
             }}
           >
-            <thead>
-              <tr className="bg-slate-50/90 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider whitespace-nowrap">
+            <thead className="sticky top-0 z-20 bg-slate-50 border-b border-gray-200 shadow-2xs">
+              <tr className="bg-slate-50 text-gray-600 uppercase text-[11px] font-semibold tracking-wider whitespace-nowrap">
                 {columnOrder
                   .filter((k) => visibleColumns[k])
                   .map((colKey) => (
@@ -2607,14 +2608,16 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
           </table>
         </div>
 
-        <TablePagination
-          currentPage={currentPage}
-          pageSize={pageSize}
-          totalItems={products.length}
-          onPageChange={setCurrentPage}
-          onPageSizeChange={setPageSize}
-          itemLabel="sản phẩm"
-        />
+        <div className="shrink-0">
+          <TablePagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalItems={products.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="sản phẩm"
+          />
+        </div>
       </div>
 
 

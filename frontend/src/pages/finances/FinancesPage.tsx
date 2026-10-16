@@ -48,6 +48,12 @@ import {
 } from '../../types';
 import { useTableResize } from '../../hooks/useTableResize';
 import { VoucherPrintModal } from './components/VoucherPrintModal';
+import {
+  exportReceiptVoucherToExcel,
+  exportPaymentVoucherToExcel,
+  exportReceiptsListToExcel,
+  exportPaymentsListToExcel
+} from '../../utils/crmExcelExport';
 import { SearchInput } from '../../components/common/SearchInput';
 import { StatusBadgeDropdown, StatusOption } from '../../components/common/StatusBadgeDropdown';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
@@ -769,134 +775,33 @@ export const FinancesPage: React.FC = () => {
 
   const paginatedRevTypes = paginateRevTypes(revenueTypes);
 
-  // ================= XUẤT FILE EXCEL / CSV HỖ TRỢ TIẾNG VIỆT (UTF-8 BOM) =================
-  const handleExportReceiptsExcel = () => {
+  // ================= XUẤT FILE EXCEL CHUẨN THƯƠNG HIỆU NK NAM KHÁNH =================
+  const handleExportReceiptsExcel = async () => {
     if (filteredReceipts.length === 0) {
       alert('Không có dữ liệu phiếu thu để xuất');
       return;
     }
 
-    const headers = [
-      'STT',
-      'Số phiếu thu',
-      'Ngày thu',
-      'Người nộp tiền',
-      'Số điện thoại',
-      'Địa chỉ',
-      'Đơn hàng liên kết',
-      'Nội dung thu',
-      'Số tiền (VNĐ)',
-      'Phương thức thanh toán',
-      'Số hóa đơn/chứng từ kèm theo',
-      'Trạng thái',
-      'Ghi chú'
-    ];
-
-    const getStatusText = (st: string) => {
-      switch (st) {
-        case 'PAID': return 'Đã thu (Khóa sửa)';
-        case 'APPROVED': return 'Đã duyệt';
-        case 'PENDING': return 'Chờ duyệt';
-        case 'REJECTED': return 'Từ chối';
-        default: return st;
-      }
-    };
-
-    const rows = filteredReceipts.map((r, idx) => {
-      let orderInfo = '';
-      if (r.allocations && r.allocations.length > 0) {
-        orderInfo = `Phân bổ ${r.allocations.length} đơn: ` + r.allocations.map((a) => a.order?.code).filter(Boolean).join('; ');
-      } else if (r.order) {
-        orderInfo = `${r.order.code} (Còn nợ: ${Number(r.order.remainingAmount).toLocaleString('vi-VN')}đ)`;
-      }
-
-      return [
-        idx + 1,
-        r.code,
-        new Date(r.voucherDate).toLocaleDateString('vi-VN'),
-        `"${(r.payer || '').replace(/"/g, '""')}"`,
-        `"${r.phone || ''}"`,
-        `"${(r.address || '').replace(/"/g, '""')}"`,
-        `"${orderInfo.replace(/"/g, '""')}"`,
-        `"${(r.reason || '').replace(/"/g, '""')}"`,
-        r.amount,
-        r.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : 'Tiền mặt',
-        `"${r.invoiceNumber || ''}"`,
-        getStatusText(r.status),
-        `"${(r.notes || '').replace(/"/g, '""')}"`
-      ];
-    });
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Phieu_Thu_Nam_Khanh_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      await exportReceiptsListToExcel(filteredReceipts);
+    } catch (err) {
+      console.error('Lỗi xuất Excel danh sách phiếu thu:', err);
+      alert('Không thể xuất file Excel. Vui lòng thử lại!');
+    }
   };
 
-  const handleExportPaymentsExcel = () => {
+  const handleExportPaymentsExcel = async () => {
     if (filteredPayments.length === 0) {
       alert('Không có dữ liệu phiếu chi để xuất');
       return;
     }
 
-    const headers = [
-      'STT',
-      'Số phiếu chi',
-      'Ngày chi',
-      'Người nhận tiền',
-      'Số điện thoại',
-      'Địa chỉ',
-      'Danh mục chi phí',
-      'Loại chi phí',
-      'Nội dung chi',
-      'Số tiền (VNĐ)',
-      'Phương thức thanh toán',
-      'Số hóa đơn/chứng từ kèm theo',
-      'Trạng thái',
-      'Ghi chú'
-    ];
-
-    const getStatusText = (st: string) => {
-      switch (st) {
-        case 'PAID': return 'Đã chi (Khóa sửa)';
-        case 'APPROVED': return 'Đã duyệt chi';
-        case 'PENDING': return 'Chờ duyệt';
-        case 'REJECTED': return 'Từ chối';
-        default: return st;
-      }
-    };
-
-    const rows = filteredPayments.map((p, idx) => [
-      idx + 1,
-      p.code,
-      new Date(p.voucherDate).toLocaleDateString('vi-VN'),
-      `"${(p.recipient || '').replace(/"/g, '""')}"`,
-      `"${p.phone || ''}"`,
-      `"${(p.address || '').replace(/"/g, '""')}"`,
-      `"${(p.category?.name || '').replace(/"/g, '""')}"`,
-      `"${(p.type?.name || '').replace(/"/g, '""')}"`,
-      `"${(p.reason || '').replace(/"/g, '""')}"`,
-      p.amount,
-      p.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : 'Tiền mặt',
-      `"${p.invoiceNumber || ''}"`,
-      getStatusText(p.status),
-      `"${(p.notes || '').replace(/"/g, '""')}"`
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Phieu_Chi_Nam_Khanh_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      await exportPaymentsListToExcel(filteredPayments);
+    } catch (err) {
+      console.error('Lỗi xuất Excel danh sách phiếu chi:', err);
+      alert('Không thể xuất file Excel. Vui lòng thử lại!');
+    }
   };
 
   const handleExportCashflowExcel = () => {
@@ -1257,6 +1162,15 @@ export const FinancesPage: React.FC = () => {
                                 <Printer className="w-4 h-4 text-[#E53935]" />
                               </button>
 
+                              {/* Xuất Excel Mẫu số 01 - TT */}
+                              <button
+                                onClick={() => exportReceiptVoucherToExcel(r)}
+                                className="p-1 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors cursor-pointer"
+                                title="Xuất phiếu thu sang Excel (Mẫu số 01 - TT)"
+                              >
+                                <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                              </button>
+
                               {/* Duyệt chuyển sang ĐÃ THU (PAID) - Kế toán / Quản lý */}
                               {r.status !== 'PAID' && (
                                 <button
@@ -1540,6 +1454,15 @@ export const FinancesPage: React.FC = () => {
                                 title="In phiếu chi A4 / A5"
                               >
                                 <Printer className="w-4 h-4 text-[#E53935]" />
+                              </button>
+
+                              {/* Xuất Excel Mẫu số 02 - TT */}
+                              <button
+                                onClick={() => exportPaymentVoucherToExcel(p)}
+                                className="p-1 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors cursor-pointer"
+                                title="Xuất phiếu chi sang Excel (Mẫu số 02 - TT)"
+                              >
+                                <FileSpreadsheet className="w-4 h-4 text-green-600" />
                               </button>
 
                               {/* Duyệt chi */}

@@ -333,7 +333,7 @@ export class DashboardService {
       })
       .filter((c) => c.orderCount > 0)
       .sort((a, b) => b.totalSpent - a.totalSpent)
-      .slice(0, 10);
+      .slice(0, 5);
 
     const result = {
       period,

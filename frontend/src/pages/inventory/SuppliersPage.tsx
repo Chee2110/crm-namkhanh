@@ -41,9 +41,9 @@ export const SuppliersPage: React.FC = () => {
     paginate: paginateSuppliers
   } = useAutoTablePagination({
     totalItems: suppliers.length,
-    rowHeight: 45,
-    topOffset: 340,
-    minRows: 4,
+    rowHeight: 38,
+    topOffset: 250,
+    minRows: 6,
     maxRows: 50,
   });
 
@@ -316,9 +316,9 @@ export const SuppliersPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col justify-between min-h-[calc(100vh-82px)] min-h-[calc(100dvh-82px)] pb-1">
       {/* HEADER & FILTER */}
-      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0 mb-3">
         <div>
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Truck className="w-5 h-5 text-[#E53935]" />
@@ -364,8 +364,8 @@ export const SuppliersPage: React.FC = () => {
       </div>
 
       {/* BẢNG DANH SÁCH NHÀ CUNG CẤP */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0 custom-scrollbar">
           <table
             className="w-full text-left text-sm border-collapse"
             style={{
@@ -374,8 +374,8 @@ export const SuppliersPage: React.FC = () => {
               tableLayout: 'fixed'
             }}
           >
-            <thead>
-              <tr className="bg-slate-50/90 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider whitespace-nowrap">
+            <thead className="sticky top-0 z-20 bg-slate-50 border-b border-gray-200 shadow-2xs">
+              <tr className="bg-slate-50/95 border-b border-gray-200 text-gray-600 uppercase text-[11px] font-semibold tracking-wider whitespace-nowrap">
                 {columnOrder
                   .filter((k) => visibleColumns[k])
                   .map((colKey) => (

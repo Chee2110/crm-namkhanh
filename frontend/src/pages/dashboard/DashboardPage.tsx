@@ -708,7 +708,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                       <span className="text-xs text-slate-400">Doanh số cao nhất</span>
                     </div>
                     <div className="space-y-3">
-                      {revenueVolume?.topCustomers.map((c, idx) => (
+                      {revenueVolume?.topCustomers?.slice(0, 5).map((c, idx) => (
                         <div key={c.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 border border-slate-100 transition-colors">
                           <div className="flex items-center gap-3">
                             <span className="w-6 h-6 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xs font-bold">
