@@ -1,4 +1,5 @@
 import { prisma } from '../../config/db';
+import { generateOrderCode } from '../orders/orders.service';
 
 export class QuotationsService {
   async getQuotations(params: {
@@ -245,8 +246,7 @@ export class QuotationsService {
       throw new Error('Chỉ có thể chuyển đổi Báo giá ở trạng thái "Đã chốt" (CONFIRMED) thành Đơn hàng');
     }
 
-    const orderCount = await prisma.order.count();
-    const orderCode = `DH-2026-${String(orderCount + 1).padStart(4, '0')}`;
+    const orderCode = await generateOrderCode();
 
     return prisma.$transaction(async (tx: any) => {
       const order = await tx.order.create({

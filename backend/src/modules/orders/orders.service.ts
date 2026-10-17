@@ -1,5 +1,83 @@
 import { prisma } from '../../config/db';
 
+export async function generateOrderCode(tx?: any): Promise<string> {
+  const client = tx || prisma;
+  const year = new Date().getFullYear();
+  const prefix = `DH-${year}-`;
+  const latestOrder = await client.order.findFirst({
+    where: { code: { startsWith: prefix } },
+    orderBy: { code: 'desc' },
+    select: { code: true }
+  });
+
+  let nextSeq = 1;
+  if (latestOrder?.code) {
+    const match = latestOrder.code.match(new RegExp(`^DH-${year}-(\\d+)`));
+    if (match) {
+      nextSeq = parseInt(match[1], 10) + 1;
+    }
+  }
+
+  let code = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+  while (await client.order.findUnique({ where: { code } })) {
+    nextSeq++;
+    code = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+  }
+  return code;
+}
+
+export async function generateOrderReturnCode(tx?: any): Promise<string> {
+  const client = tx || prisma;
+  const year = new Date().getFullYear();
+  const prefix = `TH-${year}-`;
+  const latestReturn = await client.orderReturn.findFirst({
+    where: { code: { startsWith: prefix } },
+    orderBy: { code: 'desc' },
+    select: { code: true }
+  });
+
+  let nextSeq = 1;
+  if (latestReturn?.code) {
+    const match = latestReturn.code.match(new RegExp(`^TH-${year}-(\\d+)`));
+    if (match) {
+      nextSeq = parseInt(match[1], 10) + 1;
+    }
+  }
+
+  let code = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+  while (await client.orderReturn.findUnique({ where: { code } })) {
+    nextSeq++;
+    code = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+  }
+  return code;
+}
+
+export async function generatePaymentVoucherCode(tx?: any): Promise<string> {
+  const client = tx || prisma;
+  const year = new Date().getFullYear();
+  const prefix = `PC-${year}-`;
+  const latestPV = await client.paymentVoucher.findFirst({
+    where: { code: { startsWith: prefix } },
+    orderBy: { code: 'desc' },
+    select: { code: true }
+  });
+
+  let nextSeq = 1;
+  if (latestPV?.code) {
+    const match = latestPV.code.match(new RegExp(`^PC-\\d+-(\\d+)`));
+    if (match) {
+      nextSeq = parseInt(match[1], 10) + 1;
+    }
+  }
+
+  let code = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+  while (await client.paymentVoucher.findUnique({ where: { code } })) {
+    nextSeq++;
+    code = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+  }
+  return code;
+}
+
 async function findProduct(tx: any, productId?: string | null, productCode?: string | null) {
   if (productId) {
     const prod = await tx.product.findUnique({ where: { id: productId } });
@@ -58,7 +136,7 @@ export class OrdersService {
         quotation: {
           select: { id: true, code: true }
         },
-        items: true,
+        items: { where: { quantity: { gt: 0 } } },
         returns: {
           include: {
             items: true,
@@ -88,6 +166,7 @@ export class OrdersService {
         },
         quotation: true,
         items: {
+          where: { quantity: { gt: 0 } },
           include: {
             product: true
           }
@@ -153,8 +232,7 @@ export class OrdersService {
     const customer = await prisma.customer.findUnique({ where: { id: data.customerId } });
     if (!customer) throw new Error('Không tìm thấy khách hàng được chọn');
 
-    const count = await prisma.order.count();
-    const code = `DH-2026-${String(count + 1).padStart(4, '0')}`;
+    const code = await generateOrderCode();
 
     let subtotal = 0;
     const computedItems = data.items.map((item) => {
@@ -236,7 +314,7 @@ export class OrdersService {
           code,
           customerId: data.customerId,
           quotationId: data.quotationId || null,
-          managerId: creatorId,
+          managerId: creatorId || null,
           orderDate: data.orderDate ? new Date(data.orderDate) : new Date(),
           deliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : null,
           deliveryAddress: data.deliveryAddress || customer.deliveryAddress || customer.address,
@@ -613,39 +691,26 @@ export class OrdersService {
       let createdPaymentVoucher = null;
 
       if (paid > 0) {
-        if (refundMethod === 'CREDIT_BALANCE') {
-          // Cộng vào số dư tiền trả trước của khách hàng
-          await tx.customer.update({
-            where: { id: order.customerId },
-            data: {
-              creditBalance: {
-                increment: paid
-              }
-            }
-          });
-        } else if (refundMethod === 'CASH_REFUND') {
-          // Tự động tạo Phiếu chi hoàn tiền
-          const pvCount = await tx.paymentVoucher.count();
-          const pvCode = `PC-${new Date().getFullYear()}-${String(pvCount + 1).padStart(4, '0')}`;
+        // Luôn tự động tạo Phiếu chi hoàn tiền trực tiếp cho khách hàng (không lưu vào số dư đơn sau)
+        const pvCode = await generatePaymentVoucherCode(tx);
 
-          createdPaymentVoucher = await tx.paymentVoucher.create({
-            data: {
-              code: pvCode,
-              voucherDate: new Date(),
-              recipient: order.customer.name,
-              phone: order.phone || order.customer.phone,
-              address: order.deliveryAddress || order.customer.address,
-              reason: `Hoàn tiền cọc đơn hàng ${order.code}: ${refundReason || 'Khách hủy đơn'}`,
-              amount: paid,
-              paymentMethod: 'BANK_TRANSFER',
-              status: 'APPROVED',
-              customerId: order.customerId,
-              orderId: order.id,
-              createdById: userId || null,
-              notes: 'Tự động tạo từ quy trình Hủy đơn hàng hoàn tiền (Mục IX)'
-            }
-          });
-        }
+        createdPaymentVoucher = await tx.paymentVoucher.create({
+          data: {
+            code: pvCode,
+            voucherDate: new Date(),
+            recipient: order.customer.name,
+            phone: order.phone || order.customer.phone,
+            address: order.deliveryAddress || order.customer.address,
+            reason: `Hoàn tiền cọc đơn hàng ${order.code}: ${refundReason || 'Khách hủy đơn'}`,
+            amount: paid,
+            paymentMethod: 'BANK_TRANSFER',
+            status: 'APPROVED',
+            customerId: order.customerId,
+            orderId: order.id,
+            createdById: userId || null,
+            notes: 'Tự động tạo từ quy trình Hủy đơn hàng hoàn tiền cho khách'
+          }
+        });
       }
 
       // Cập nhật trạng thái đơn hàng
@@ -656,7 +721,7 @@ export class OrdersService {
           paymentStatus: paid > 0 ? 'REFUNDED' : 'UNPAID',
           refundAmount: paid,
           remainingAmount: 0,
-          notes: `${order.notes || ''}\n[ĐÃ HỦY ĐƠN]: ${refundReason || 'Khách hủy đơn'}. Hoàn tiền: ${paid.toLocaleString('vi-VN')} đ qua ${refundMethod === 'CREDIT_BALANCE' ? 'Số dư ký quỹ' : 'Phiếu chi hoàn tiền'}.`.trim()
+          notes: `${order.notes || ''}\n[ĐÃ HỦY ĐƠN]: ${refundReason || 'Khách hủy đơn'}. Hoàn tiền: ${paid.toLocaleString('vi-VN')} đ qua Phiếu chi hoàn tiền cho khách.`.trim()
         },
         include: {
           customer: true,
@@ -718,6 +783,7 @@ export class OrdersService {
       refundMethod?: 'DEDUCT_DEBT' | 'CASH_REFUND' | 'CREDIT_BALANCE';
       refundOption?: 'DEDUCT_DEBT' | 'CASH_REFUND' | 'CREDIT_BALANCE';
       items: Array<{
+        orderItemId?: string;
         productId?: string;
         productCode: string;
         productName: string;
@@ -748,7 +814,10 @@ export class OrdersService {
     // 1. Kiểm tra điều kiện hoàn: Số lượng trả không được vượt quá số lượng trong đơn
     for (const it of data.items) {
       const matchingOrderItem = order.items.find(
-        (oi) => (it.productId && oi.productId === it.productId) || oi.productCode === it.productCode
+        (oi) =>
+          (it.orderItemId && oi.id === it.orderItemId) ||
+          (it.productId && oi.productId === it.productId) ||
+          oi.productCode === it.productCode
       );
       if (matchingOrderItem && Number(it.quantity) > Number(matchingOrderItem.quantity)) {
         throw new Error(
@@ -767,8 +836,7 @@ export class OrdersService {
       throw new Error('Tổng giá trị hàng trả phải lớn hơn 0');
     }
 
-    const returnCount = await prisma.orderReturn.count();
-    const returnCode = `TH-2026-${String(returnCount + 1).padStart(4, '0')}`;
+    const returnCode = await generateOrderReturnCode();
 
     return prisma.$transaction(async (tx: any) => {
       // 1. Tạo bản ghi Phiếu trả hàng
@@ -834,31 +902,64 @@ export class OrdersService {
         }
       }
 
-      // 3. Xử lý giá trị đơn hàng và công nợ (Đồng bộ Tài chính & Kế toán)
-      const currentAdj = Number(order.adjustedAmount) || 0;
-      const newAdj = currentAdj - totalReturnAmount; // Ghi nhận giảm trừ
-      const baseAmount = Number(order.subtotal) + Number(order.vatAmount);
-      const newTotalAmount = Math.max(0, baseAmount + newAdj);
+      // 3. Tự động cập nhật giảm số lượng mặt hàng trực tiếp trên Đơn hàng (OrderItem)
+      for (const it of data.items) {
+        const returnQty = Number(it.quantity) || 0;
+        if (returnQty <= 0) continue;
+
+        const matchingOrderItem = order.items.find(
+          (oi) =>
+            (it.orderItemId && oi.id === it.orderItemId) ||
+            (it.productId && oi.productId === it.productId) ||
+            oi.productCode === it.productCode
+        );
+
+        if (matchingOrderItem) {
+          const newQty = Math.max(0, Number(matchingOrderItem.quantity) - returnQty);
+          if (newQty <= 0) {
+            // Nếu hoàn trả sản phẩm về 0 thì tự động xóa dòng hàng hóa đó khỏi đơn hàng
+            await tx.orderItem.delete({
+              where: { id: matchingOrderItem.id }
+            });
+          } else {
+            const itemPrice = Number(matchingOrderItem.unitPrice);
+            const itemVatRate = Number(matchingOrderItem.vatRate ?? vatRate);
+            const newAmount = newQty * itemPrice;
+            const newTotal = newAmount * (1 + itemVatRate / 100);
+
+            await tx.orderItem.update({
+              where: { id: matchingOrderItem.id },
+              data: {
+                quantity: newQty,
+                amount: newAmount,
+                total: newTotal
+              }
+            });
+          }
+        }
+      }
+
+      // 4. Tính toán lại giá trị tài chính của Đơn hàng sau khi đã cập nhật số lượng items
+      const allUpdatedItems = await tx.orderItem.findMany({
+        where: { orderId }
+      });
+
+      const newSubtotal = allUpdatedItems.reduce((sum: number, item: any) => sum + Number(item.amount), 0);
+      const newVatAmount = (newSubtotal * vatRate) / 100;
+      const existingAdj = Number(order.adjustedAmount) || 0;
+      const newTotalAmount = Math.max(0, newSubtotal + newVatAmount + existingAdj);
+
       let paid = Number(order.paidAmount);
       let newPaid = paid;
       let newRefund = Number(order.refundAmount) || 0;
 
       let createdPaymentVoucher = null;
 
-      if (refundMethod === 'CREDIT_BALANCE') {
-        // Hoàn tiền vào số dư trả trước của khách hàng -> Giảm Thực thu ròng trên đơn
+      if (refundMethod === 'CREDIT_BALANCE' || refundMethod === 'CASH_REFUND') {
+        // Tự động lập phiếu chi hoàn tiền trực tiếp cho khách hàng (không giữ lại số dư cho đơn sau)
         newPaid = Math.max(0, paid - totalReturnAmount);
         newRefund += totalReturnAmount;
-        await tx.customer.update({
-          where: { id: order.customerId },
-          data: { creditBalance: { increment: totalReturnAmount } }
-        });
-      } else if (refundMethod === 'CASH_REFUND') {
-        // Tự động lập phiếu chi hoàn tiền -> Giảm Thực thu ròng trên đơn
-        newPaid = Math.max(0, paid - totalReturnAmount);
-        newRefund += totalReturnAmount;
-        const pvCount = await tx.paymentVoucher.count();
-        const pvCode = `PC-${new Date().getFullYear()}-${String(pvCount + 1).padStart(4, '0')}`;
+        const pvCode = await generatePaymentVoucherCode(tx);
         createdPaymentVoucher = await tx.paymentVoucher.create({
           data: {
             code: pvCode,
@@ -874,6 +975,29 @@ export class OrdersService {
             orderId: order.id,
             createdById: userId || null,
             notes: `Sinh tự động từ Phiếu trả hàng ${returnCode}`
+          }
+        });
+      } else if (refundMethod === 'DEDUCT_DEBT' && paid > newTotalAmount) {
+        // Nếu cấn trừ công nợ nhưng tiền đã thu vượt quá giá trị đơn còn lại -> Hoàn phần chênh lệch
+        const excess = paid - newTotalAmount;
+        newPaid = newTotalAmount;
+        newRefund += excess;
+        const pvCode = await generatePaymentVoucherCode(tx);
+        createdPaymentVoucher = await tx.paymentVoucher.create({
+          data: {
+            code: pvCode,
+            voucherDate: new Date(),
+            recipient: order.customer.name,
+            phone: order.phone || order.customer.phone,
+            address: order.deliveryAddress || order.customer.address,
+            reason: `Hoàn tiền thừa sau khi trả hàng đơn ${order.code} (Phiếu ${returnCode}): ${reasonText}`,
+            amount: excess,
+            paymentMethod: 'BANK_TRANSFER',
+            status: 'APPROVED',
+            customerId: order.customerId,
+            orderId: order.id,
+            createdById: userId || null,
+            notes: `Sinh tự động từ Phiếu trả hàng ${returnCode} (tiền cọc vượt quá giá trị đơn sau khi trả hàng)`
           }
         });
       }
@@ -894,14 +1018,14 @@ export class OrdersService {
       const updatedOrder = await tx.order.update({
         where: { id: orderId },
         data: {
-          adjustedAmount: newAdj,
-          adjustmentReason: `Đổi trả hàng theo phiếu ${returnCode}: -${totalReturnAmount.toLocaleString('vi-VN')} đ`,
+          subtotal: newSubtotal,
+          vatAmount: newVatAmount,
           totalAmount: newTotalAmount,
           paidAmount: newPaid,
           remainingAmount: newRemaining,
           refundAmount: newRefund,
           paymentStatus,
-          notes: `${order.notes || ''}\n[TRẢ HÀNG ${returnCode}]: Đã hoàn kho${conditionNote} và trừ ${totalReturnAmount.toLocaleString('vi-VN')} đ (${refundMethod === 'DEDUCT_DEBT' ? 'Trừ công nợ' : refundMethod === 'CREDIT_BALANCE' ? 'Cộng tiền ký quỹ' : 'Chi hoàn tiền'}).`.trim()
+          notes: `${order.notes || ''}\n[TRẢ HÀNG ${returnCode}]: Đã hoàn kho${conditionNote}, tự động cập nhật giảm số lượng trên đơn và trừ ${totalReturnAmount.toLocaleString('vi-VN')} đ (${refundMethod === 'DEDUCT_DEBT' ? 'Trừ công nợ' : 'Chi hoàn tiền cho khách'}).`.trim()
         },
         include: {
           customer: true,

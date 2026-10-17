@@ -2,10 +2,10 @@ import React from 'react';
 import { Printer, X, FileSpreadsheet, Edit2, Trash2 } from 'lucide-react';
 import { Quotation } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
-import { NAMKHANH_BANK_INFO, generateVietQRUrl } from '../../../utils/vietqr';
 import { printA4 } from '../../../utils/printA4';
-import { formatVND, formatNumber } from '../../../utils/formatCurrency';
+import { formatVND } from '../../../utils/formatCurrency';
 import { exportQuotationToExcel } from '../../../utils/crmExcelExport';
+import { NK_LOGO_BASE64 } from '../../../utils/logoBase64';
 import '../../../styles/print-a4.css';
 
 interface QuotationPrintModalProps {
@@ -16,6 +16,15 @@ interface QuotationPrintModalProps {
   onDelete?: (id: string, code: string) => void;
   canEdit?: boolean;
   canDelete?: boolean;
+}
+
+function formatVietnameseDate(dateInput: string | Date | undefined | null): string {
+  const date = dateInput ? new Date(dateInput) : new Date();
+  const d = isNaN(date.getTime()) ? new Date() : date;
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const year = d.getFullYear();
+  return `Ngày ${day} tháng ${month} năm ${year}`;
 }
 
 export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
@@ -30,13 +39,8 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
   if (!isOpen || !quotation) return null;
 
   const handlePrint = () => {
-    printA4('printable-quotation', `Bao_gia_${quotation.code}`);
+    printA4('printable-quotation', `Bao_Gia_${quotation.code}`);
   };
-
-  const quotationDate = new Date(quotation.date);
-  const validUntilDate = quotation.validUntil
-    ? new Date(quotation.validUntil)
-    : new Date(quotationDate.getTime() + 15 * 24 * 60 * 60 * 1000); // 15 ngày sau
 
   const handleExportExcel = async () => {
     try {
@@ -47,18 +51,33 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
     }
   };
 
+  const customerName = quotation.customer?.name || (quotation.customer as any)?.companyName || 'Quý Khách hàng';
+  const contactPerson = (quotation as any).contactPerson || quotation.customer?.contactPerson || '';
+  const phone = (quotation as any).phone || quotation.customer?.phone || '';
+  const address = (quotation as any).deliveryAddress || quotation.customer?.deliveryAddress || quotation.customer?.address || '';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-1 sm:p-1.5 overflow-hidden">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl overflow-hidden my-auto h-[calc(100%-12px)] max-h-[calc(100%-12px)] flex flex-col a4-modal print-modal-container">
-        {/* Header điều khiển (Không in) */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50 no-print flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Printer className="w-5 h-5 text-[#E53935]" />
-            <h3 className="font-bold text-gray-900 text-sm sm:text-base">
-              Bản In Báo Giá A4 - {quotation.code}
-            </h3>
+        {/* Header điều khiển thu nhỏ, gọn gàng 1 dòng (Không in) */}
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 no-print flex-shrink-0 flex-nowrap gap-2">
+          {/* Bên trái: Thông tin rút gọn */}
+          <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
+            <div className="w-6 h-6 rounded bg-emerald-100 flex items-center justify-center text-emerald-700 flex-shrink-0">
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <h3 className="font-bold text-gray-900 text-xs sm:text-sm">
+                Báo Giá: {quotation.code}
+              </h3>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Excel
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Bên phải: Nút công cụ bé lại và xếp gọn trên 1 dòng */}
+          <div className="flex items-center gap-1.5 flex-nowrap flex-shrink-0">
             {canEdit && onEdit && quotation.status !== 'ORDERED' && (
               <button
                 type="button"
@@ -66,11 +85,11 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
                   onClose();
                   onEdit(quotation);
                 }}
-                className="btn-secondary !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-sm border-blue-300 text-blue-700 hover:bg-blue-50"
+                className="py-1 px-2.5 text-[11px] font-medium flex items-center gap-1 cursor-pointer rounded border border-blue-300 text-blue-700 bg-white hover:bg-blue-50 transition-colors whitespace-nowrap"
                 title="Chỉnh sửa thông tin báo giá này"
               >
-                <Edit2 className="w-4 h-4 text-blue-600" />
-                <span>Chỉnh sửa</span>
+                <Edit2 className="w-3 h-3 text-blue-600" />
+                <span>Sửa</span>
               </button>
             )}
             {canDelete && onDelete && (
@@ -79,204 +98,213 @@ export const QuotationPrintModal: React.FC<QuotationPrintModalProps> = ({
                 onClick={() => {
                   onDelete(quotation.id, quotation.code);
                 }}
-                className="btn-secondary !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-sm border-red-300 text-red-700 hover:bg-red-50"
+                className="py-1 px-2.5 text-[11px] font-medium flex items-center gap-1 cursor-pointer rounded border border-red-300 text-red-700 bg-white hover:bg-red-50 transition-colors whitespace-nowrap"
                 title="Xóa vĩnh viễn báo giá này"
               >
-                <Trash2 className="w-4 h-4 text-red-600" />
+                <Trash2 className="w-3 h-3 text-red-600" />
                 <span>Xóa</span>
               </button>
             )}
             <button
               onClick={handleExportExcel}
-              className="btn-secondary !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-sm border-green-300 text-green-700 hover:bg-green-50"
-              title="Xuất bảng báo giá ra file Excel/CSV"
+              className="py-1 px-2.5 text-[11px] font-medium flex items-center gap-1 cursor-pointer rounded border border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50 transition-colors whitespace-nowrap"
+              title="Xuất bảng báo giá ra file Excel (.xlsx)"
             >
-              <FileSpreadsheet className="w-4 h-4 text-green-600" />
+              <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
               <span>Xuất Excel</span>
             </button>
             <button
               onClick={handlePrint}
-              className="btn-primary !py-1.5 !px-4 text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="py-1 px-3 text-[11px] font-semibold flex items-center gap-1 cursor-pointer rounded bg-red-600 hover:bg-red-700 text-white shadow-xs transition-colors whitespace-nowrap"
+              title="In ngay mẫu báo giá chuẩn Excel ra máy in / PDF"
             >
-              <Printer className="w-4 h-4" />
-              <span>In Bản Chào Giá (A4)</span>
+              <Printer className="w-3 h-3" />
+              <span>In Ngay</span>
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-all cursor-pointer"
+              className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-all cursor-pointer ml-1"
+              title="Đóng"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* ================= KHUNG IN A4 CHUẨN KẾ TOÁN ================= */}
-        <div className="a4-preview">
-          <div className="a4-sheet" id="printable-quotation">
-            {/* Header công ty */}
-            <div className="a4-header">
-              <div className="a4-brand">
-                <img src="/logo.png" alt="Nam Khánh Logo" className="a4-logo" />
-                <div>
-                  <h1 className="a4-company-name">CÔNG TY TNHH THƯƠNG MẠI &amp; DỊCH VỤ NAM KHÁNH</h1>
-                  <p className="a4-company-slogan">
-                    Nhà cung ứng Văn phòng phẩm &amp; Thiết bị văn phòng chuyên nghiệp
-                  </p>
-                  <p className="a4-company-line">
-                    Địa chỉ: Số 32, Ngõ 111 Cầu Giấy, P. Dịch Vọng, Q. Cầu Giấy, TP. Hà Nội
-                  </p>
-                  <p className="a4-company-line">
-                    <span className="a4-nowrap">Hotline: (024) 3768 9999</span>
-                    <span className="a4-sep">|</span>
-                    <span className="a4-nowrap">Email: kinhdoanh@namkhanh.vn</span>
-                    <span className="a4-sep">|</span>
-                    <span className="a4-nowrap">MST: 0109876543</span>
-                  </p>
-                </div>
-              </div>
+        {/* Thanh Sheet Tab mô phỏng Excel (Không in) */}
+        <div className="bg-slate-100 border-b border-gray-300 px-3 py-1 flex items-center gap-2 no-print flex-shrink-0 text-xs">
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-white border-t-2 border-emerald-600 font-semibold text-emerald-800 rounded-t shadow-xs text-[11.5px]">
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Sheet 1: Báo giá </span>
+          </div>
+          <span className="text-gray-500 text-[11px] italic ml-2">
+            (Form và font chữ Times New Roman y hệt file Excel)
+          </span>
+        </div>
 
-              <div className="a4-docmeta">
-                <div className="a4-doccode">MÃ BÁO GIÁ: {quotation.code}</div>
-                <div>Ngày lập: {quotationDate.toLocaleDateString('vi-VN')}</div>
-                <div>Hiệu lực đến: {validUntilDate.toLocaleDateString('vi-VN')}</div>
+        {/* ================= KHUNG HIỂN THỊ DẠNG FORM EXCEL CHUẨN ================= */}
+        <div className="a4-preview bg-slate-200">
+          <div
+            className="excel-sheet"
+            id="printable-quotation"
+            style={{ fontFamily: "'Times New Roman', Times, 'Liberation Serif', serif" }}
+          >
+            {/* Header thông tin công ty Nam Khánh chuẩn y hệt file Excel */}
+            <div className="flex items-center gap-3 pb-1">
+              <div className="w-[110px] flex-shrink-0 flex items-center justify-center">
+                <img
+                  src={`data:image/png;base64,${NK_LOGO_BASE64}`}
+                  alt="Nam Khánh Logo"
+                  className="w-[105px] h-[78px] object-contain"
+                />
+              </div>
+              <div className="flex-1 pr-2">
+                <h1 className="text-[17px] font-bold text-black uppercase leading-tight tracking-normal text-center mb-1">
+                  CÔNG TY TNHH NK NAM KHÁNH
+                </h1>
+                <p className="text-[13px] text-black leading-snug">
+                  Địa chỉ ( Address): Khu X1, Thôn Nguyên Khê - Xã Phúc Thịnh - TP.Hà Nội
+                </p>
+                <p className="text-[13px] text-black leading-snug">
+                  Mã số thuế : 0108910572
+                </p>
+                <p className="text-[13px] text-black leading-snug">
+                  Số điện thoại : 0766.088.886 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Gmail : phankhanhfj@gmail.com
+                </p>
               </div>
             </div>
 
-            {/* Tiêu đề Báo giá */}
-            <div className="a4-title">
-              <h2>BẢNG BÁO GIÁ VĂN PHÒNG PHẨM &amp; THIẾT BỊ VĂN PHÒNG</h2>
-              <p>(Áp dụng cho hợp đồng cung ứng định kỳ &amp; đơn hàng bán buôn)</p>
+            {/* Tiêu đề BẢNG BÁO GIÁ */}
+            <div className="text-center mt-2.5 mb-1">
+              <h2 className="text-[19px] font-bold text-black uppercase tracking-wide">
+                BẢNG BÁO GIÁ
+              </h2>
             </div>
 
-            {/* Thông tin Đối tác / Khách hàng */}
-            <div className="a4-info">
-              <div className="a4-field a4-full">
-                <b>Kính gửi (Đơn vị):</b>
-                <span>{quotation.customer?.name || 'Quý khách hàng'}</span>
+            {/* Dòng Ngày tháng năm */}
+            <div className="text-center text-[13px] text-black border-b-[1.5px] border-black pb-1 mb-2.5">
+              {formatVietnameseDate(quotation.date)}
+            </div>
+
+            {/* Khối Thông tin khách hàng & Lời mở đầu chuẩn các dòng Excel */}
+            <div className="text-[13px] text-black space-y-1 mb-2.5">
+              <div className="flex items-baseline">
+                <span className="w-[115px] flex-shrink-0">Kính gửi</span>
+                <span className="font-bold">: {customerName}</span>
               </div>
-              <div className="a4-field">
-                <b>Mã số thuế:</b>
-                <span>{quotation.customer?.taxCode || 'Theo thông báo đơn hàng'}</span>
+              <div className="flex items-baseline">
+                <span className="w-[115px] flex-shrink-0">Người đại diện</span>
+                <span>: {contactPerson || '................................'}</span>
               </div>
-              <div className="a4-field">
-                <b>Số điện thoại:</b>
-                <span>{quotation.customer?.phone || 'Chưa cập nhật'}</span>
+              <div className="flex items-baseline">
+                <span className="w-[115px] flex-shrink-0">Số điện thoại</span>
+                <span>: {phone || '................................'}</span>
               </div>
-              <div className="a4-field a4-full">
-                <b>Người liên hệ:</b>
-                <span>{quotation.customer?.contactPerson || 'Bộ phận Mua sắm'}</span>
+              <div className="flex items-baseline">
+                <span className="w-[115px] flex-shrink-0">Địa chỉ</span>
+                <span>: {address || '................................'}</span>
               </div>
-              <div className="a4-field a4-full">
-                <b>Địa chỉ giao hàng dự kiến:</b>
-                <span>{quotation.customer?.deliveryAddress || quotation.customer?.address || 'Tại trụ sở Quý đơn vị'}</span>
-              </div>
-              <div className="a4-field a4-full">
-                <b>Chuyên viên phụ trách:</b>
-                <span>
-                  {quotation.manager?.fullName || 'Phòng Kinh Doanh Nam Khánh'} ({quotation.manager?.phone || '024.3768.9999'})
-                </span>
+              <div className="flex items-baseline justify-between pt-0.5">
+                <span>Công ty TNHH NK Nam Khánh xin gửi tới quý Công ty bảng báo giá mặt hàng sau</span>
+                <span className="font-normal italic">Loại tiền: Vnđ</span>
               </div>
             </div>
 
-            {/* Bảng Chi tiết Báo giá 8 Cột */}
-            <table className="a4-table">
+            {/* BẢNG SẢN PHẨM DẠNG EXCEL GRID TABLE */}
+            <table className="excel-table">
               <thead>
                 <tr>
-                  <th className="a4-fit">STT</th>
-                  <th className="a4-fit">Mã SKU</th>
-                  <th className="a4-l">Tên Hàng Hóa &amp; Quy Cách</th>
-                  <th className="a4-fit">ĐVT</th>
-                  <th className="a4-fit">Số Lượng</th>
-                  <th className="a4-fit">Đơn Giá (VNĐ)</th>
-                  <th className="a4-fit">Thuế (%)</th>
-                  <th className="a4-fit">Thành Tiền (VNĐ)</th>
+                  <th style={{ width: '45px', textAlign: 'center' }}>Stt</th>
+                  <th style={{ width: '135px', textAlign: 'center' }}>Mã hàng</th>
+                  <th style={{ textAlign: 'center' }}>Tên hàng hóa, dịch vụ</th>
+                  <th style={{ width: '80px', textAlign: 'center' }}>Đơn vị tính</th>
+                  <th style={{ width: '70px', textAlign: 'center' }}>Số lượng</th>
+                  <th style={{ width: '110px', textAlign: 'center' }}>Đơn giá</th>
+                  <th style={{ width: '130px', textAlign: 'center' }}>Thành tiền</th>
                 </tr>
               </thead>
               <tbody>
                 {quotation.items?.map((item, idx) => (
                   <tr key={idx}>
-                    <td className="a4-fit a4-c">{idx + 1}</td>
-                    <td className="a4-fit a4-code">{item.productCode}</td>
-                    <td className="a4-name">{item.productName}</td>
-                    <td className="a4-fit a4-c">{item.unit}</td>
-                    <td className="a4-fit a4-c" style={{ fontWeight: 700 }}>{item.quantity}</td>
-                    <td className="a4-num">{formatVND(item.unitPrice)}</td>
-                    <td className="a4-fit a4-c">{item.vatRate}%</td>
-                    <td className="a4-num" style={{ fontWeight: 600 }}>{formatVND(item.amount)}</td>
+                    <td className="excel-c">{idx + 1}</td>
+                    <td className="excel-c">{item.productCode}</td>
+                    <td className="excel-l">{item.productName}</td>
+                    <td className="excel-c">{item.unit || 'Cái'}</td>
+                    <td className="excel-c">{item.quantity}</td>
+                    <td className="excel-num">{formatVND(item.unitPrice)}</td>
+                    <td className="excel-num">
+                      {formatVND(item.amount || Number(item.quantity) * Number(item.unitPrice))}
+                    </td>
                   </tr>
                 ))}
-              </tbody>
-              <tbody className="a4-keep">
-                {/* Dòng tổng cộng tiền hàng */}
-                <tr className="a4-sum">
-                  <td colSpan={7} className="a4-r" style={{ textTransform: 'uppercase' }}>
-                    Cộng tiền hàng (Chưa thuế):
+
+                {/* Dòng Tổng cộng tiền hàng */}
+                <tr className="excel-keep font-bold">
+                  <td colSpan={6} className="excel-l font-bold" style={{ paddingLeft: '8px' }}>
+                    Tổng cộng tiền hàng
                   </td>
-                  <td className="a4-num">{formatVND(quotation.subtotal)}</td>
+                  <td className="excel-num font-bold">
+                    {formatVND(quotation.subtotal)}
+                  </td>
                 </tr>
 
-                {/* Dòng thuế VAT */}
-                <tr className="a4-sum">
-                  <td colSpan={7} className="a4-r" style={{ textTransform: 'uppercase' }}>
-                    Tiền thuế GTGT ({quotation.vatRate}%):
+                {/* Dòng Thuế VAT */}
+                <tr className="excel-keep font-bold">
+                  <td colSpan={2} className="excel-l font-bold" style={{ paddingLeft: '8px' }}>
+                    Thuế VAT
                   </td>
-                  <td className="a4-num">{formatVND(quotation.vatAmount)}</td>
+                  <td colSpan={4} className="excel-l font-bold">
+                    {quotation.vatRate}%
+                  </td>
+                  <td className="excel-num font-bold">
+                    {formatVND(quotation.vatAmount)}
+                  </td>
                 </tr>
 
-                {/* Dòng Tổng cộng thanh toán */}
-                <tr className="a4-total">
-                  <td colSpan={7} className="a4-r">TỔNG CỘNG THANH TOÁN (ĐÃ BAO GỒM VAT):</td>
-                  <td className="a4-num">{formatVND(quotation.totalAmount)}</td>
+                {/* Dòng Tổng tiền thanh toán */}
+                <tr className="excel-keep font-bold">
+                  <td colSpan={6} className="excel-l font-bold" style={{ paddingLeft: '8px' }}>
+                    Tổng tiền thanh toán
+                  </td>
+                  <td className="excel-num font-bold">
+                    {formatVND(quotation.totalAmount)}
+                  </td>
+                </tr>
+
+                {/* Dòng Bằng chữ */}
+                <tr className="excel-keep font-bold">
+                  <td colSpan={2} className="excel-l font-bold" style={{ paddingLeft: '8px' }}>
+                    Bằng chữ :
+                  </td>
+                  <td colSpan={5} className="excel-l font-bold italic">
+                    {numberToWords(quotation.totalAmount)}
+                  </td>
                 </tr>
               </tbody>
             </table>
 
-            {/* Số tiền viết bằng chữ */}
-            <div className="a4-words">
-              <b>Số tiền viết bằng chữ:</b> <i>{numberToWords(quotation.totalAmount)}</i>
+            {/* Ghi chú chuẩn biểu mẫu Excel */}
+            <div className="excel-keep text-[12px] text-black mt-2.5 space-y-0.5">
+              <div className="font-bold">Ghi chú:</div>
+              <div>* Hàng hoá bảo hành theo tiêu chuẩn chính hãng</div>
+              <div>* Đơn giá chưa bao gồm VAT</div>
+              <div>* Báo giá có hiệu lực trong vòng 15 ngày kể từ ngày lập</div>
+              {quotation.notes && quotation.notes.trim() && (
+                <div>* {quotation.notes.trim()}</div>
+              )}
             </div>
 
-            {/* Điều khoản thương mại & Thông tin thanh toán VietQR */}
-            <div className="a4-pay">
-              <div className="a4-terms">
-                <p><b>1. Thời hạn hiệu lực:</b> Báo giá có giá trị trong vòng 15 ngày kể từ ngày lập.</p>
-                <p><b>2. Giao hàng:</b> Miễn phí vận chuyển tận nơi trong phạm vi nội thành Hà Nội.</p>
-                <p><b>3. Thanh toán:</b> Chuyển khoản hoặc tiền mặt theo thỏa thuận hợp đồng.</p>
-                <p>
-                  <b>4. Tài khoản thụ hưởng:</b> {NAMKHANH_BANK_INFO.accountName}
-                  <br />• {NAMKHANH_BANK_INFO.bankName} ({NAMKHANH_BANK_INFO.bankId}) - STK:{' '}
-                  <b className="a4-mono">{NAMKHANH_BANK_INFO.accountNo}</b>
-                  <br />• Nội dung CK: <b className="a4-mono a4-red">{quotation.code}</b>
-                </p>
-              </div>
-              <div className="a4-qr">
-                <img
-                  src={generateVietQRUrl(Number(quotation.totalAmount) || 0, quotation.code)}
-                  alt="VietQR Payment"
-                  crossOrigin="anonymous"
-                />
-                <span style={{ fontWeight: 600, color: '#374151' }}>Quét mã tạm ứng / thanh toán</span>
-                <span className="a4-mono">VietQR NAPAS 247</span>
-              </div>
-            </div>
-
-            {/* Chữ ký 2 bên */}
-            <div className="a4-signs a4-signs-2">
+            {/* Chữ ký 2 bên chuẩn biểu mẫu Excel - BỎ in sẵn họ tên theo yêu cầu */}
+            <div className="excel-keep mt-6 grid grid-cols-2 text-center text-[13px] text-black">
               <div>
-                <div className="a4-sign-title">ĐẠI DIỆN KHÁCH HÀNG</div>
-                <div className="a4-sign-hint">(Ký, ghi rõ họ tên và đóng dấu)</div>
-                <div className="a4-sign-space" style={{ height: 86 }}></div>
-                <div className="a4-sign-name" style={{ fontWeight: 700 }}>
-                  {quotation.customer?.contactPerson || '................................'}
-                </div>
+                <div className="font-bold uppercase">Xác nhận bên bán hàng</div>
+                <div className="text-[11px] italic text-gray-700">(Ký, ghi rõ họ tên)</div>
+                <div className="h-20"></div>
               </div>
               <div>
-                <div className="a4-sign-title a4-red">ĐẠI DIỆN CÔNG TY TNHH NK NAM KHÁNH</div>
-                <div className="a4-sign-hint">(Ký, ghi rõ họ tên và đóng dấu)</div>
-                <div className="a4-sign-space" style={{ height: 86 }}></div>
-                <div className="a4-sign-name" style={{ fontWeight: 700, color: '#111827' }}>
-                  {quotation.manager?.fullName || 'Nguyễn Nam Khánh'}
-                </div>
+                <div className="font-bold uppercase">Xác nhận bên mua hàng</div>
+                <div className="text-[11px] italic text-gray-700">(Ký, ghi rõ họ tên)</div>
+                <div className="h-20"></div>
               </div>
             </div>
           </div>

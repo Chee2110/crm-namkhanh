@@ -40,6 +40,7 @@ import { api } from '../../services/api';
 import { Order, Customer, Product, User, OrderReturn } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { OrderPrintModal } from './components/OrderPrintModal';
+import { OrderDetailModal } from './components/OrderDetailModal';
 import { OrderReturnPrintModal } from './components/OrderReturnPrintModal';
 import { CustomerAutocompleteInput } from '../../components/common/CustomerAutocompleteInput';
 import { printA4 } from '../../utils/printA4';
@@ -498,7 +499,7 @@ export const OrdersPage: React.FC = () => {
 
   // Cancel Refund State
   const [cancelRefundData, setCancelRefundData] = useState({
-    refundOption: 'CREDIT_BALANCE' as 'CREDIT_BALANCE' | 'CASH_REFUND',
+    refundOption: 'CASH_REFUND' as 'CASH_REFUND',
     reason: ''
   });
 
@@ -511,7 +512,7 @@ export const OrdersPage: React.FC = () => {
   // Order Return State (Đổi / Trả hàng hoàn kho)
   const [returnData, setReturnData] = useState({
     returnReason: '',
-    refundOption: 'DEDUCT_DEBT' as 'DEDUCT_DEBT' | 'CASH_REFUND' | 'CREDIT_BALANCE',
+    refundOption: 'DEDUCT_DEBT' as 'DEDUCT_DEBT' | 'CASH_REFUND',
     items: [] as Array<{
       orderItemId?: string;
       productId?: string | null;
@@ -748,15 +749,6 @@ export const OrdersPage: React.FC = () => {
   const creditDeduction = createData.useCreditBalance ? Math.min(totalAmount, customerCredit) : 0;
   const draftRemaining = Math.max(0, totalAmount - creditDeduction - (Number(createData.paidAmount) || 0));
 
-  // Kiểm soát hạn mức tín dụng khách hàng (Feature 2)
-  const selectedOrderCustomer = customers.find((c) => c.id === createData.customerId);
-  const customerCreditLimit = Number(selectedOrderCustomer?.creditLimit) || 50000000;
-  const customerOldDebt = orders
-    .filter((o) => o.customerId === createData.customerId && (!editingOrder || o.id !== editingOrder.id))
-    .reduce((sum, o) => sum + Number(o.remainingAmount || 0), 0);
-  const projectedTotalDebt = customerOldDebt + (totalAmount - (Number(createData.paidAmount) || 0) - creditDeduction);
-  const isExceedingCreditLimit = Boolean(createData.customerId && projectedTotalDebt > customerCreditLimit);
-
   const openEditOrder = (order: Order) => {
     setEditingOrder(order);
     setCreateData({
@@ -775,7 +767,7 @@ export const OrdersPage: React.FC = () => {
       useCreditBalance: false,
       notes: order.notes || '',
       items: (order.items && order.items.length > 0)
-        ? order.items.map((it) => {
+        ? order.items.filter((it) => Number(it.quantity) > 0).map((it) => {
           const matchedProd = products.find(
             (p) => (it.productId && p.id === it.productId) || (it.productCode && p.code === it.productCode)
           );
@@ -1190,7 +1182,7 @@ export const OrdersPage: React.FC = () => {
   const openCancelRefundModal = (order: Order) => {
     setSelectedOrder(order);
     setCancelRefundData({
-      refundOption: 'CREDIT_BALANCE',
+      refundOption: 'CASH_REFUND',
       reason: ''
     });
     setIsCancelRefundModalOpen(true);
@@ -1245,10 +1237,11 @@ export const OrdersPage: React.FC = () => {
 
   const openReturnModal = (order: Order) => {
     setSelectedOrder(order);
+    const hasRemainingDebt = Number(order.remainingAmount || 0) > 0;
     setReturnData({
       returnReason: '',
-      refundOption: 'DEDUCT_DEBT',
-      items: (order.items || []).map((it) => {
+      refundOption: hasRemainingDebt ? 'DEDUCT_DEBT' : 'CASH_REFUND',
+      items: (order.items || []).filter((it) => Number(it.quantity) > 0).map((it) => {
         const matchedProd = products.find(
           (p) => (it.productId && p.id === it.productId) || (it.productCode && p.code === it.productCode)
         );
@@ -1295,6 +1288,7 @@ export const OrdersPage: React.FC = () => {
             (p) => (it.productId && p.id === it.productId) || (it.productCode && p.code === it.productCode)
           );
           return {
+            orderItemId: it.orderItemId,
             productId: it.productId || matchedProd?.id || undefined,
             productCode: it.productCode,
             productName: it.productName,
@@ -1308,11 +1302,16 @@ export const OrdersPage: React.FC = () => {
       });
 
       const createdReturn = res.data?.data?.orderReturn || res.data?.orderReturn;
-      setToastMessage('Lập phiếu trả hàng và hoàn kho thành công!');
+      const updatedOrder = res.data?.data?.order || res.data?.order || selectedOrder;
+      setToastMessage('Lập phiếu trả hàng và hoàn kho thành công! Đơn hàng đã được tự động cập nhật lại số lượng.');
       setIsReturnModalOpen(false);
 
+      if (updatedOrder) {
+        setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
+      }
+
       if (createdReturn) {
-        setSelectedPrintReturn({ returnData: createdReturn, order: selectedOrder });
+        setSelectedPrintReturn({ returnData: createdReturn, order: updatedOrder });
         setIsReturnPrintModalOpen(true);
       }
 
@@ -1472,50 +1471,6 @@ export const OrdersPage: React.FC = () => {
                     <br />
                     <em>Quy tắc: Không xóa trực tiếp sản phẩm đã giao. Nếu khách trả lại hàng, hãy đóng form và sử dụng tính năng <strong>[Lập Phiếu Đổi/Trả Hàng Hoàn Kho]</strong>.</em>
                   </p>
-                </div>
-              </div>
-            )}
-
-            {/* Cảnh báo Hạn mức tín dụng Khách hàng (Credit Limit Control) */}
-            {selectedOrderCustomer && (
-              <div
-                className={`p-3.5 rounded-xl border text-xs flex items-start gap-3 transition-colors ${isExceedingCreditLimit
-                  ? 'bg-red-50 border-red-300 text-red-900'
-                  : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
-                  }`}
-              >
-                {isExceedingCreditLimit ? (
-                  <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                ) : (
-                  <FileCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                )}
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold uppercase tracking-wide text-[11px]">
-                      {isExceedingCreditLimit
-                        ? '⚠️ CẢNH BÁO: ĐƠN HÀNG VƯỢT HẠN MỨC TÍN DỤNG ĐƯỢC CẤP'
-                        : 'Kiểm soát hạn mức tín dụng khách hàng: Hợp lệ'}
-                    </span>
-                    <span className="font-mono text-[11px] font-semibold">
-                      Hạn mức: {formatVND(customerCreditLimit)}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-0.5 text-gray-700">
-                    <p>
-                      Nợ cũ hiện tại: <strong className="text-gray-900">{formatVND(customerOldDebt)}</strong>
-                    </p>
-                    <p>
-                      Đơn hàng này: <strong className="text-gray-900">{formatVND(totalAmount)}</strong>
-                    </p>
-                    <p>
-                      Dự kiến tổng nợ: <strong className={isExceedingCreditLimit ? 'text-red-600 font-bold' : 'text-emerald-700 font-bold'}>{formatVND(projectedTotalDebt)}</strong>
-                    </p>
-                  </div>
-                  {isExceedingCreditLimit && (
-                    <p className="text-red-700 text-[11.5px] font-semibold pt-1 border-t border-red-200">
-                      Khách hàng sẽ vượt quá hạn mức tín dụng cho phép {formatVND(projectedTotalDebt - customerCreditLimit)} (Số ngày nợ tối đa: {selectedOrderCustomer.maxDebtDays || 30} ngày). Vui lòng yêu cầu thanh toán bớt nợ cũ hoặc xin phê duyệt cấp trên trước khi giao hàng!
-                    </p>
-                  )}
                 </div>
               </div>
             )}
@@ -2406,14 +2361,6 @@ export const OrdersPage: React.FC = () => {
                                       <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                                     </button>
 
-                                    {/* Xuất file Excel Biên bản giao hàng chuẩn biểu mẫu BIEU_MAU_CRM */}
-                                    <button
-                                      title="Xuất Excel Biên bản giao hàng (.xlsx)"
-                                      onClick={() => handleExportDeliveryNoteExcel(order)}
-                                      className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                                    >
-                                      <Truck className="w-4 h-4 text-blue-600" />
-                                    </button>
 
                                     {/* Hủy đơn & Hoàn tiền cọc */}
                                     {hasPermission('B_ORDERS', 'update') && order.deliveryStatus !== 'CANCELLED' && order.deliveryStatus !== 'DELIVERED' && (
@@ -2750,46 +2697,18 @@ export const OrdersPage: React.FC = () => {
               </div>
 
               {Number(selectedOrder.paidAmount) > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="block text-xs font-bold text-gray-900">
-                    Chọn phương án hoàn trả tiền cọc ({formatVND(Number(selectedOrder.paidAmount))}):
+                    Phương án xử lý tiền cọc đã thanh toán:
                   </label>
-                  <div className="space-y-2">
-                    <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${cancelRefundData.refundOption === 'CREDIT_BALANCE' ? 'border-[#E53935] bg-red-50/30 ring-1 ring-[#E53935]' : 'border-gray-200 hover:bg-gray-50'
-                      }`}>
-                      <input
-                        type="radio"
-                        name="refundOption"
-                        value="CREDIT_BALANCE"
-                        checked={cancelRefundData.refundOption === 'CREDIT_BALANCE'}
-                        onChange={() => setCancelRefundData({ ...cancelRefundData, refundOption: 'CREDIT_BALANCE' })}
-                        className="mt-0.5 text-[#E53935] focus:ring-[#E53935]"
-                      />
-                      <div>
-                        <div className="text-xs font-bold text-gray-900">Cộng vào Số dư trả trước (Credit Balance)</div>
-                        <div className="text-[11px] text-gray-500 mt-0.5">
-                          Số tiền cọc <span className="font-semibold text-emerald-600">{formatVND(Number(selectedOrder.paidAmount))}</span> sẽ được chuyển vào số dư ví của khách hàng để khấu trừ cho các đơn hàng kế tiếp.
-                        </div>
-                      </div>
-                    </label>
-
-                    <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${cancelRefundData.refundOption === 'CASH_REFUND' ? 'border-[#E53935] bg-red-50/30 ring-1 ring-[#E53935]' : 'border-gray-200 hover:bg-gray-50'
-                      }`}>
-                      <input
-                        type="radio"
-                        name="refundOption"
-                        value="CASH_REFUND"
-                        checked={cancelRefundData.refundOption === 'CASH_REFUND'}
-                        onChange={() => setCancelRefundData({ ...cancelRefundData, refundOption: 'CASH_REFUND' })}
-                        className="mt-0.5 text-[#E53935] focus:ring-[#E53935]"
-                      />
-                      <div>
-                        <div className="text-xs font-bold text-gray-900">Lập Phiếu Chi hoàn trả tiền mặt / ngân hàng</div>
-                        <div className="text-[11px] text-gray-500 mt-0.5">
-                          Hệ thống sẽ tự động lập 01 Phiếu Chi (Payment Voucher) tương ứng để thủ quỹ thanh toán trả lại tiền cho khách hàng.
-                        </div>
-                      </div>
-                    </label>
+                  <div className="p-3.5 bg-red-50/40 border border-red-200 rounded-xl space-y-1">
+                    <div className="text-xs font-bold text-gray-900 flex items-center justify-between">
+                      <span>Lập Phiếu Chi hoàn trả tiền cho khách hàng</span>
+                      <span className="font-bold text-emerald-600 text-sm">{formatVND(Number(selectedOrder.paidAmount))}</span>
+                    </div>
+                    <div className="text-[11px] text-gray-600">
+                      Hệ thống sẽ tự động lập 01 Phiếu Chi (Payment Voucher) tương ứng để thủ quỹ thanh toán trả lại tiền cho khách hàng (không giữ lại số dư cho đơn sau).
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -3082,7 +3001,7 @@ export const OrdersPage: React.FC = () => {
                 <label className="block text-xs font-bold text-gray-900">
                   Phương án xử lý tiền trả hàng:
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                   <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${returnData.refundOption === 'DEDUCT_DEBT' ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'
                     }`}>
                     <input
@@ -3099,22 +3018,6 @@ export const OrdersPage: React.FC = () => {
                     </div>
                   </label>
 
-                  <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${returnData.refundOption === 'CREDIT_BALANCE' ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'
-                    }`}>
-                    <input
-                      type="radio"
-                      name="returnRefundOption"
-                      value="CREDIT_BALANCE"
-                      checked={returnData.refundOption === 'CREDIT_BALANCE'}
-                      onChange={() => setReturnData({ ...returnData, refundOption: 'CREDIT_BALANCE' })}
-                      className="mt-0.5 text-orange-600 focus:ring-orange-500"
-                    />
-                    <div>
-                      <div className="font-bold text-gray-900 text-xs">Cộng số dư ví</div>
-                      <div className="text-[10px] text-gray-500 mt-0.5">Cộng vào số dư trả trước của khách</div>
-                    </div>
-                  </label>
-
                   <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${returnData.refundOption === 'CASH_REFUND' ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'
                     }`}>
                     <input
@@ -3126,8 +3029,8 @@ export const OrdersPage: React.FC = () => {
                       className="mt-0.5 text-orange-600 focus:ring-orange-500"
                     />
                     <div>
-                      <div className="font-bold text-gray-900 text-xs">Tạo Phiếu Chi</div>
-                      <div className="text-[10px] text-gray-500 mt-0.5">Tự động tạo Phiếu Chi hoàn lại tiền</div>
+                      <div className="font-bold text-gray-900 text-xs">Tạo Phiếu Chi hoàn tiền</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">Tự động tạo Phiếu Chi trả lại tiền cho khách hàng</div>
                     </div>
                   </label>
                 </div>
@@ -3167,329 +3070,23 @@ export const OrdersPage: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL XEM CHI TIẾT & IN PHIẾU GIAO HÀNG A4 */}
-      {isDetailModalOpen && selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-1 sm:p-1.5 overflow-hidden">
-          <div className="bg-white rounded-xl w-full max-w-6xl h-[calc(100%-12px)] max-h-[calc(100%-12px)] flex flex-col shadow-2xl overflow-hidden a4-modal print-modal-container">
-            <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between bg-gray-50 no-print flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Printer className="w-5 h-5 text-[#E53935]" />
-                <span className="font-bold text-gray-800 text-sm sm:text-base">
-                  Phiếu Xuất Kho & Giao Hàng - {selectedOrder.code}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {selectedOrder.deliveryStatus === 'DELIVERED' && hasPermission('B_ORDERS', 'update') && (
-                  <button
-                    onClick={() => {
-                      const ord = selectedOrder;
-                      setIsDetailModalOpen(false);
-                      openReturnModal(ord);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                    title="Lập phiếu đổi trả hàng hoàn kho"
-                  >
-                    <PackageMinus className="w-3.5 h-3.5" />
-                    Đổi / Trả hàng
-                  </button>
-                )}
-                {selectedOrder.returns && selectedOrder.returns.length > 0 && (
-                  <button
-                    onClick={() => {
-                      const ret = selectedOrder.returns![0];
-                      setSelectedPrintReturn({ returnData: ret, order: selectedOrder });
-                      setIsReturnPrintModalOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                    title="Xem & in phiếu trả hàng A4"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Phiếu trả ({selectedOrder.returns.length})
-                  </button>
-                )}
-                {hasPermission('B_ORDERS', 'update') && (
-                  <button
-                    onClick={() => {
-                      const ord = selectedOrder;
-                      setIsDetailModalOpen(false);
-                      openEditOrder(ord);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                    title="Chỉnh sửa toàn bộ thông tin đơn hàng này"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                    Chỉnh sửa
-                  </button>
-                )}
-                {hasPermission('B_ORDERS', 'delete') && (
-                  <button
-                    onClick={() => handleDelete(selectedOrder.id, selectedOrder.code, selectedOrder.deliveryStatus)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                    title="Xóa đơn hàng này khỏi hệ thống"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Xóa đơn
-                  </button>
-                )}
-                <button
-                  onClick={() => handleExportSingleOrderExcel(selectedOrder)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                  title="Xuất đơn hàng ra file Excel (.xlsx)"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  Xuất Excel
-                </button>
-                <button
-                  onClick={() => handleExportDeliveryNoteExcel(selectedOrder)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                  title="Xuất Biên bản giao hàng ra file Excel (.xlsx)"
-                >
-                  <Truck className="w-3.5 h-3.5" />
-                  Xuất BB giao hàng
-                </button>
-                <button
-                  onClick={() => printA4('printable-order', `Phieu_giao_hang_${selectedOrder.code}`)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  In phiếu A4
-                </button>
-                <button
-                  onClick={() => setIsDetailModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+      {/* MODAL XEM CHI TIẾT & BIỂU MẪU ĐƠN HÀNG DẠNG EXCEL */}
+      <OrderDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        order={selectedOrder}
+        onEdit={(ord) => openEditOrder(ord)}
+        onDelete={(id, code, deliveryStatus) => handleDelete(id, code, deliveryStatus)}
+        onReturn={(ord) => openReturnModal(ord)}
+        onPrintReturn={(returnData, ord) => {
+          setSelectedPrintReturn({ returnData, order: ord });
+          setIsReturnPrintModalOpen(true);
+        }}
+        hasPermission={hasPermission}
+        onExportExcel={(ord) => handleExportSingleOrderExcel(ord)}
+        onExportDeliveryNote={(ord) => handleExportDeliveryNoteExcel(ord)}
+      />
 
-            {/* BẢN IN KHỔ A4 */}
-            <div className="a4-preview">
-              <div className="a4-sheet" id="printable-order">
-                {/* Header thương hiệu Nam Khánh */}
-                <div className="a4-header">
-                  <div className="a4-brand">
-                    <div>
-                      <h1 className="a4-company-name a4-lg">CÔNG TY TNHH NK NAM KHÁNH</h1>
-                      <p className="a4-company-slogan">
-                        Phân phối sỉ &amp; lẻ Văn phòng phẩm, Thiết bị văn phòng chuyên nghiệp
-                      </p>
-                      <p className="a4-company-line">
-                        Địa chỉ: Số 32, Ngõ 111 Cầu Giấy, P. Dịch Vọng, Q. Cầu Giấy, Hà Nội
-                      </p>
-                      <p className="a4-company-line">
-                        <span className="a4-nowrap">Hotline: (024) 3768 9999</span>
-                        <span className="a4-sep">|</span>
-                        <span className="a4-nowrap">Email: kinhdoanh@namkhanh.vn</span>
-                        <span className="a4-sep">|</span>
-                        <span className="a4-nowrap">MST: 0109876543</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="a4-docmeta">
-                    <div className="a4-doctype">PHIẾU GIAO HÀNG &amp; XUẤT KHO</div>
-                    <div className="a4-doccode">Số: {selectedOrder.code}</div>
-                    <div>
-                      Ngày:{' '}
-                      {new Date(selectedOrder.orderDate).toLocaleDateString('vi-VN', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric'
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Thông tin Khách hàng */}
-                <div className="a4-info" style={{ marginTop: 6 }}>
-                  <div className="a4-field a4-full">
-                    <b>Khách hàng:</b>
-                    <span className="a4-red" style={{ fontWeight: 700 }}>{selectedOrder.customer?.name}</span>
-                  </div>
-                  <div className="a4-field">
-                    <b>Mã khách:</b>
-                    <span>{selectedOrder.customer?.code} | MST: {selectedOrder.customer?.taxCode || 'N/A'}</span>
-                  </div>
-                  <div className="a4-field">
-                    <b>Ngày hẹn giao:</b>
-                    <span>
-                      {selectedOrder.deliveryDate
-                        ? new Date(selectedOrder.deliveryDate).toLocaleDateString('vi-VN')
-                        : 'Giao ngay trong ngày'}
-                    </span>
-                  </div>
-                  <div className="a4-field">
-                    <b>Người nhận:</b>
-                    <span>{selectedOrder.contactPerson || selectedOrder.customer?.contactPerson || 'Bộ phận tiếp nhận'}</span>
-                  </div>
-                  <div className="a4-field">
-                    <b>Nhân viên phụ trách:</b>
-                    <span>{selectedOrder.manager?.fullName || 'Bộ phận kinh doanh'}</span>
-                  </div>
-                  <div className="a4-field">
-                    <b>Số điện thoại:</b>
-                    <span>{selectedOrder.phone || selectedOrder.customer?.phone}</span>
-                  </div>
-                  <div className="a4-field">
-                    <b>Hóa đơn VAT:</b>
-                    <span>{selectedOrder.invoiceStatus === 'ISSUED' ? 'Đã xuất hóa đơn' : 'Chưa xuất hóa đơn'}</span>
-                  </div>
-                  <div className="a4-field a4-full">
-                    <b>Địa chỉ giao:</b>
-                    <span>{selectedOrder.deliveryAddress || selectedOrder.customer?.address}</span>
-                  </div>
-                </div>
-
-                {/* Bảng sản phẩm */}
-                <table className="a4-table">
-                  <thead>
-                    <tr>
-                      <th className="a4-fit">STT</th>
-                      <th className="a4-fit">Mã SP</th>
-                      <th>Tên sản phẩm văn phòng phẩm</th>
-                      <th className="a4-fit">ĐVT</th>
-                      <th className="a4-fit">SL</th>
-                      <th className="a4-fit">Đơn giá</th>
-                      <th className="a4-fit">Thành tiền (VNĐ)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedOrder.items?.map((item, idx) => (
-                      <tr key={idx}>
-                        <td className="a4-fit a4-c a4-muted">{idx + 1}</td>
-                        <td className="a4-fit a4-c a4-code">{item.productCode}</td>
-                        <td className="a4-name">{item.productName}</td>
-                        <td className="a4-fit a4-c">{item.unit}</td>
-                        <td className="a4-fit a4-c" style={{ fontWeight: 700 }}>{item.quantity}</td>
-                        <td className="a4-num">{formatVND(Number(item.unitPrice))}</td>
-                        <td className="a4-num" style={{ fontWeight: 700 }}>{formatVND(Number(item.total))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {/* Tổng cộng & Công nợ */}
-                <div className="a4-summary">
-                  <div className="a4-summary-note">
-                    <b>Ghi chú đơn hàng:</b>
-                    <i>{selectedOrder.notes || 'Hàng mới 100%, đúng quy cách mẫu mã của Nam Khánh.'}</i>
-                  </div>
-                  <div className="a4-summary-lines">
-                    <div>
-                      <span>Cộng tiền hàng:</span>
-                      <span>{formatVND(Number(selectedOrder.subtotal))}</span>
-                    </div>
-                    <div>
-                      <span>Thuế VAT ({selectedOrder.vatRate}%):</span>
-                      <span>{formatVND(Number(selectedOrder.vatAmount))}</span>
-                    </div>
-                    {Number(selectedOrder.adjustedAmount || 0) !== 0 && (
-                      <div style={{ color: '#b45309' }}>
-                        <span>Điều chỉnh giá trị ({selectedOrder.adjustmentReason || 'Khác'}):</span>
-                        <span>
-                          {Number(selectedOrder.adjustedAmount) > 0 ? '+' : ''}
-                          {formatVND(Number(selectedOrder.adjustedAmount))}
-                        </span>
-                      </div>
-                    )}
-                    {Number(selectedOrder.refundAmount || 0) > 0 && (
-                      <div style={{ color: '#dc2626' }}>
-                        <span>Tiền đã hoàn lại:</span>
-                        <span>-{formatVND(Number(selectedOrder.refundAmount))}</span>
-                      </div>
-                    )}
-                    <div className="a4-line-total">
-                      <span>Tổng thanh toán:</span>
-                      <span className="a4-red">{formatVND(Number(selectedOrder.totalAmount))}</span>
-                    </div>
-                    <div>
-                      <span>Đã thanh toán (Thực thu):</span>
-                      <span style={{ color: '#059669', fontWeight: 700 }}>{formatVND(Number(selectedOrder.paidAmount))}</span>
-                    </div>
-                    <div className="a4-line-debt">
-                      <span>CÒN PHẢI THU (NỢ):</span>
-                      <span>{formatVND(Math.max(0, Number(selectedOrder.totalAmount || 0) - Number(selectedOrder.paidAmount || 0)))}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Lịch sử Đổi / Trả hàng hoàn kho */}
-                {selectedOrder.returns && selectedOrder.returns.length > 0 && (
-                  <div className="border border-orange-200 bg-orange-50/40 rounded-xl p-4 space-y-3 mb-3 no-print">
-                    <div className="flex items-center gap-2 text-xs font-bold text-orange-950 uppercase tracking-wide">
-                      <PackageMinus className="w-4 h-4 text-orange-600" />
-                      <span>Lịch sử đổi / trả hàng hoàn kho ({selectedOrder.returns.length} đợt trả)</span>
-                    </div>
-                    <div className="space-y-2">
-                      {selectedOrder.returns.map((ret, rIdx) => (
-                        <div key={rIdx} className="bg-white p-3 rounded-lg border border-orange-200 text-xs space-y-1.5 shadow-sm">
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold text-gray-900">{ret.code} - Ngày {new Date(ret.returnDate).toLocaleDateString('vi-VN')}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-orange-700">Tổng hoàn trả: {formatVND(Number(ret.totalRefundAmount))}</span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedPrintReturn({ returnData: ret, order: selectedOrder });
-                                  setIsReturnPrintModalOpen(true);
-                                }}
-                                className="px-2 py-0.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-[10.5px] font-semibold flex items-center gap-1 shadow-xs cursor-pointer"
-                              >
-                                <Printer className="w-3 h-3" />
-                                <span>In phiếu A4</span>
-                              </button>
-                            </div>
-                          </div>
-                          <p className="text-gray-600 italic">Lý do: {ret.reason}</p>
-                          <div className="text-[11px] text-gray-500">
-                            Phương án: {ret.refundMethod === 'DEDUCT_DEBT' ? 'Trừ trực tiếp công nợ' : ret.refundMethod === 'CREDIT_BALANCE' ? 'Cộng vào số dư trả trước của khách' : 'Tạo phiếu chi hoàn tiền'}
-                          </div>
-                          {ret.items && ret.items.length > 0 && (
-                            <div className="mt-1 border-t border-gray-100 pt-1 text-[11px] text-gray-600 space-y-0.5">
-                              {ret.items.map((it, itIdx) => (
-                                <div key={itIdx} className="flex justify-between">
-                                  <span>• {it.productName} ({it.productCode})</span>
-                                  <span>SL: {it.quantity} {it.unit} x {formatVND(Number(it.unitPrice))}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Chữ ký xác nhận */}
-                <div className="a4-signs" style={{ marginTop: 14 }}>
-                  <div>
-                    <p className="a4-sign-title">Người lập phiếu</p>
-                    <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
-                    <div className="a4-sign-space"></div>
-                  </div>
-                  <div>
-                    <p className="a4-sign-title">Thủ kho xuất</p>
-                    <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
-                    <div className="a4-sign-space"></div>
-                    <p className="a4-sign-name">Kho Nam Khánh</p>
-                  </div>
-                  <div>
-                    <p className="a4-sign-title">Nhân viên giao nhận</p>
-                    <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
-                    <div className="a4-sign-space"></div>
-                    <p className="a4-sign-name">Đội xe giao hàng</p>
-                  </div>
-                  <div>
-                    <p className="a4-sign-title">Người nhận hàng</p>
-                    <p className="a4-sign-hint">(Ký, ghi rõ họ tên)</p>
-                    <div className="a4-sign-space"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       {/* MODAL IN PHIẾU XUẤT KHO A4 CHUẨN SECTION XI.6 */}
       <OrderPrintModal
         isOpen={isPrintModalOpen}

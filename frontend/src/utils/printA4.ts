@@ -39,7 +39,12 @@ export async function printA4(elementId: string, documentTitle?: string): Promis
   doc.open();
   doc.write(
     `<!DOCTYPE html><html lang="vi" class="a4-print-doc"><head><meta charset="utf-8" />` +
-      `<base href="${window.location.origin}/" /><title>${title}</title>${styles}</head>` +
+      `<base href="${window.location.origin}/" /><title>${title}</title>${styles}` +
+      `<style>
+        @page { size: A4 portrait; margin: 8mm 10mm; }
+        body, body * { font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important; color: #000000 !important; }
+        table { border-collapse: collapse !important; }
+      </style></head>` +
       `<body class="a4-print-body">${source.outerHTML}</body></html>`
   );
   doc.close();

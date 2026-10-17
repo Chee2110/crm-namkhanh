@@ -109,14 +109,14 @@ export const QuotationsPage: React.FC = () => {
     customer: 280,
     date: 130,
     validUntil: 150,
-    manager: 160,
+    manager: 200,
     totalAmount: 170,
     status: 140,
     actions: 145
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'quotations_v4',
+    tableKey: 'quotations_v5',
     defaultWidths: defaultQuotationWidths,
     minWidth: 60,
     minWidths: {
@@ -125,7 +125,7 @@ export const QuotationsPage: React.FC = () => {
       customer: 180,
       date: 110,
       validUntil: 130,
-      manager: 140,
+      manager: 170,
       totalAmount: 150,
       status: 120,
       actions: 120
@@ -479,23 +479,13 @@ export const QuotationsPage: React.FC = () => {
   const openAddModal = () => {
     setEditingQuotation(null);
     setFormData({
-      customerId: customers[0]?.id || '',
+      customerId: '',
       date: new Date().toISOString().split('T')[0],
-      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      validUntil: '',
       status: 'DRAFT',
       vatRate: 8,
-      notes: 'Báo giá đã bao gồm chi phí vận chuyển tận nơi trong nội thành Hà Nội.',
-      items: [
-        {
-          productId: products[0]?.id || '',
-          productCode: products[0]?.code || 'SP-GIAY-01',
-          productName: products[0]?.name || 'Giấy in Double A A4 70gsm',
-          unit: products[0]?.unit || 'Ream',
-          quantity: 50,
-          unitPrice: products[0]?.sellingPrice || 82000,
-          vatRate: 8
-        }
-      ]
+      notes: '',
+      items: []
     });
     setFormError(null);
     setIsCreatePage(true);
@@ -1046,68 +1036,82 @@ export const QuotationsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {formData.items.map((it, idx) => {
-                      const itemAmount = (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0);
-                      return (
-                        <tr key={idx} style={{ borderTop: '1px solid #F3F4F6' }}>
-                          <td style={{ textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>{idx + 1}</td>
-                          <td style={{ padding: '0.35rem 0.4rem' }}>
-                            <input
-                              type="text"
-                              list="quotation-product-codes"
-                              className="input font-mono font-semibold"
-                              style={{ padding: '0.35rem 0.5rem', fontSize: '13px' }}
-                              placeholder="Mã SP..."
-                              value={it.productCode || ''}
-                              onChange={(e) => handleItemProductCodeChange(idx, e.target.value)}
-                            />
-                          </td>
-                          <td style={{ padding: '0.35rem 0.4rem' }}>
-                            <input
-                              type="text"
-                              list="quotation-product-names"
-                              className="input"
-                              style={{ padding: '0.35rem 0.6rem', fontSize: '13px' }}
-                              placeholder="Nhập hoặc chọn tên sản phẩm..."
-                              value={it.productName || ''}
-                              onChange={(e) => handleItemProductNameChange(idx, e.target.value)}
-                            />
-                          </td>
-                          <td style={{ padding: '0.35rem 0.3rem' }}>
-                            <input
-                              type="text"
-                              className="input"
-                              style={{ padding: '0.35rem 0.4rem', fontSize: '13px', textAlign: 'center' }}
-                              value={it.unit || ''}
-                              onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
-                            />
-                          </td>
-                          <td style={{ padding: '0.35rem 0.3rem' }}>
-                            <input
-                              type="number"
-                              min="1"
-                              className="input"
-                              style={{ padding: '0.35rem 0.4rem', fontSize: '13px', textAlign: 'center' }}
-                              value={it.quantity}
-                              onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                            />
-                          </td>
-                          <td style={{ padding: '0.35rem 0.3rem' }}>
-                            <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              className="input font-medium"
-                              style={{ padding: '0.35rem 0.5rem', fontSize: '13px', textAlign: 'center' }}
-                              value={it.unitPrice}
-                              onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
-                            />
-                          </td>
-                          <td style={{ textAlign: 'center', fontWeight: '700', color: '#111827', fontSize: '13px', padding: '0.35rem 0.5rem' }}>
-                            {formatMoney(itemAmount)}
-                          </td>
-                          <td style={{ textAlign: 'center', padding: '0.35rem 0.25rem' }}>
-                            {formData.items.length > 1 && (
+                    {formData.items.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          style={{
+                            textAlign: 'center',
+                            padding: '1.75rem 1rem',
+                            color: '#9CA3AF',
+                            fontSize: '13px'
+                          }}
+                        >
+                          Chưa có sản phẩm nào. Nhấp vào nút <strong>"Thêm dòng"</strong> hoặc dùng tính năng <strong>"Nhập từ Excel"</strong> để thêm sản phẩm vào báo giá.
+                        </td>
+                      </tr>
+                    ) : (
+                      formData.items.map((it, idx) => {
+                        const itemAmount = (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0);
+                        return (
+                          <tr key={idx} style={{ borderTop: '1px solid #F3F4F6' }}>
+                            <td style={{ textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>{idx + 1}</td>
+                            <td style={{ padding: '0.35rem 0.4rem' }}>
+                              <input
+                                type="text"
+                                list="quotation-product-codes"
+                                className="input font-mono font-semibold"
+                                style={{ padding: '0.35rem 0.5rem', fontSize: '13px' }}
+                                placeholder="Mã SP..."
+                                value={it.productCode || ''}
+                                onChange={(e) => handleItemProductCodeChange(idx, e.target.value)}
+                              />
+                            </td>
+                            <td style={{ padding: '0.35rem 0.4rem' }}>
+                              <input
+                                type="text"
+                                list="quotation-product-names"
+                                className="input"
+                                style={{ padding: '0.35rem 0.6rem', fontSize: '13px' }}
+                                placeholder="Nhập hoặc chọn tên sản phẩm..."
+                                value={it.productName || ''}
+                                onChange={(e) => handleItemProductNameChange(idx, e.target.value)}
+                              />
+                            </td>
+                            <td style={{ padding: '0.35rem 0.3rem' }}>
+                              <input
+                                type="text"
+                                className="input"
+                                style={{ padding: '0.35rem 0.4rem', fontSize: '13px', textAlign: 'center' }}
+                                value={it.unit || ''}
+                                onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
+                              />
+                            </td>
+                            <td style={{ padding: '0.35rem 0.3rem' }}>
+                              <input
+                                type="number"
+                                min="1"
+                                className="input"
+                                style={{ padding: '0.35rem 0.4rem', fontSize: '13px', textAlign: 'center' }}
+                                value={it.quantity}
+                                onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
+                              />
+                            </td>
+                            <td style={{ padding: '0.35rem 0.3rem' }}>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                className="input font-medium"
+                                style={{ padding: '0.35rem 0.5rem', fontSize: '13px', textAlign: 'center' }}
+                                value={it.unitPrice}
+                                onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
+                              />
+                            </td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: '#111827', fontSize: '13px', padding: '0.35rem 0.5rem' }}>
+                              {formatMoney(itemAmount)}
+                            </td>
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.25rem' }}>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveItem(idx)}
@@ -1116,11 +1120,11 @@ export const QuotationsPage: React.FC = () => {
                               >
                                 <Trash2 size={15} />
                               </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                   <tfoot>
                     <tr style={{ backgroundColor: '#F8FAFC', borderTop: '2px solid #E2E8F0' }}>
@@ -1496,7 +1500,7 @@ export const QuotationsPage: React.FC = () => {
                           case 'manager':
                             return (
                               <td key={colKey} className="py-3 px-3.5 text-xs text-gray-700 whitespace-nowrap overflow-hidden">
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 max-w-[140px] truncate" title={q.manager?.fullName || 'Chưa gán'}>
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 whitespace-nowrap" title={q.manager?.fullName || 'Chưa gán'}>
                                   {q.manager?.fullName || 'Chưa gán'}
                                 </span>
                               </td>

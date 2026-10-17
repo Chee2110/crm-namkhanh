@@ -95,7 +95,7 @@ export async function exportOrderToExcel(order: Order, fileName?: string) {
   });
 
   // Thiết lập trang in chuẩn khổ A4 đứng, tự động vừa khít chiều ngang 1 trang A4
-  const isSinglePage = (order.items?.length || 0) <= 22;
+  const isSinglePage = ((order.items || []).filter((it) => Number(it.quantity) > 0).length || 0) <= 22;
   ws.pageSetup = {
     paperSize: 9, // A4
     orientation: 'portrait',
@@ -121,9 +121,11 @@ export async function exportOrderToExcel(order: Order, fileName?: string) {
       base64: NK_LOGO_BASE64,
       extension: 'png'
     });
+    // Hiển thị logo theo đúng tỷ lệ 1:1 chuẩn xác, không bị dẹp hay méo hình
     ws.addImage(logoId, {
-      tl: { col: 1.0, row: 0.27 },
-      br: { col: 3.0, row: 4.35 }
+      tl: { col: 1.25, row: 0.20 },
+      ext: { width: 86, height: 86 },
+      editAs: 'oneCell'
     } as any);
   } catch (e) {
     console.error('Không thể chèn logo vào file excel:', e);
@@ -256,7 +258,7 @@ export async function exportOrderToExcel(order: Order, fileName?: string) {
   });
 
   // 14+. Dữ liệu sản phẩm
-  const items = order.items || [];
+  const items = (order.items || []).filter((it) => Number(it.quantity) > 0);
   const startRow = 14;
   const lastItemRow = Math.max(startRow, startRow + items.length - 1);
 
@@ -502,7 +504,7 @@ export function buildDeliveryNoteWorksheet(workbook: ExcelJS.Workbook, order: Or
     views: [{ showGridLines: true, rightToLeft: false }]
   });
 
-  const items = order.items || [];
+  const items = (order.items || []).filter((it) => Number(it.quantity) > 0);
   const isSinglePageBBGH = items.length <= 22;
   wsBBGH.pageSetup = {
     paperSize: 9, // A4
@@ -793,9 +795,11 @@ export async function exportQuotationToExcel(quotation: Quotation, fileName?: st
       base64: NK_LOGO_BASE64,
       extension: 'png'
     });
+    // Hiển thị logo theo đúng tỷ lệ 1:1 chuẩn xác, không bị dẹp hay méo hình
     ws.addImage(logoId, {
-      tl: { col: 1.0, row: 0.27 },
-      br: { col: 3.0, row: 4.35 }
+      tl: { col: 1.25, row: 0.20 },
+      ext: { width: 86, height: 86 },
+      editAs: 'oneCell'
     } as any);
   } catch (e) {
     console.error('Không thể chèn logo vào báo giá:', e);

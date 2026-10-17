@@ -524,11 +524,90 @@
   page-break-inside: avoid;
 }
 
+/* ---------- MẪU FORM BẢNG TÍNH EXCEL (EXCEL SPREADSHEET FORM) ---------- */
+.excel-sheet,
+.excel-sheet *,
+.excel-print-area,
+.excel-print-area * {
+  font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+}
+
+.excel-sheet {
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: auto;
+  margin: 0 auto;
+  padding: 8mm 12mm 10mm;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.excel-sheet *,
+.excel-sheet *::before,
+.excel-sheet *::after {
+  box-sizing: border-box;
+}
+
+.excel-sheet table.excel-table {
+  width: 100%;
+  margin-bottom: 0;
+  border-collapse: collapse;
+  font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+  font-size: 12.5px;
+}
+
+.excel-sheet table.excel-table th,
+.excel-sheet table.excel-table td {
+  border: 1px solid #1f2937;
+  padding: 3.5px 6px;
+  vertical-align: middle;
+}
+
+.excel-sheet table.excel-table thead th {
+  background-color: #f1f5f9;
+  color: #000000;
+  font-weight: 700;
+  font-size: 12.5px;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.excel-sheet .excel-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.excel-sheet .excel-c {
+  text-align: center;
+}
+
+.excel-sheet .excel-l {
+  text-align: left;
+}
+
+.excel-sheet .excel-r {
+  text-align: right;
+}
+
+.excel-sheet .excel-nowrap {
+  white-space: nowrap;
+}
+
+.excel-keep {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 /* ---------- Chế độ in ---------- */
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm 11mm;
+    margin: 8mm 10mm;
   }
 
   .no-print,
@@ -549,28 +628,42 @@
     padding: 0 !important;
     min-height: 0 !important;
     background: #ffffff !important;
+    font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+    color: #000000 !important;
   }
 
-  body.a4-print-body .a4-sheet {
-    width: auto;
-    min-height: 0;
-    margin: 0;
-    padding: 0;
-    box-shadow: none;
+  body.a4-print-body,
+  body.a4-print-body * {
+    font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+  }
+
+  body.a4-print-body .a4-sheet,
+  body.a4-print-body .excel-sheet {
+    width: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
   }
 
   .a4-sheet,
-  .a4-sheet * {
+  .a4-sheet *,
+  .excel-sheet,
+  .excel-sheet * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  .a4-table thead {
+  .a4-table thead,
+  .excel-table thead {
     display: table-header-group;
   }
 
-  .a4-table tr {
+  .a4-table tr,
+  .excel-table tr {
     break-inside: avoid;
     page-break-inside: avoid;
   }
 }
+
+

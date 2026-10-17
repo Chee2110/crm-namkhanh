@@ -40,7 +40,7 @@ export class OrdersController {
   async createOrder(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      const { customerId, quotationId, deliveryAddress, contactPerson, phone, orderDate, deliveryDate, deliveryStatus, paymentStatus, invoiceStatus, paidAmount, notes, vatRate, items } = req.body;
+      const { customerId, quotationId, deliveryAddress, contactPerson, phone, orderDate, deliveryDate, deliveryStatus, paymentStatus, invoiceStatus, paidAmount, notes, vatRate, useCreditBalance, items } = req.body;
 
       if (!customerId || !items || !Array.isArray(items) || items.length === 0) {
         return errorResponse(res, 'Vui lòng chọn khách hàng và ít nhất 1 sản phẩm', 400);
@@ -61,6 +61,7 @@ export class OrdersController {
           paidAmount,
           notes,
           vatRate,
+          useCreditBalance: Boolean(useCreditBalance),
           items
         },
         user?.id
@@ -115,7 +116,7 @@ export class OrdersController {
       const { id } = req.params;
       const user = (req as any).user;
       const { refundMethod, refundOption, refundReason, reason } = req.body;
-      const selectedRefundMethod = refundMethod || refundOption || 'CREDIT_BALANCE';
+      const selectedRefundMethod = refundMethod || refundOption || 'CASH_REFUND';
       const selectedReason = refundReason || reason || 'Khách hủy đơn';
 
       if (!['CASH_REFUND', 'CREDIT_BALANCE'].includes(selectedRefundMethod)) {
