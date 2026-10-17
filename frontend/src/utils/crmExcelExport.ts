@@ -52,6 +52,15 @@ function formatQuantity(val: any): { value: number; numFmt: string } {
  */
 async function saveWorkbook(workbook: ExcelJS.Workbook, fileName: string) {
   const buffer = await workbook.xlsx.writeBuffer();
+  if (typeof window === 'undefined') {
+    const nodeRequire = (globalThis as any).require;
+    if (nodeRequire) {
+      const fs = nodeRequire('fs');
+      const buf = (globalThis as any).Buffer ? (globalThis as any).Buffer.from(buffer) : buffer;
+      fs.writeFileSync(fileName, buf);
+    }
+    return;
+  }
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   });
@@ -154,87 +163,79 @@ export async function exportOrderToExcel(order: Order, fileName?: string) {
   r5.alignment = { horizontal: 'center', vertical: 'middle' };
   ws.getRow(5).height = 21.6;
 
-  // 6. Số chứng từ (Dòng 6, merge D6:G6)
-  ws.mergeCells('D6:G6');
-  const r6 = ws.getCell('D6');
-  r6.value = `Số : ${order.code}`;
-  r6.font = { name: 'Times New Roman', size: 11, bold: true };
-  r6.alignment = { horizontal: 'center', vertical: 'middle' };
-  ws.getRow(6).height = 21.6;
-
-  // 7. Ngày tháng năm (Dòng 7, merge B7:H7, viền gạch dưới medium chuẩn mẫu)
-  ws.mergeCells('B7:H7');
-  const r7 = ws.getCell('B7');
-  r7.value = formatVietnameseDate(order.orderDate);
-  r7.font = { name: 'Times New Roman', size: 12, bold: true };
-  r7.alignment = { horizontal: 'left', vertical: 'top' };
+  // 6. Ngày tháng năm (Dòng 6, merge B6:H6, viền gạch dưới medium chuẩn mẫu)
+  ws.mergeCells('B6:H6');
+  const r6 = ws.getCell('B6');
+  r6.value = formatVietnameseDate(order.orderDate);
+  r6.font = { name: 'Times New Roman', size: 12 };
+  r6.alignment = { horizontal: 'center', vertical: 'top' };
   ['B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach((col) => {
-    ws.getCell(`${col}7`).border = { bottom: { style: 'medium' } };
+    ws.getCell(`${col}6`).border = { bottom: { style: 'medium' } };
   });
-  ws.getRow(7).height = 20.4;
+  ws.getRow(6).height = 20.4;
 
-  // 8. Kính gửi khách hàng
-  ws.mergeCells('B8:C8');
-  const r8Title = ws.getCell('B8');
-  r8Title.value = 'Kính gửi';
-  r8Title.font = { name: 'Times New Roman', size: 12 };
-  r8Title.alignment = { horizontal: 'left', vertical: 'middle' };
+  // 7. Kính gửi khách hàng
+  ws.mergeCells('B7:C7');
+  const r7Title = ws.getCell('B7');
+  r7Title.value = 'Kính gửi';
+  r7Title.font = { name: 'Times New Roman', size: 12 };
+  r7Title.alignment = { horizontal: 'left', vertical: 'middle' };
 
-  ws.mergeCells('D8:H8');
-  const r8Val = ws.getCell('D8');
-  r8Val.value = order.customer?.name || 'Quý Khách hàng';
-  r8Val.font = { name: 'Times New Roman', size: 11, bold: true };
-  r8Val.alignment = { horizontal: 'left', vertical: 'middle' };
-  ws.getRow(8).height = 22.2;
+  ws.mergeCells('D7:H7');
+  const r7Val = ws.getCell('D7');
+  r7Val.value = order.customer?.name || (order.customer as any)?.companyName || 'Quý Khách hàng';
+  r7Val.font = { name: 'Times New Roman', size: 11, bold: true };
+  r7Val.alignment = { horizontal: 'left', vertical: 'middle' };
+  ws.getRow(7).height = 22.2;
 
-  // 9. Người đại diện
+  // 8. Người đại diện
+  ws.mergeCells('B8:H8');
+  const r8 = ws.getCell('B8');
+  const contact = order.contactPerson || order.customer?.contactPerson || '';
+  r8.value = `Người đại diện : ${contact}`;
+  r8.font = { name: 'Times New Roman', size: 12 };
+  r8.alignment = { horizontal: 'left', vertical: 'middle' };
+  ws.getRow(8).height = 18;
+
+  // 9. Số điện thoại
   ws.mergeCells('B9:H9');
   const r9 = ws.getCell('B9');
-  const contact = order.contactPerson || order.customer?.contactPerson || '';
-  r9.value = `Người đại diện : ${contact}`;
+  const phone = order.phone || order.customer?.phone || '';
+  r9.value = `Số điện thoại : ${phone}`;
   r9.font = { name: 'Times New Roman', size: 12 };
   r9.alignment = { horizontal: 'left', vertical: 'middle' };
   ws.getRow(9).height = 18;
 
-  // 10. Số điện thoại
+  // 10. Địa chỉ
   ws.mergeCells('B10:H10');
   const r10 = ws.getCell('B10');
-  const phone = order.phone || order.customer?.phone || '';
-  r10.value = `Số điện thoại : ${phone}`;
+  const address = order.deliveryAddress || order.customer?.deliveryAddress || order.customer?.address || '';
+  r10.value = `Địa chỉ : ${address}`;
   r10.font = { name: 'Times New Roman', size: 12 };
   r10.alignment = { horizontal: 'left', vertical: 'middle' };
   ws.getRow(10).height = 18;
 
-  // 11. Địa chỉ
+  // 11. Lời mở đầu
   ws.mergeCells('B11:H11');
   const r11 = ws.getCell('B11');
-  const address = order.deliveryAddress || order.customer?.deliveryAddress || order.customer?.address || '';
-  r11.value = `Địa chỉ : ${address}`;
+  r11.value = 'Công ty TNHH NK Nam Khánh xin gửi tới quý Công ty bảng đơn hàng sau';
   r11.font = { name: 'Times New Roman', size: 12 };
-  r11.alignment = { horizontal: 'left', vertical: 'middle' };
-  ws.getRow(11).height = 18;
+  r11.alignment = { vertical: 'middle', wrapText: true };
+  ws.getRow(11).height = 22.2;
 
-  // 12. Lời mở đầu
-  ws.mergeCells('B12:H12');
-  const r12 = ws.getCell('B12');
-  r12.value = 'Công ty TNHH NK Nam Khánh xin gửi tới quý Công ty bảng đơn hàng sau';
+  // 12. Loại tiền
+  ws.mergeCells('G12:H12');
+  const r12 = ws.getCell('G12');
+  r12.value = ' Loại tiền:  Vnđ';
   r12.font = { name: 'Times New Roman', size: 12 };
-  r12.alignment = { vertical: 'middle', wrapText: true };
-  ws.getRow(12).height = 22.2;
-
-  // 13. Loại tiền
-  ws.mergeCells('G13:H13');
-  const r13 = ws.getCell('G13');
-  r13.value = ' Loại tiền/  Vnđ';
-  r13.font = { name: 'Times New Roman', size: 12 };
-  r13.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
+  r12.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
   ['G', 'H'].forEach((col) => {
-    ws.getCell(`${col}13`).border = { bottom: { style: 'hair' } };
+    ws.getCell(`${col}12`).border = { bottom: { style: 'hair' } };
   });
-  ws.getRow(13).height = 15;
+  ws.getRow(12).height = 15;
 
-  // 14. Tiêu đề bảng hàng hóa (Header table)
-  const headerRow = ws.getRow(14);
+  // 13. Tiêu đề bảng hàng hóa (Header table)
+  const headerRow = ws.getRow(13);
   headerRow.height = 40.2;
   const headers = [
     { col: 'B', text: 'Stt ' },
@@ -247,16 +248,16 @@ export async function exportOrderToExcel(order: Order, fileName?: string) {
   ];
 
   headers.forEach((h) => {
-    const c = ws.getCell(`${h.col}14`);
+    const c = ws.getCell(`${h.col}13`);
     c.value = h.text;
     c.font = { name: 'Times New Roman', size: 12, bold: true };
     c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     c.border = HAIR_BORDER;
   });
 
-  // 15+. Dữ liệu sản phẩm
+  // 14+. Dữ liệu sản phẩm
   const items = order.items || [];
-  const startRow = 15;
+  const startRow = 14;
   const lastItemRow = Math.max(startRow, startRow + items.length - 1);
 
   if (items.length === 0) {
@@ -434,7 +435,7 @@ export async function exportOrderToExcel(order: Order, fileName?: string) {
   ws.mergeCells(`B${noteRowIdx}:C${noteRowIdx}`);
   const cNoteTitle = ws.getCell(`B${noteRowIdx}`);
   cNoteTitle.value = 'Ghi chú:';
-  cNoteTitle.font = { name: 'Times New Roman', size: 13, bold: true };
+  cNoteTitle.font = { name: 'Times New Roman', size: 11, bold: true };
   cNoteTitle.alignment = { horizontal: 'left' };
   ws.getCell(`B${noteRowIdx}`).border = { top: { style: 'hair' } };
   ws.getCell(`C${noteRowIdx}`).border = { top: { style: 'hair' } };
@@ -452,52 +453,36 @@ export async function exportOrderToExcel(order: Order, fileName?: string) {
     ws.mergeCells(`B${noteRowIdx}:H${noteRowIdx}`);
     const cell = ws.getCell(`B${noteRowIdx}`);
     cell.value = n;
-    cell.font = { name: 'Times New Roman', size: 13 };
+    cell.font = { name: 'Times New Roman', size: 11 };
     cell.alignment = { horizontal: 'left', vertical: 'middle' };
-    ws.getRow(noteRowIdx).height = 19;
+    ws.getRow(noteRowIdx).height = 19.05;
   });
 
-  // --- Phần Chữ ký 2 bên chuẩn BIEU_MAU_CRM.xlsx (Bố cục B..D bên trái và F..H bên phải vừa vặn A4) ---
+  // --- Phần Chữ ký 2 bên chuẩn Don_Hang_DH-2026-0005_2026-10-17.xlsx ---
   const signTitleRow = noteRowIdx + 1;
   ws.getRow(signTitleRow).height = 36;
 
-  // Bên trái: Công ty TNHH NK Nam Khánh
+  // Bên trái: Xác nhận bên bán hàng
   ws.mergeCells(`B${signTitleRow}:D${signTitleRow}`);
   const cSignSeller = ws.getCell(`B${signTitleRow}`);
-  cSignSeller.value = 'Công ty TNHH NK Nam Khánh';
+  cSignSeller.value = 'Xác nhận bên bán hàng';
   cSignSeller.font = { name: 'Times New Roman', size: 13, bold: true };
   cSignSeller.alignment = { horizontal: 'center', vertical: 'middle' };
 
-  // Bên phải: Khách hàng
+  // Bên phải: Xác nhận bên mua hàng
   ws.mergeCells(`F${signTitleRow}:H${signTitleRow}`);
   const cSignBuyer = ws.getCell(`F${signTitleRow}`);
-  cSignBuyer.value = 'Khách hàng';
+  cSignBuyer.value = 'Xác nhận bên mua hàng';
   cSignBuyer.font = { name: 'Times New Roman', size: 13, bold: true };
   cSignBuyer.alignment = { horizontal: 'center', vertical: 'middle' };
 
-  const signHintRow = signTitleRow + 1;
-  ws.getRow(signHintRow).height = 20;
-
-  // Ghi chú ký bên trái
-  ws.mergeCells(`B${signHintRow}:D${signHintRow}`);
-  const cHintSeller = ws.getCell(`B${signHintRow}`);
-  cHintSeller.value = '(Ký tên đóng dấu)';
-  cHintSeller.font = { name: 'Times New Roman', size: 12, bold: true, italic: true };
-  cHintSeller.alignment = { horizontal: 'center', vertical: 'middle' };
-
-  // Ghi chú ký bên phải
-  ws.mergeCells(`F${signHintRow}:H${signHintRow}`);
-  const cHintBuyer = ws.getCell(`F${signHintRow}`);
-  cHintBuyer.value = '(Ký tên đóng dấu)';
-  cHintBuyer.font = { name: 'Times New Roman', size: 12, bold: true, italic: true };
-  cHintBuyer.alignment = { horizontal: 'center', vertical: 'middle' };
-
-  // Khoảng trống ký tên chuẩn biểu mẫu (không để tên người ký)
-  ws.getRow(signHintRow + 1).height = 36;
-  ws.getRow(signHintRow + 2).height = 36;
+  // Khoảng trống ký tên chuẩn biểu mẫu (3 dòng trống)
+  ws.getRow(signTitleRow + 1).height = 36;
+  ws.getRow(signTitleRow + 2).height = 36;
+  ws.getRow(signTitleRow + 3).height = 36;
 
   // Vùng in giới hạn chính xác A1 đến H(cuối trang)
-  ws.pageSetup.printArea = `A1:H${signHintRow + 2}`;
+  ws.pageSetup.printArea = `A1:H${signTitleRow + 3}`;
 
   // =========================================================================
   // SHEET 2: LỆNH XUẤT - BBGH (Biên bản bàn giao giao nhận thực tế)
@@ -850,87 +835,79 @@ export async function exportQuotationToExcel(quotation: Quotation, fileName?: st
   r5.alignment = { horizontal: 'center', vertical: 'middle' };
   ws.getRow(5).height = 21.6;
 
-  // 6. Số báo giá (Dòng 6, merge B6:H6)
+  // 6. Ngày tháng năm (Dòng 6, merge B6:H6, viền gạch dưới medium chuẩn mẫu)
   ws.mergeCells('B6:H6');
   const r6 = ws.getCell('B6');
-  r6.value = `Số : ${quotation.code}`;
-  r6.font = { name: 'Times New Roman', size: 12, bold: true };
-  r6.alignment = { horizontal: 'center', vertical: 'middle' };
-  ws.getRow(6).height = 21.6;
-
-  // 7. Ngày tháng năm (Dòng 7, merge B7:H7, viền gạch dưới medium chuẩn mẫu)
-  ws.mergeCells('B7:H7');
-  const r7 = ws.getCell('B7');
-  r7.value = formatVietnameseDate(quotation.date);
-  r7.font = { name: 'Times New Roman', size: 12, bold: true };
-  r7.alignment = { horizontal: 'left', vertical: 'top' };
+  r6.value = formatVietnameseDate(quotation.date);
+  r6.font = { name: 'Times New Roman', size: 12 };
+  r6.alignment = { horizontal: 'center', vertical: 'top' };
   ['B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach((col) => {
-    ws.getCell(`${col}7`).border = { bottom: { style: 'medium' } };
+    ws.getCell(`${col}6`).border = { bottom: { style: 'medium' } };
   });
-  ws.getRow(7).height = 20.4;
+  ws.getRow(6).height = 20.4;
 
-  // 8. Khách hàng
-  ws.mergeCells('B8:C8');
-  const r8Title = ws.getCell('B8');
-  r8Title.value = 'Kính gửi';
-  r8Title.font = { name: 'Times New Roman', size: 12 };
-  r8Title.alignment = { horizontal: 'left', vertical: 'middle' };
+  // 7. Khách hàng
+  ws.mergeCells('B7:C7');
+  const r7Title = ws.getCell('B7');
+  r7Title.value = 'Kính gửi';
+  r7Title.font = { name: 'Times New Roman', size: 12 };
+  r7Title.alignment = { horizontal: 'left', vertical: 'middle' };
 
-  ws.mergeCells('D8:H8');
-  const r8Val = ws.getCell('D8');
-  r8Val.value = quotation.customer?.name || 'Quý Khách hàng';
-  r8Val.font = { name: 'Times New Roman', size: 12, bold: true };
-  r8Val.alignment = { horizontal: 'left', vertical: 'middle' };
-  ws.getRow(8).height = 22.2;
+  ws.mergeCells('D7:H7');
+  const r7Val = ws.getCell('D7');
+  r7Val.value = quotation.customer?.name || (quotation.customer as any)?.companyName || 'Quý Khách hàng';
+  r7Val.font = { name: 'Times New Roman', size: 12, bold: true };
+  r7Val.alignment = { horizontal: 'left', vertical: 'middle' };
+  ws.getRow(7).height = 22.2;
 
-  // 9. Người đại diện
+  // 8. Người đại diện
+  ws.mergeCells('B8:H8');
+  const r8 = ws.getCell('B8');
+  const contact = (quotation as any).contactPerson || quotation.customer?.contactPerson || '';
+  r8.value = `Người đại diện : ${contact}`;
+  r8.font = { name: 'Times New Roman', size: 12 };
+  r8.alignment = { horizontal: 'left', vertical: 'middle' };
+  ws.getRow(8).height = 18;
+
+  // 9. Số điện thoại
   ws.mergeCells('B9:H9');
   const r9 = ws.getCell('B9');
-  const contact = quotation.customer?.contactPerson || '';
-  r9.value = `Người đại diện : ${contact}`;
+  const phone = (quotation as any).phone || quotation.customer?.phone || '';
+  r9.value = `Số điện thoại : ${phone}`;
   r9.font = { name: 'Times New Roman', size: 12 };
   r9.alignment = { horizontal: 'left', vertical: 'middle' };
   ws.getRow(9).height = 18;
 
-  // 10. Số điện thoại
+  // 10. Địa chỉ
   ws.mergeCells('B10:H10');
   const r10 = ws.getCell('B10');
-  const phone = quotation.customer?.phone || '';
-  r10.value = `Số điện thoại : ${phone}`;
+  const address = (quotation as any).deliveryAddress || quotation.customer?.deliveryAddress || quotation.customer?.address || '';
+  r10.value = `Địa chỉ : ${address}`;
   r10.font = { name: 'Times New Roman', size: 12 };
   r10.alignment = { horizontal: 'left', vertical: 'middle' };
   ws.getRow(10).height = 18;
 
-  // 11. Địa chỉ
+  // 11. Lời mở đầu
   ws.mergeCells('B11:H11');
   const r11 = ws.getCell('B11');
-  const address = quotation.customer?.deliveryAddress || quotation.customer?.address || '';
-  r11.value = `Địa chỉ : ${address}`;
+  r11.value = 'Công ty TNHH NK Nam Khánh xin gửi tới quý Công ty bảng báo giá mặt hàng sau';
   r11.font = { name: 'Times New Roman', size: 12 };
-  r11.alignment = { horizontal: 'left', vertical: 'middle' };
-  ws.getRow(11).height = 18;
+  r11.alignment = { vertical: 'middle', wrapText: true };
+  ws.getRow(11).height = 22.2;
 
-  // 12. Lời mở đầu
-  ws.mergeCells('B12:H12');
-  const r12 = ws.getCell('B12');
-  r12.value = 'Công ty TNHH NK Nam Khánh xin gửi tới quý Công ty bảng báo giá mặt hàng sau';
+  // 12. Loại tiền
+  ws.mergeCells('G12:H12');
+  const r12 = ws.getCell('G12');
+  r12.value = ' Loại tiền: Vnđ';
   r12.font = { name: 'Times New Roman', size: 12 };
-  r12.alignment = { vertical: 'middle', wrapText: true };
-  ws.getRow(12).height = 22.2;
-
-  // 13. Loại tiền
-  ws.mergeCells('G13:H13');
-  const r13 = ws.getCell('G13');
-  r13.value = ' Loại tiền/  Vnđ';
-  r13.font = { name: 'Times New Roman', size: 12 };
-  r13.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
+  r12.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
   ['G', 'H'].forEach((col) => {
-    ws.getCell(`${col}13`).border = { bottom: { style: 'hair' } };
+    ws.getCell(`${col}12`).border = { bottom: { style: 'hair' } };
   });
-  ws.getRow(13).height = 15;
+  ws.getRow(12).height = 15;
 
-  // 14. Tiêu đề bảng báo giá
-  const headerRow = ws.getRow(14);
+  // 13. Tiêu đề bảng báo giá
+  const headerRow = ws.getRow(13);
   headerRow.height = 40.2;
   const headers = [
     { col: 'B', text: 'Stt ' },
@@ -943,16 +920,16 @@ export async function exportQuotationToExcel(quotation: Quotation, fileName?: st
   ];
 
   headers.forEach((h) => {
-    const c = ws.getCell(`${h.col}14`);
+    const c = ws.getCell(`${h.col}13`);
     c.value = h.text;
     c.font = { name: 'Times New Roman', size: 12, bold: true };
     c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     c.border = HAIR_BORDER;
   });
 
-  // 15+. Dữ liệu sản phẩm báo giá
+  // 14+. Dữ liệu sản phẩm báo giá
   const items = quotation.items || [];
-  const startRow = 15;
+  const startRow = 14;
   const lastItemRow = Math.max(startRow, startRow + items.length - 1);
 
   if (items.length === 0) {
@@ -1119,76 +1096,59 @@ export async function exportQuotationToExcel(quotation: Quotation, fileName?: st
   ws.getCell(`H${wordsRowIdx}`).border = { top: { style: 'hair' }, bottom: { style: 'hair' }, right: { style: 'hair' } };
 
   // --- Ghi chú chuẩn biểu mẫu Báo giá ---
-  let noteRowIdx = wordsRowIdx + 1;
-  ws.mergeCells(`B${noteRowIdx}:C${noteRowIdx}`);
-  const cNoteTitle = ws.getCell(`B${noteRowIdx}`);
-  cNoteTitle.value = 'Ghi chú:';
-  cNoteTitle.font = { name: 'Times New Roman', size: 13, bold: true };
-  cNoteTitle.alignment = { horizontal: 'left' };
-  ws.getCell(`B${noteRowIdx}`).border = { top: { style: 'hair' } };
-  ws.getCell(`C${noteRowIdx}`).border = { top: { style: 'hair' } };
+  // --- Ghi chú / Đường kẻ ngăn cách chuẩn Bao_Gia_BG-2026-0002_2026-10-17.xlsx ---
+  let nextRowIdx = wordsRowIdx + 1;
+  const customNotes = quotation.notes && quotation.notes.trim();
 
-  const notesList = [
-    '* Hàng hoá bảo hành theo tiêu chuẩn chính hãng',
-    '* Báo giá có hiệu lực kể từ ngày ký đến khi có thông báo mới',
-    '* Miễn phí vận chuyển tại nội thành Hà Nội và Đông Anh, Mê linh ,Sóc Sơn',
-    '* Đơn giá chưa bao gồm VAT'
-  ];
-  if (quotation.notes && quotation.notes.trim()) {
-    notesList.push(`* ${quotation.notes.trim()}`);
+  if (customNotes) {
+    ws.mergeCells(`B${nextRowIdx}:C${nextRowIdx}`);
+    const cNoteTitle = ws.getCell(`B${nextRowIdx}`);
+    cNoteTitle.value = 'Ghi chú:';
+    cNoteTitle.font = { name: 'Times New Roman', size: 11, bold: true };
+    cNoteTitle.alignment = { horizontal: 'left' };
+    ws.getCell(`B${nextRowIdx}`).border = { top: { style: 'hair' } };
+    ws.getCell(`C${nextRowIdx}`).border = { top: { style: 'hair' } };
+
+    nextRowIdx++;
+    ws.mergeCells(`B${nextRowIdx}:H${nextRowIdx}`);
+    const cell = ws.getCell(`B${nextRowIdx}`);
+    cell.value = `* ${customNotes}`;
+    cell.font = { name: 'Times New Roman', size: 11 };
+    cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    ws.getRow(nextRowIdx).height = 19.05;
+  } else {
+    // Trường hợp không có ghi chú riêng: tạo 1 dòng trống với đường kẻ viền top hair B:C giống hệt file mẫu
+    ws.getRow(nextRowIdx).height = 16.8;
+    ws.mergeCells(`B${nextRowIdx}:C${nextRowIdx}`);
+    ws.getCell(`B${nextRowIdx}`).border = { top: { style: 'hair' } };
+    ws.getCell(`C${nextRowIdx}`).border = { top: { style: 'hair' } };
   }
 
-  notesList.forEach((n) => {
-    noteRowIdx++;
-    ws.mergeCells(`B${noteRowIdx}:H${noteRowIdx}`);
-    const cell = ws.getCell(`B${noteRowIdx}`);
-    cell.value = n;
-    cell.font = { name: 'Times New Roman', size: 13 };
-    cell.alignment = { horizontal: 'left', vertical: 'middle' };
-    ws.getRow(noteRowIdx).height = 19;
-  });
-
-  // --- Chữ ký 2 bên chuẩn BIEU_MAU_CRM.xlsx (Bố cục B..D bên trái và F..H bên phải vừa vặn A4) ---
-  const signTitleRow = noteRowIdx + 1;
+  // --- Chữ ký 2 bên chuẩn Bao_Gia_BG-2026-0002_2026-10-17.xlsx ---
+  const signTitleRow = nextRowIdx + 1;
   ws.getRow(signTitleRow).height = 36;
 
-  // Bên trái: Công ty TNHH NK Nam Khánh
+  // Bên trái: Xác nhận bên bán hàng
   ws.mergeCells(`B${signTitleRow}:D${signTitleRow}`);
   const cSignSeller = ws.getCell(`B${signTitleRow}`);
-  cSignSeller.value = 'Công ty TNHH NK Nam Khánh';
+  cSignSeller.value = 'Xác nhận bên bán hàng';
   cSignSeller.font = { name: 'Times New Roman', size: 13, bold: true };
   cSignSeller.alignment = { horizontal: 'center', vertical: 'middle' };
 
-  // Bên phải: Khách hàng
+  // Bên phải: Xác nhận bên mua hàng 
   ws.mergeCells(`F${signTitleRow}:H${signTitleRow}`);
   const cSignBuyer = ws.getCell(`F${signTitleRow}`);
-  cSignBuyer.value = 'Khách hàng';
+  cSignBuyer.value = 'Xác nhận bên mua hàng ';
   cSignBuyer.font = { name: 'Times New Roman', size: 13, bold: true };
   cSignBuyer.alignment = { horizontal: 'center', vertical: 'middle' };
 
-  const signHintRow = signTitleRow + 1;
-  ws.getRow(signHintRow).height = 20;
-
-  // Ghi chú ký bên trái
-  ws.mergeCells(`B${signHintRow}:D${signHintRow}`);
-  const cHintSeller = ws.getCell(`B${signHintRow}`);
-  cHintSeller.value = '(Ký tên đóng dấu)';
-  cHintSeller.font = { name: 'Times New Roman', size: 12, bold: true, italic: true };
-  cHintSeller.alignment = { horizontal: 'center', vertical: 'middle' };
-
-  // Ghi chú ký bên phải
-  ws.mergeCells(`F${signHintRow}:H${signHintRow}`);
-  const cHintBuyer = ws.getCell(`F${signHintRow}`);
-  cHintBuyer.value = '(Ký tên đóng dấu)';
-  cHintBuyer.font = { name: 'Times New Roman', size: 12, bold: true, italic: true };
-  cHintBuyer.alignment = { horizontal: 'center', vertical: 'middle' };
-
-  // Khoảng trống ký tên chuẩn biểu mẫu (không để tên người ký)
-  ws.getRow(signHintRow + 1).height = 36;
-  ws.getRow(signHintRow + 2).height = 36;
+  // Khoảng trống ký tên chuẩn biểu mẫu (3 dòng trống)
+  ws.getRow(signTitleRow + 1).height = 36;
+  ws.getRow(signTitleRow + 2).height = 36;
+  ws.getRow(signTitleRow + 3).height = 36;
 
   // Vùng in giới hạn chính xác A1 đến H(cuối trang)
-  ws.pageSetup.printArea = `A1:H${signHintRow + 2}`;
+  ws.pageSetup.printArea = `A1:H${signTitleRow + 3}`;
 
   const finalFileName = fileName || `Bao_Gia_${quotation.code}_${new Date().toISOString().slice(0, 10)}.xlsx`;
   await saveWorkbook(workbook, finalFileName);

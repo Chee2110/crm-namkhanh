@@ -703,24 +703,22 @@ export const OrdersPage: React.FC = () => {
   };
 
   const handleAddEmptyRow = () => {
-    const defaultProd = products[0];
-    if (!defaultProd) return;
-    setCreateData({
-      ...createData,
+    setCreateData((prev) => ({
+      ...prev,
       items: [
-        ...createData.items,
+        ...prev.items,
         {
-          productId: defaultProd.id,
-          productCode: defaultProd.code,
-          productName: defaultProd.name,
-          unit: defaultProd.unit,
+          productId: '',
+          productCode: '',
+          productName: '',
+          unit: '',
           quantity: 1,
-          unitPrice: Number(defaultProd.sellingPrice || 0),
-          vatRate: createData.vatRate,
-          imageUrl: defaultProd.imageUrl || ''
+          unitPrice: 0,
+          vatRate: prev.vatRate !== undefined ? prev.vatRate : 8,
+          imageUrl: ''
         }
       ]
-    });
+    }));
   };
 
   const handleBulkImportItems = (importedItems: any[]) => {
@@ -731,6 +729,7 @@ export const OrdersPage: React.FC = () => {
       );
       return {
         ...item,
+        productId: item.productId || matched?.id || '',
         imageUrl: item.imageUrl || matched?.imageUrl || ''
       };
     });
@@ -781,7 +780,7 @@ export const OrdersPage: React.FC = () => {
             (p) => (it.productId && p.id === it.productId) || (it.productCode && p.code === it.productCode)
           );
           return {
-            productId: it.productId || '',
+            productId: it.productId || matchedProd?.id || '',
             productCode: it.productCode,
             productName: it.productName,
             unit: it.unit,
@@ -805,8 +804,11 @@ export const OrdersPage: React.FC = () => {
       setFormError('Vui lòng chọn khách hàng đặt đơn');
       return;
     }
-    if (createData.items.length === 0) {
-      setFormError('Vui lòng thêm ít nhất một sản phẩm vào đơn hàng');
+    const validItems = createData.items.filter(
+      (item) => (item.productId && item.productId.trim() !== '') || (item.productName && item.productName.trim() !== '')
+    );
+    if (validItems.length === 0) {
+      setFormError('Vui lòng chọn sản phẩm cho các dòng trong đơn hàng');
       return;
     }
 
@@ -815,6 +817,7 @@ export const OrdersPage: React.FC = () => {
       if (editingOrder) {
         await api.put(`/orders/${editingOrder.id}`, {
           ...createData,
+          items: validItems,
           orderDate: createData.orderDate ? new Date(createData.orderDate) : undefined,
           deliveryDate: createData.deliveryDate ? new Date(createData.deliveryDate) : undefined,
           paidAmount: Number(createData.paidAmount) || 0
@@ -823,6 +826,7 @@ export const OrdersPage: React.FC = () => {
       } else {
         await api.post('/orders', {
           ...createData,
+          items: validItems,
           orderDate: createData.orderDate ? new Date(createData.orderDate) : undefined,
           deliveryDate: createData.deliveryDate ? new Date(createData.deliveryDate) : undefined,
           paidAmount: Number(createData.paidAmount) || 0,
@@ -1244,17 +1248,22 @@ export const OrdersPage: React.FC = () => {
     setReturnData({
       returnReason: '',
       refundOption: 'DEDUCT_DEBT',
-      items: (order.items || []).map((it) => ({
-        orderItemId: it.id,
-        productId: it.productId,
-        productCode: it.productCode,
-        productName: it.productName,
-        unit: it.unit,
-        orderQuantity: it.quantity,
-        returnQuantity: 0,
-        unitPrice: Number(it.unitPrice || 0),
-        condition: 'GOOD' as 'GOOD' | 'DEFECTIVE'
-      }))
+      items: (order.items || []).map((it) => {
+        const matchedProd = products.find(
+          (p) => (it.productId && p.id === it.productId) || (it.productCode && p.code === it.productCode)
+        );
+        return {
+          orderItemId: it.id,
+          productId: it.productId || matchedProd?.id || '',
+          productCode: it.productCode,
+          productName: it.productName,
+          unit: it.unit,
+          orderQuantity: it.quantity,
+          returnQuantity: 0,
+          unitPrice: Number(it.unitPrice || 0),
+          condition: 'GOOD' as 'GOOD' | 'DEFECTIVE'
+        };
+      })
     });
     setIsReturnModalOpen(true);
   };
@@ -1281,16 +1290,21 @@ export const OrdersPage: React.FC = () => {
         returnReason: returnData.returnReason,
         refundMethod: returnData.refundOption,
         refundOption: returnData.refundOption,
-        items: itemsToReturn.map((it) => ({
-          productId: it.productId,
-          productCode: it.productCode,
-          productName: it.productName,
-          unit: it.unit,
-          quantity: it.returnQuantity,
-          unitPrice: it.unitPrice,
-          amount: it.returnQuantity * it.unitPrice,
-          condition: it.condition || 'GOOD'
-        }))
+        items: itemsToReturn.map((it) => {
+          const matchedProd = products.find(
+            (p) => (it.productId && p.id === it.productId) || (it.productCode && p.code === it.productCode)
+          );
+          return {
+            productId: it.productId || matchedProd?.id || undefined,
+            productCode: it.productCode,
+            productName: it.productName,
+            unit: it.unit,
+            quantity: it.returnQuantity,
+            unitPrice: it.unitPrice,
+            amount: it.returnQuantity * it.unitPrice,
+            condition: it.condition || 'GOOD'
+          };
+        })
       });
 
       const createdReturn = res.data?.data?.orderReturn || res.data?.orderReturn;

@@ -153,7 +153,7 @@ export const ProductTypesPage: React.FC<ProductTypesPageProps> = ({ headerSlot }
     code: '',
     name: '',
     categoryId: '',
-    unit: 'Ream',
+    unit: '',
     description: '',
     status: 'ACTIVE'
   });
@@ -215,7 +215,7 @@ export const ProductTypesPage: React.FC<ProductTypesPageProps> = ({ headerSlot }
       code: '',
       name: '',
       categoryId: categories[0]?.id || '',
-      unit: 'Ream',
+      unit: '',
       description: '',
       status: 'ACTIVE'
     });
@@ -229,7 +229,7 @@ export const ProductTypesPage: React.FC<ProductTypesPageProps> = ({ headerSlot }
       code: t.code,
       name: t.name,
       categoryId: t.categoryId,
-      unit: t.unit || 'Ream',
+      unit: t.unit || '',
       description: t.description || '',
       status: t.status
     });
@@ -558,17 +558,6 @@ export const ProductTypesPage: React.FC<ProductTypesPageProps> = ({ headerSlot }
                   placeholder="VD: Giấy in A4, Bút bi bấm..."
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Đơn vị tính chuẩn</label>
-                <input
-                  type="text"
-                  placeholder="VD: Ream, Hộp, Cây, Chiếc..."
-                  value={formData.unit}
-                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                   className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
                 />
               </div>

@@ -21,7 +21,8 @@ import {
   ArrowLeft,
   Edit2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Check
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Quotation, Customer, Product } from '../../types';
@@ -1583,34 +1584,8 @@ export const QuotationsPage: React.FC = () => {
                                       {convertingQuoteId === q.id ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
                                       ) : (
-                                        <ShoppingBag className="w-4 h-4" />
+                                        <Check className="w-4 h-4 stroke-[2.5]" />
                                       )}
-                                    </button>
-                                  )}
-                                  {q.status === 'ORDERED' && (
-                                    <span
-                                      className="p-1 text-indigo-600 rounded-md cursor-default inline-flex items-center justify-center"
-                                      title="Báo giá đã được lên đơn hàng thành công"
-                                    >
-                                      <CheckCircle2 className="w-4 h-4" />
-                                    </span>
-                                  )}
-                                  {q.status === 'DRAFT' && (
-                                    <button
-                                      onClick={() => handleStatusChange(q.id, 'SENT')}
-                                      className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                                      title="Đánh dấu đã gửi khách"
-                                    >
-                                      <Send className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                  {q.status === 'SENT' && (
-                                    <button
-                                      onClick={() => handleStatusChange(q.id, 'CONFIRMED')}
-                                      className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
-                                      title="Chốt báo giá thành công"
-                                    >
-                                      <CheckCircle2 className="w-4 h-4" />
                                     </button>
                                   )}
                                 </div>

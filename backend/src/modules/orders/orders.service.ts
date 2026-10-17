@@ -1,5 +1,17 @@
 import { prisma } from '../../config/db';
 
+async function findProduct(tx: any, productId?: string | null, productCode?: string | null) {
+  if (productId) {
+    const prod = await tx.product.findUnique({ where: { id: productId } });
+    if (prod) return prod;
+  }
+  if (productCode && productCode !== 'N/A') {
+    const prod = await tx.product.findUnique({ where: { code: productCode } });
+    if (prod) return prod;
+  }
+  return null;
+}
+
 export class OrdersService {
   async getOrders(params: {
     customerId?: string;
@@ -207,6 +219,18 @@ export class OrdersService {
         });
       }
 
+      // Chuẩn hóa productId cho computedItems nếu chưa có
+      const finalItems = await Promise.all(
+        computedItems.map(async (item) => {
+          let pid = item.productId;
+          if (!pid) {
+            const prod = await findProduct(tx, null, item.productCode);
+            if (prod) pid = prod.id;
+          }
+          return { ...item, productId: pid };
+        })
+      );
+
       const newOrder = await tx.order.create({
         data: {
           code,
@@ -229,7 +253,7 @@ export class OrdersService {
           remainingAmount,
           notes: finalNotes,
           items: {
-            create: computedItems
+            create: finalItems
           }
         },
         include: {
@@ -241,18 +265,13 @@ export class OrdersService {
         }
       });
 
-      // Nếu đơn hàng tạo mới đã ở trạng thái ĐÃ GIAO HÀNG (DELIVERED) -> Kiểm tra và trừ tồn kho tức thời
-      if (data.deliveryStatus === 'DELIVERED') {
-        for (const item of computedItems) {
-          if (item.productId) {
-            const product = await tx.product.findUnique({ where: { id: item.productId } });
-            if (!product || product.stockQuantity < item.quantity) {
-              throw new Error(
-                `Sản phẩm "${item.productName}" không đủ tồn kho để xuất giao (Tồn kho hiện tại: ${product?.stockQuantity || 0}, yêu cầu xuất: ${item.quantity})`
-              );
-            }
+      // Tự động trừ tồn kho cho tất cả đơn hàng mới tạo (trừ khi tạo ở trạng thái ĐÃ HỦY - CANCELLED)
+      if (data.deliveryStatus !== 'CANCELLED') {
+        for (const item of finalItems) {
+          const product = await findProduct(tx, item.productId, item.productCode);
+          if (product) {
             await tx.product.update({
-              where: { id: item.productId },
+              where: { id: product.id },
               data: {
                 stockQuantity: {
                   decrement: item.quantity
@@ -364,75 +383,85 @@ export class OrdersService {
       // QUẢN LÝ ĐỒNG BỘ KHO VÀ ĐỘ LỆCH TỒN KHO DELTA (Δ)
       // ==============================================================
       if (hasItemsUpdate) {
-        if (order.deliveryStatus === 'DELIVERED' && targetDeliveryStatus === 'DELIVERED') {
-          // Trường hợp 1: Đơn hàng ĐÃ GIAO và tiếp tục giữ trạng thái ĐÃ GIAO khi sửa items
-          // Quy trình 4: Kiểm tra xóa sản phẩm khỏi đơn đã xuất/giao
-          for (const oldItem of order.items) {
-            const stillExists = computedItems.some(
-              (ci) => (oldItem.productId && ci.productId === oldItem.productId) || ci.productCode === oldItem.productCode
-            );
-            if (!stillExists) {
-              throw new Error(
-                `Sản phẩm "${oldItem.productName}" đã xuất giao hàng. Quy trình hệ thống không cho phép xóa trực tiếp mặt hàng khỏi đơn đã giao. Vui lòng lập Phiếu đổi trả hàng (OrderReturn) để thu hồi hàng và ghi nhận hoàn kho.`
-              );
+        // Chuẩn hóa productId cho computedItems nếu chưa có
+        const resolvedComputedItems = await Promise.all(
+          computedItems.map(async (ci) => {
+            let pid = ci.productId;
+            if (!pid) {
+              const p = await findProduct(tx, null, ci.productCode);
+              if (p) pid = p.id;
             }
-          }
+            return { ...ci, productId: pid };
+          })
+        );
 
-          // Quy trình 3: Tính toán độ lệch Delta (Δ = newQuantity - oldQuantity)
-          for (const newItem of computedItems) {
-            if (newItem.productId) {
-              const matchedOld = order.items.find(
-                (oi) => (oi.productId && oi.productId === newItem.productId) || oi.productCode === newItem.productCode
-              );
-              const oldQty = matchedOld ? Number(matchedOld.quantity) : 0;
-              const newQty = Number(newItem.quantity);
-              const delta = newQty - oldQty;
+        const wasCancelled = order.deliveryStatus === 'CANCELLED';
+        const isCancelled = targetDeliveryStatus === 'CANCELLED';
 
+        if (!wasCancelled && !isCancelled) {
+          // Trường hợp 1: Đơn hàng đang hoạt động -> tiếp tục hoạt động, tính delta số lượng cho từng mặt hàng
+          // A. Duyệt các mặt hàng mới / cập nhật
+          for (const newItem of resolvedComputedItems) {
+            const prod = await findProduct(tx, newItem.productId, newItem.productCode);
+            const matchedOld = order.items.find(
+              (oi) => (prod && oi.productId === prod.id) || (oi.productId && oi.productId === newItem.productId) || oi.productCode === newItem.productCode
+            );
+            const oldQty = matchedOld ? Number(matchedOld.quantity) : 0;
+            const newQty = Number(newItem.quantity) || 0;
+            const delta = newQty - oldQty;
+
+            if (prod && delta !== 0) {
               if (delta > 0) {
-                // Tăng số lượng (Δ > 0): Kiểm tra tồn kho trước khi xuất thêm
-                const prod = await tx.product.findUnique({ where: { id: newItem.productId } });
-                if (!prod || prod.stockQuantity < delta) {
-                  throw new Error(
-                    `Sản phẩm "${newItem.productName}" không đủ tồn kho để xuất thêm ${delta} ${newItem.unit} (Tồn kho hiện tại: ${prod?.stockQuantity || 0}, cần thêm: ${delta})`
-                  );
-                }
+                // Tăng số lượng (Δ > 0): Trừ thêm tồn kho
                 await tx.product.update({
-                  where: { id: newItem.productId },
+                  where: { id: prod.id },
                   data: { stockQuantity: { decrement: delta } }
                 });
-              } else if (delta < 0) {
-                // Giảm số lượng (Δ < 0): Hoàn trả lại số lượng thừa vào tồn kho
+              } else {
+                // Giảm số lượng (Δ < 0): Hoàn trả lại vào tồn kho
                 await tx.product.update({
-                  where: { id: newItem.productId },
+                  where: { id: prod.id },
                   data: { stockQuantity: { increment: Math.abs(delta) } }
                 });
               }
             }
           }
-        } else if (order.deliveryStatus !== 'DELIVERED' && targetDeliveryStatus === 'DELIVERED') {
-          // Trường hợp 2: Chuyển từ CHƯA GIAO (PENDING) sang ĐÃ GIAO (DELIVERED)
-          // Kiểm tra đủ tồn kho toàn bộ mặt hàng trước khi xuất
-          for (const item of computedItems) {
-            if (item.productId) {
-              const prod = await tx.product.findUnique({ where: { id: item.productId } });
-              if (!prod || prod.stockQuantity < item.quantity) {
-                throw new Error(
-                  `Sản phẩm "${item.productName}" không đủ tồn kho để xuất giao (Hiện có: ${prod?.stockQuantity || 0}, yêu cầu xuất: ${item.quantity})`
-                );
+
+          // B. Duyệt các mặt hàng cũ đã bị xóa khỏi đơn hàng
+          for (const oldItem of order.items) {
+            const stillExists = resolvedComputedItems.some(
+              (ci) => (oldItem.productId && ci.productId === oldItem.productId) || ci.productCode === oldItem.productCode
+            );
+            if (!stillExists) {
+              // Hoàn trả số lượng của sản phẩm bị xóa về kho
+              const prod = await findProduct(tx, oldItem.productId, oldItem.productCode);
+              if (prod) {
+                await tx.product.update({
+                  where: { id: prod.id },
+                  data: { stockQuantity: { increment: Number(oldItem.quantity) || 0 } }
+                });
               }
+            }
+          }
+        } else if (!wasCancelled && isCancelled) {
+          // Trường hợp 2: Đơn hàng chuyển sang ĐÃ HỦY -> hoàn lại toàn bộ tồn kho của đơn cũ
+          for (const oldItem of order.items) {
+            const prod = await findProduct(tx, oldItem.productId, oldItem.productCode);
+            if (prod) {
               await tx.product.update({
-                where: { id: item.productId },
-                data: { stockQuantity: { decrement: item.quantity } }
+                where: { id: prod.id },
+                data: { stockQuantity: { increment: Number(oldItem.quantity) || 0 } }
               });
             }
           }
-        } else if (order.deliveryStatus === 'DELIVERED' && targetDeliveryStatus !== 'DELIVERED') {
-          // Trường hợp 3: Hủy hoặc thu hồi giao hàng (từ DELIVERED về PENDING/CANCELLED) -> Hoàn lại toàn bộ tồn kho cũ
-          for (const oldItem of order.items) {
-            if (oldItem.productId) {
+        } else if (wasCancelled && !isCancelled) {
+          // Trường hợp 3: Đơn hàng từ ĐÃ HỦY kích hoạt lại -> trừ tồn kho theo danh sách items mới
+          for (const newItem of resolvedComputedItems) {
+            const prod = await findProduct(tx, newItem.productId, newItem.productCode);
+            if (prod) {
               await tx.product.update({
-                where: { id: oldItem.productId },
-                data: { stockQuantity: { increment: oldItem.quantity } }
+                where: { id: prod.id },
+                data: { stockQuantity: { decrement: Number(newItem.quantity) || 0 } }
               });
             }
           }
@@ -440,31 +469,32 @@ export class OrdersService {
 
         // Xóa items cũ và tạo items mới
         await tx.orderItem.deleteMany({ where: { orderId: id } });
-        updateData.items = { create: computedItems };
+        updateData.items = { create: resolvedComputedItems };
       } else {
-        // RÀNG BUỘC KHO TỰ ĐỘNG khi không đổi items (chỉ đổi trạng thái giao hàng)
+        // Không sửa items, chỉ thay đổi trạng thái đơn hàng (ví dụ đổi trực tiếp trên bảng danh sách)
         if (data.deliveryStatus && data.deliveryStatus !== order.deliveryStatus) {
-          if (data.deliveryStatus === 'DELIVERED' && order.deliveryStatus !== 'DELIVERED') {
+          const wasCancelled = order.deliveryStatus === 'CANCELLED';
+          const isCancelled = data.deliveryStatus === 'CANCELLED';
+
+          if (!wasCancelled && isCancelled) {
+            // Chuyển sang CANCELLED: hoàn lại toàn bộ số lượng trong đơn về kho
             for (const item of order.items) {
-              if (item.productId) {
-                const prod = await tx.product.findUnique({ where: { id: item.productId } });
-                if (!prod || prod.stockQuantity < item.quantity) {
-                  throw new Error(
-                    `Sản phẩm "${item.productName}" không đủ tồn kho để xuất giao (Tồn kho: ${prod?.stockQuantity || 0}, yêu cầu: ${item.quantity})`
-                  );
-                }
+              const prod = await findProduct(tx, item.productId, item.productCode);
+              if (prod) {
                 await tx.product.update({
-                  where: { id: item.productId },
-                  data: { stockQuantity: { decrement: item.quantity } }
+                  where: { id: prod.id },
+                  data: { stockQuantity: { increment: Number(item.quantity) || 0 } }
                 });
               }
             }
-          } else if (order.deliveryStatus === 'DELIVERED' && data.deliveryStatus !== 'DELIVERED') {
+          } else if (wasCancelled && !isCancelled) {
+            // Khôi phục từ CANCELLED: trừ lại tồn kho theo danh sách trong đơn
             for (const item of order.items) {
-              if (item.productId) {
+              const prod = await findProduct(tx, item.productId, item.productCode);
+              if (prod) {
                 await tx.product.update({
-                  where: { id: item.productId },
-                  data: { stockQuantity: { increment: item.quantity } }
+                  where: { id: prod.id },
+                  data: { stockQuantity: { decrement: Number(item.quantity) || 0 } }
                 });
               }
             }
@@ -523,13 +553,14 @@ export class OrdersService {
     if (!order) throw new Error('Không tìm thấy đơn hàng');
 
     return prisma.$transaction(async (tx: any) => {
-      // 1. Nếu đơn hàng đã giao (DELIVERED), tự động hoàn trả lại số lượng tồn kho
-      if (order.deliveryStatus === 'DELIVERED') {
+      // 1. Nếu đơn hàng chưa ở trạng thái ĐÃ HỦY (!== CANCELLED), tự động hoàn trả lại số lượng tồn kho
+      if (order.deliveryStatus !== 'CANCELLED') {
         for (const item of order.items) {
-          if (item.productId) {
+          const prod = await findProduct(tx, item.productId, item.productCode);
+          if (prod) {
             await tx.product.update({
-              where: { id: item.productId },
-              data: { stockQuantity: { increment: item.quantity } }
+              where: { id: prod.id },
+              data: { stockQuantity: { increment: Number(item.quantity) || 0 } }
             });
           }
         }
@@ -562,15 +593,16 @@ export class OrdersService {
     const paid = Number(order.paidAmount);
 
     return prisma.$transaction(async (tx: any) => {
-      // Nếu đơn hàng trước đó đã giao (DELIVERED) -> Hoàn trả tồn kho lại cho kho
-      if (order.deliveryStatus === 'DELIVERED') {
+      // Nếu đơn hàng chưa ở trạng thái ĐÃ HỦY -> Hoàn trả tồn kho lại cho kho
+      if (order.deliveryStatus !== 'CANCELLED') {
         for (const item of order.items) {
-          if (item.productId) {
+          const prod = await findProduct(tx, item.productId, item.productCode);
+          if (prod) {
             await tx.product.update({
-              where: { id: item.productId },
+              where: { id: prod.id },
               data: {
                 stockQuantity: {
-                  increment: item.quantity
+                  increment: Number(item.quantity) || 0
                 }
               }
             });
@@ -740,6 +772,21 @@ export class OrdersService {
 
     return prisma.$transaction(async (tx: any) => {
       // 1. Tạo bản ghi Phiếu trả hàng
+      const resolvedReturnItems = await Promise.all(
+        data.items.map(async (it) => {
+          const prod = await findProduct(tx, it.productId, it.productCode);
+          return {
+            productId: prod?.id || it.productId || null,
+            productCode: it.productCode,
+            productName: it.productName,
+            unit: it.unit,
+            quantity: Number(it.quantity),
+            unitPrice: Number(it.unitPrice),
+            amount: Number(it.quantity) * Number(it.unitPrice)
+          };
+        })
+      );
+
       const orderReturn = await tx.orderReturn.create({
         data: {
           code: returnCode,
@@ -751,15 +798,7 @@ export class OrdersService {
           status: 'COMPLETED',
           createdById: userId || null,
           items: {
-            create: data.items.map((it) => ({
-              productId: it.productId || null,
-              productCode: it.productCode,
-              productName: it.productName,
-              unit: it.unit,
-              quantity: Number(it.quantity),
-              unitPrice: Number(it.unitPrice),
-              amount: Number(it.quantity) * Number(it.unitPrice)
-            }))
+            create: resolvedReturnItems
           }
         },
         include: {
@@ -768,23 +807,26 @@ export class OrdersService {
         }
       });
 
-      // 2. Nhận hàng & cập nhật kho:
-      // - Hàng tốt (GOOD): Hoàn lại vào tồn kho bán (increment)
-      // - Hàng lỗi/hỏng (DEFECTIVE): Nhập kho cách ly (không cộng tồn kho bán)
+      // 2. Nhận hàng & cập nhật kho: Hoàn trả lại tồn kho vào kho (Product.stockQuantity)
       let returnedGoodCount = 0;
       let returnedDefectiveCount = 0;
       for (const it of data.items) {
         const isDefective = it.condition === 'DEFECTIVE';
+        const returnQty = Number(it.quantity) || 0;
         if (isDefective) {
-          returnedDefectiveCount += Number(it.quantity);
+          returnedDefectiveCount += returnQty;
         } else {
-          returnedGoodCount += Number(it.quantity);
-          if (it.productId) {
+          returnedGoodCount += returnQty;
+        }
+
+        if (returnQty > 0) {
+          const prod = await findProduct(tx, it.productId, it.productCode);
+          if (prod) {
             await tx.product.update({
-              where: { id: it.productId },
+              where: { id: prod.id },
               data: {
                 stockQuantity: {
-                  increment: Number(it.quantity)
+                  increment: returnQty
                 }
               }
             });

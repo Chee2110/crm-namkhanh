@@ -797,8 +797,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     productTypeId: '',
     productTypeCode: 'A4',
     productTypeName: 'Giấy A4',
-    subTypeCode: 'GIN',
-    subTypeName: 'Giấy in',
+    subTypeCode: '',
+    subTypeName: '',
     imageUrl: '',
     code: '',
     barcode: '',
@@ -1287,9 +1287,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
               </div>
             )}
 
-            {/* TAB 1: KHO & CẤU TRÚC PHÂN LOẠI */}
+            {/* TAB 1: KHO & PHÂN LOẠI */}
             {formTab === 'structure' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
                 {/* Kho hàng */}
                 <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-2.5">
                   <div className="flex items-center justify-between">
@@ -1311,7 +1311,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                               warehouseName: wh ? wh.name : formData.warehouseName
                             });
                           }}
-                          className="px-2 py-1 text-xs border border-gray-200 rounded-md bg-white"
+                          className="px-2 py-1 text-xs border border-gray-200 rounded-md bg-white focus:outline-none focus:border-blue-400"
                         >
                           <option value="">-- Kho có sẵn --</option>
                           {warehouses.map((w) => (
@@ -1323,7 +1323,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                       </div>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">Mã kho</label>
                       <input
@@ -1347,152 +1347,171 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                   </div>
                 </div>
 
-                {/* Danh mục Cấp 1 */}
-                <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-2.5">
-                  <div className="flex items-center justify-between">
+                {/* Danh mục - Loại hàng hóa (Nhập cùng nhau) */}
+                <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-100 pb-2.5">
                     <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-emerald-600" />
-                      Danh mục Cấp 1
+                      <Layers className="w-4 h-4 text-emerald-600" />
+                      Danh mục - Loại hàng hóa
                     </span>
-                    {categories.length > 0 && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                        <span>Chọn nhanh:</span>
-                        <select
-                          value={formData.categoryId}
-                          onChange={(e) => {
-                            const cat = categories.find((c) => c.id === e.target.value);
-                            setFormData({
-                              ...formData,
-                              categoryId: cat ? cat.id : '',
-                              categoryCode: cat ? cat.code : formData.categoryCode,
-                              categoryName: cat ? cat.name : formData.categoryName,
-                              category: cat ? cat.name : formData.categoryName
-                            });
-                          }}
-                          className="px-2 py-1 text-xs border border-gray-200 rounded-md bg-white"
-                        >
-                          <option value="">-- Danh mục có sẵn --</option>
-                          {categories.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name} ({c.code})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Mã danh mục</label>
-                      <input
-                        type="text"
-                        placeholder="VD: GIAY, BUT, BIABAN..."
-                        value={formData.categoryCode}
-                        onChange={(e) => setFormData({ ...formData, categoryCode: e.target.value.toUpperCase() })}
-                        className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Tên danh mục</label>
-                      <input
-                        type="text"
-                        placeholder="VD: Giấy, Bút, Bìa sổ..."
-                        value={formData.categoryName}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            categoryName: e.target.value,
-                            category: e.target.value
-                          })
-                        }
-                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                      />
-                    </div>
-                  </div>
-                </div>
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
+                      {categories.length > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-emerald-800">Chọn danh mục:</span>
+                          <select
+                            value={formData.categoryId}
+                            onChange={(e) => {
+                              const catId = e.target.value;
+                              const cat = categories.find((c) => c.id === catId);
+                              if (cat) {
+                                const matchingTypes = productTypes.filter((t) => t.categoryId === cat.id);
+                                const firstPt = matchingTypes.length === 1 ? matchingTypes[0] : null;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  categoryId: cat.id,
+                                  categoryCode: cat.code,
+                                  categoryName: cat.name,
+                                  category: cat.name,
+                                  ...(firstPt ? {
+                                    productTypeId: firstPt.id,
+                                    productTypeCode: firstPt.code,
+                                    productTypeName: firstPt.name
+                                  } : {})
+                                }));
+                              } else {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  categoryId: '',
+                                  categoryCode: '',
+                                  categoryName: '',
+                                  category: ''
+                                }));
+                              }
+                            }}
+                            className="px-2 py-1 text-xs border border-emerald-200 rounded-md bg-white focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="">-- Danh mục có sẵn --</option>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name} ({c.code})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
-                {/* Loại hàng Cấp 2 */}
-                <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
-                      <Package className="w-3.5 h-3.5 text-purple-600" />
-                      Loại hàng Cấp 2
-                    </span>
-                    {productTypes.length > 0 && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                        <span>Chọn nhanh:</span>
-                        <select
-                          value={formData.productTypeId}
-                          onChange={(e) => {
-                            const pt = productTypes.find((t) => t.id === e.target.value);
-                            setFormData({
-                              ...formData,
-                              productTypeId: pt ? pt.id : '',
-                              productTypeCode: pt ? pt.code : formData.productTypeCode,
-                              productTypeName: pt ? pt.name : formData.productTypeName
-                            });
-                          }}
-                          className="px-2 py-1 text-xs border border-gray-200 rounded-md bg-white"
-                        >
-                          <option value="">-- Loại hàng có sẵn --</option>
-                          {productTypes.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.name} ({t.code})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Mã loại</label>
-                      <input
-                        type="text"
-                        placeholder="VD: A4, Bubi, A3..."
-                        value={formData.productTypeCode}
-                        onChange={(e) => setFormData({ ...formData, productTypeCode: e.target.value.toUpperCase() })}
-                        className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Tên loại</label>
-                      <input
-                        type="text"
-                        placeholder="VD: Giấy A4, Bút bi, Giấy photo..."
-                        value={formData.productTypeName}
-                        onChange={(e) => setFormData({ ...formData, productTypeName: e.target.value })}
-                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                      />
+                      {productTypes.length > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-purple-800">Chọn loại hàng:</span>
+                          <select
+                            value={formData.productTypeId}
+                            onChange={(e) => {
+                              const ptId = e.target.value;
+                              const pt = productTypes.find((t) => t.id === ptId);
+                              if (pt) {
+                                const parentCat = categories.find((c) => c.id === pt.categoryId) || (pt as any).category;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  productTypeId: pt.id,
+                                  productTypeCode: pt.code,
+                                  productTypeName: pt.name,
+                                  ...(parentCat ? {
+                                    categoryId: parentCat.id,
+                                    categoryCode: parentCat.code,
+                                    categoryName: parentCat.name,
+                                    category: parentCat.name
+                                  } : {})
+                                }));
+                              } else {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  productTypeId: '',
+                                  productTypeCode: '',
+                                  productTypeName: ''
+                                }));
+                              }
+                            }}
+                            className="px-2 py-1 text-xs border border-purple-200 rounded-md bg-white focus:outline-none focus:border-purple-500"
+                          >
+                            <option value="">-- Loại hàng có sẵn --</option>
+                            {productTypes
+                              .filter((t) => !formData.categoryId || t.categoryId === formData.categoryId)
+                              .map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.name} ({t.code})
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                {/* Nhóm loại Cấp 3 */}
-                <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-100 space-y-2.5">
-                  <span className="text-xs font-bold text-amber-900 block">
-                    Nhóm loại Cấp 3 (Mã nhóm loại & Tên nhóm loại)
-                  </span>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Mã nhóm loại</label>
-                      <input
-                        type="text"
-                        placeholder="VD: GIN, BN, BTL..."
-                        value={formData.subTypeCode}
-                        onChange={(e) => setFormData({ ...formData, subTypeCode: e.target.value.toUpperCase() })}
-                        className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                      />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Cụm 1: Thông tin Danh mục */}
+                    <div className="p-3 bg-white/80 rounded-lg border border-emerald-100/90 space-y-2">
+                      <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide flex items-center gap-1">
+                        <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                        Danh mục
+                      </span>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">Mã danh mục</label>
+                          <input
+                            type="text"
+                            placeholder="VD: GIAY, BUT, BIABAN..."
+                            value={formData.categoryCode}
+                            onChange={(e) => setFormData({ ...formData, categoryCode: e.target.value.toUpperCase() })}
+                            className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">Tên danh mục</label>
+                          <input
+                            type="text"
+                            placeholder="VD: Giấy, Bút, Bìa sổ..."
+                            value={formData.categoryName}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                categoryName: e.target.value,
+                                category: e.target.value
+                              })
+                            }
+                            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Tên nhóm loại</label>
-                      <input
-                        type="text"
-                        placeholder="VD: Giấy in, Bút bi nước, Bút lông..."
-                        value={formData.subTypeName}
-                        onChange={(e) => setFormData({ ...formData, subTypeName: e.target.value })}
-                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                      />
+
+                    {/* Cụm 2: Thông tin Loại hàng hóa */}
+                    <div className="p-3 bg-white/80 rounded-lg border border-purple-100/90 space-y-2">
+                      <span className="text-[11px] font-bold text-purple-800 uppercase tracking-wide flex items-center gap-1">
+                        <Package className="w-3.5 h-3.5 text-purple-600" />
+                        Loại hàng hóa
+                      </span>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">Mã loại hàng</label>
+                          <input
+                            type="text"
+                            placeholder="VD: A4, Bubi, A3..."
+                            value={formData.productTypeCode}
+                            onChange={(e) => setFormData({ ...formData, productTypeCode: e.target.value.toUpperCase() })}
+                            className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">Tên loại hàng</label>
+                          <input
+                            type="text"
+                            placeholder="VD: Giấy A4, Bút bi, Giấy photo..."
+                            value={formData.productTypeName}
+                            onChange={(e) => setFormData({ ...formData, productTypeName: e.target.value })}
+                            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

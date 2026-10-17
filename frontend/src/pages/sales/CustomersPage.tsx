@@ -47,7 +47,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { Customer, CustomerTimelineItem, User } from '../../types';
+import { Customer, CustomerTimelineItem, User, Order } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { ImportExcelModal } from '../../components/common/ImportExcelModal';
 import { DebtConfirmationModal } from './components/DebtConfirmationModal';
@@ -61,6 +61,12 @@ import { SearchInput } from '../../components/common/SearchInput';
 const CUSTOMER_STATUS_OPTIONS: StatusOption[] = [
   { value: 'ACTIVE', label: 'Hoạt động', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
   { value: 'INACTIVE', label: 'Tạm dừng', colorClass: 'bg-red-50 text-red-700 border-red-300' }
+];
+
+const INVOICE_STATUS_OPTIONS: StatusOption[] = [
+  { value: 'NOT_ISSUED', label: 'Chưa xuất HĐ', colorClass: 'bg-gray-100 text-gray-700 border-gray-300' },
+  { value: 'ISSUING', label: 'Đang xuất HĐ', colorClass: 'bg-amber-50 text-amber-700 border-amber-300' },
+  { value: 'ISSUED', label: 'Đã xuất HĐ', colorClass: 'bg-emerald-50 text-emerald-700 border-emerald-300' }
 ];
 
 const CUSTOMER_TYPE_FILTER_OPTIONS = [
@@ -277,6 +283,14 @@ export const CustomersPage: React.FC = () => {
   const [timeline, setTimeline] = useState<CustomerTimelineItem[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
+  // Tab Lịch sử & Hóa đơn VAT ở Cột 3
+  const [activeDetailTab, setActiveDetailTab] = useState<'timeline' | 'vat_invoice'>('timeline');
+  const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<'ALL' | 'NOT_ISSUED' | 'ISSUING' | 'ISSUED'>('ALL');
+  const [vatPage, setVatPage] = useState<number>(1);
+  const vatPageSize = 5;
+
   // Thêm nhật ký chăm sóc / tương tác
   const [isAddingLog, setIsAddingLog] = useState(false);
   const [logActionType, setLogActionType] = useState('NOTE');
@@ -453,6 +467,14 @@ export const CustomersPage: React.FC = () => {
   const totalTimelinePages = Math.max(1, Math.ceil(timeline.length / timelinePageSize));
   const startTimelineIdx = (timelinePage - 1) * timelinePageSize;
   const currentTimeline = timeline.slice(startTimelineIdx, startTimelineIdx + timelinePageSize);
+
+  const filteredVatOrders = customerOrders.filter((o) => {
+    if (invoiceStatusFilter === 'ALL') return true;
+    if (invoiceStatusFilter === 'NOT_ISSUED') return !o.invoiceStatus || o.invoiceStatus === 'NOT_ISSUED';
+    return o.invoiceStatus === invoiceStatusFilter;
+  });
+  const totalVatPages = Math.max(1, Math.ceil(filteredVatOrders.length / vatPageSize));
+  const currentVatOrders = filteredVatOrders.slice((vatPage - 1) * vatPageSize, vatPage * vatPageSize);
 
   const ensureCustomerPageVisible = (customerId: string) => {
     const index = customers.findIndex((c) => c.id === customerId);
@@ -712,6 +734,7 @@ export const CustomersPage: React.FC = () => {
         setSelectedCustomerId(null);
         setSelectedCustomer(null);
         setTimeline([]);
+        setCustomerOrders([]);
       }
     } catch (err) {
       console.error(err);
@@ -741,18 +764,38 @@ export const CustomersPage: React.FC = () => {
     setSelectedCustomerId(id);
     ensureCustomerPageVisible(id);
     setLoadingDetails(true);
+    setLoadingOrders(true);
+    setVatPage(1);
     try {
-      const [resCust, resTimeline] = await Promise.all([
+      const [resCust, resTimeline, resOrders] = await Promise.all([
         api.get<Customer>(`/customers/${id}`),
-        api.get<CustomerTimelineItem[]>(`/customers/${id}/timeline`)
+        api.get<CustomerTimelineItem[]>(`/customers/${id}/timeline`),
+        api.get<Order[]>(`/orders?customerId=${id}`).catch(() => ({ data: [] }))
       ]);
       setSelectedCustomer(resCust.data);
       setTimeline(resTimeline.data || []);
+      setCustomerOrders(resOrders.data || []);
       setIsAddingLog(false);
     } catch (err) {
       console.error(err);
     } finally {
       setLoadingDetails(false);
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleQuickInvoiceStatusChange = async (orderId: string, newInvoiceStatus: string) => {
+    const prevOrders = [...customerOrders];
+    try {
+      setCustomerOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, invoiceStatus: newInvoiceStatus as any } : o))
+      );
+      await api.put(`/orders/${orderId}`, { invoiceStatus: newInvoiceStatus });
+      const opt = INVOICE_STATUS_OPTIONS.find((o) => o.value === newInvoiceStatus);
+      setToastMessage(`Đã cập nhật trạng thái hóa đơn sang: ${opt?.label || newInvoiceStatus}`);
+    } catch (err: any) {
+      setCustomerOrders(prevOrders);
+      setToastMessage(err.response?.data?.message || 'Cập nhật trạng thái hóa đơn thất bại');
     }
   };
 
@@ -995,6 +1038,7 @@ export const CustomersPage: React.FC = () => {
         setSelectedCustomerId(null);
         setSelectedCustomer(null);
         setTimeline([]);
+        setCustomerOrders([]);
       }
 
       await loadCustomers(wasSelected ? null : selectedCustomerId);
@@ -1496,329 +1540,607 @@ export const CustomersPage: React.FC = () => {
             </div>
           )}
 
-          {/* CỘT 3: LỊCH SỬ GIAO DỊCH & CHĂM SÓC (TIMELINE) */}
+          {/* CỘT 3: LỊCH SỬ GIAO DỊCH & CHĂM SÓC (TIMELINE) & HÓA ĐƠN VAT */}
           {selectedCustomer ? (
             <div className="card" style={{ padding: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ padding: '0.75rem 1rem 0.45rem 1rem', flexShrink: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                  <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '0.35rem', margin: 0 }}>
-                    <Clock size={14} className="text-gray-500" />
-                    <span>Lịch sử giao dịch & Chăm sóc</span>
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingLog((prev) => !prev)}
-                    className="btn btn-secondary btn-sm !py-1 !px-2 text-[11.5px] flex items-center gap-1 text-[#EA332A] bg-red-50 border border-red-200 hover:bg-red-100 cursor-pointer font-semibold shadow-xs"
-                    title="Thêm nhật ký chăm sóc / cuộc gọi / gặp gỡ khách hàng"
-                  >
-                    <Plus size={12} />
-                    <span>Thêm nhật ký</span>
-                  </button>
-                </div>
+              <div style={{ padding: '0.65rem 0.85rem 0.45rem 0.85rem', flexShrink: 0 }}>
+                {/* Thanh chuyển tab */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', backgroundColor: '#F3F4F6', padding: '3px', borderRadius: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveDetailTab('timeline')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.25rem 0.6rem',
+                        fontSize: '11.5px',
+                        fontWeight: activeDetailTab === 'timeline' ? '700' : '500',
+                        color: activeDetailTab === 'timeline' ? '#111827' : '#6B7280',
+                        backgroundColor: activeDetailTab === 'timeline' ? '#FFFFFF' : 'transparent',
+                        borderRadius: '6px',
+                        border: 'none',
+                        boxShadow: activeDetailTab === 'timeline' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <Clock size={13} className={activeDetailTab === 'timeline' ? 'text-gray-700' : 'text-gray-400'} />
+                      <span>Lịch sử giao dịch & Chăm sóc</span>
+                    </button>
 
-                {/* Form thêm nhật ký chăm sóc / tương tác của người dùng */}
-                {isAddingLog && (
-                  <form
-                    onSubmit={handleAddLog}
-                    style={{
-                      marginBottom: '0.5rem',
-                      padding: '0.65rem',
-                      backgroundColor: '#FFFBEB',
-                      border: '1px solid #FDE68A',
-                      borderRadius: '0.5rem'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                      <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#92400E', textTransform: 'uppercase' }}>
-                        Thêm nhật ký chăm sóc / tương tác
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddingLog(false)}
-                        className="text-gray-400 hover:text-gray-600 p-0.5 rounded cursor-pointer"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-
-                    {/* Lựa chọn loại tương tác */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.4rem' }}>
-                      {[
-                        { type: 'CALL', label: '📞 Gọi điện', title: 'Cuộc gọi tư vấn' },
-                        { type: 'MEETING', label: '🤝 Gặp gỡ', title: 'Gặp trực tiếp khách hàng' },
-                        { type: 'MESSAGE', label: '💬 Zalo/SMS', title: 'Nhắn tin Zalo / SMS' },
-                        { type: 'EMAIL', label: '✉️ Email', title: 'Gửi Email trao đổi' },
-                        { type: 'NOTE', label: '📝 Ghi chú', title: 'Ghi chú chăm sóc' }
-                      ].map((item) => (
-                        <button
-                          key={item.type}
-                          type="button"
-                          onClick={() => {
-                            setLogActionType(item.type);
-                            setLogTitle(item.title);
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveDetailTab('vat_invoice');
+                        setVatPage(1);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.25rem 0.6rem',
+                        fontSize: '11.5px',
+                        fontWeight: activeDetailTab === 'vat_invoice' ? '700' : '500',
+                        color: activeDetailTab === 'vat_invoice' ? '#111827' : '#6B7280',
+                        backgroundColor: activeDetailTab === 'vat_invoice' ? '#FFFFFF' : 'transparent',
+                        borderRadius: '6px',
+                        border: 'none',
+                        boxShadow: activeDetailTab === 'vat_invoice' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <FileText size={13} className={activeDetailTab === 'vat_invoice' ? 'text-[#E53935]' : 'text-gray-400'} />
+                      <span>Hóa đơn VAT</span>
+                      {customerOrders.length > 0 && (
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: '700',
+                            padding: '1px 5px',
+                            borderRadius: '9999px',
+                            backgroundColor: activeDetailTab === 'vat_invoice' ? '#FEE2E2' : '#E5E7EB',
+                            color: activeDetailTab === 'vat_invoice' ? '#DC2626' : '#6B7280'
                           }}
-                          className={`px-2 py-0.5 rounded text-[11px] border cursor-pointer font-medium transition-colors ${
-                            logActionType === item.type
-                              ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                              : 'bg-white text-gray-700 border-amber-200 hover:bg-amber-100'
-                          }`}
                         >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div style={{ marginBottom: '0.4rem' }}>
-                      <input
-                        type="text"
-                        value={logTitle}
-                        onChange={(e) => setLogTitle(e.target.value)}
-                        placeholder="Tiêu đề nhật ký (ví dụ: Gọi điện tư vấn, Hẹn gửi báo giá...)"
-                        className="input text-xs w-full !py-1 !px-2 bg-white"
-                      />
-                    </div>
-
-                    <div style={{ marginBottom: '0.4rem' }}>
-                      <textarea
-                        value={logNotes}
-                        onChange={(e) => setLogNotes(e.target.value)}
-                        placeholder="Nội dung tương tác với khách hàng, phản hồi, thỏa thuận giá, lịch hẹn..."
-                        rows={2}
-                        className="input text-xs w-full !py-1 !px-2 bg-white resize-none"
-                        required
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddingLog(false)}
-                        className="btn btn-secondary btn-sm !py-0.5 !px-2 text-xs cursor-pointer"
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isSubmittingLog || !logNotes.trim()}
-                        className="btn btn-primary btn-sm !py-0.5 !px-3 text-xs bg-[#EA332A] hover:bg-[#d62820] text-white font-semibold disabled:opacity-50 cursor-pointer"
-                      >
-                        {isSubmittingLog ? 'Đang lưu...' : 'Lưu nhật ký'}
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                <div style={{ fontSize: '12px', color: '#6B7280', display: 'flex', gap: '1.25rem', paddingTop: '0.2rem', paddingBottom: '0.35rem', borderBottom: '1px solid #F3F4F6' }}>
-                  <div>Tổng số đơn: <strong>{selectedCustomer.analytics?.orderCount || 0}</strong></div>
-                  <div>
-                    Đơn hàng gần nhất:{' '}
-                    <strong>
-                      {selectedCustomer.analytics?.lastOrderDate
-                        ? new Date(selectedCustomer.analytics.lastOrderDate).toLocaleDateString('vi-VN')
-                        : 'Chưa có'}
-                    </strong>
+                          {customerOrders.length}
+                        </span>
+                      )}
+                    </button>
                   </div>
+
+                  {activeDetailTab === 'timeline' && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingLog((prev) => !prev)}
+                      className="btn btn-secondary btn-sm !py-1 !px-2 text-[11.5px] flex items-center gap-1 text-[#EA332A] bg-red-50 border border-red-200 hover:bg-red-100 cursor-pointer font-semibold shadow-xs"
+                      title="Thêm nhật ký chăm sóc / cuộc gọi / gặp gỡ khách hàng"
+                    >
+                      <Plus size={12} />
+                      <span>Thêm nhật ký</span>
+                    </button>
+                  )}
                 </div>
+
+                {/* Nội dung subheader theo tab */}
+                {activeDetailTab === 'timeline' ? (
+                  <>
+                    {/* Form thêm nhật ký chăm sóc / tương tác của người dùng */}
+                    {isAddingLog && (
+                      <form
+                        onSubmit={handleAddLog}
+                        style={{
+                          marginBottom: '0.5rem',
+                          padding: '0.65rem',
+                          backgroundColor: '#FFFBEB',
+                          border: '1px solid #FDE68A',
+                          borderRadius: '0.5rem'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                          <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#92400E', textTransform: 'uppercase' }}>
+                            Thêm nhật ký chăm sóc / tương tác
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddingLog(false)}
+                            className="text-gray-400 hover:text-gray-600 p-0.5 rounded cursor-pointer"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+
+                        {/* Lựa chọn loại tương tác */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.4rem' }}>
+                          {[
+                            { type: 'CALL', label: '📞 Gọi điện', title: 'Cuộc gọi tư vấn' },
+                            { type: 'MEETING', label: '🤝 Gặp gỡ', title: 'Gặp trực tiếp khách hàng' },
+                            { type: 'MESSAGE', label: '💬 Zalo/SMS', title: 'Nhắn tin Zalo / SMS' },
+                            { type: 'EMAIL', label: '✉️ Email', title: 'Gửi Email trao đổi' },
+                            { type: 'NOTE', label: '📝 Ghi chú', title: 'Ghi chú chăm sóc' }
+                          ].map((item) => (
+                            <button
+                              key={item.type}
+                              type="button"
+                              onClick={() => {
+                                setLogActionType(item.type);
+                                setLogTitle(item.title);
+                              }}
+                              className={`px-2 py-0.5 rounded text-[11px] border cursor-pointer font-medium transition-colors ${
+                                logActionType === item.type
+                                  ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                                  : 'bg-white text-gray-700 border-amber-200 hover:bg-amber-100'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div style={{ marginBottom: '0.4rem' }}>
+                          <input
+                            type="text"
+                            value={logTitle}
+                            onChange={(e) => setLogTitle(e.target.value)}
+                            placeholder="Tiêu đề nhật ký (ví dụ: Gọi điện tư vấn, Hẹn gửi báo giá...)"
+                            className="input text-xs w-full !py-1 !px-2 bg-white"
+                          />
+                        </div>
+
+                        <div style={{ marginBottom: '0.4rem' }}>
+                          <textarea
+                            value={logNotes}
+                            onChange={(e) => setLogNotes(e.target.value)}
+                            placeholder="Nội dung tương tác với khách hàng, phản hồi, thỏa thuận giá, lịch hẹn..."
+                            rows={2}
+                            className="input text-xs w-full !py-1 !px-2 bg-white resize-none"
+                            required
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddingLog(false)}
+                            className="btn btn-secondary btn-sm !py-0.5 !px-2 text-xs cursor-pointer"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isSubmittingLog || !logNotes.trim()}
+                            className="btn btn-primary btn-sm !py-0.5 !px-3 text-xs bg-[#EA332A] hover:bg-[#d62820] text-white font-semibold disabled:opacity-50 cursor-pointer"
+                          >
+                            {isSubmittingLog ? 'Đang lưu...' : 'Lưu nhật ký'}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    <div style={{ fontSize: '12px', color: '#6B7280', display: 'flex', gap: '1.25rem', paddingTop: '0.2rem', paddingBottom: '0.35rem', borderBottom: '1px solid #F3F4F6' }}>
+                      <div>Tổng số đơn: <strong>{selectedCustomer.analytics?.orderCount || 0}</strong></div>
+                      <div>
+                        Đơn hàng gần nhất:{' '}
+                        <strong>
+                          {selectedCustomer.analytics?.lastOrderDate
+                            ? new Date(selectedCustomer.analytics.lastOrderDate).toLocaleDateString('vi-VN')
+                            : 'Chưa có'}
+                        </strong>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* Bộ lọc trạng thái Hóa đơn VAT */
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflowX: 'auto', paddingTop: '0.1rem', paddingBottom: '0.35rem', borderBottom: '1px solid #F3F4F6' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                      <Filter size={11} /> Lọc:
+                    </span>
+                    {[
+                      { value: 'ALL', label: 'Tất cả', count: customerOrders.length },
+                      { value: 'NOT_ISSUED', label: 'Chưa xuất HĐ', count: customerOrders.filter((o) => !o.invoiceStatus || o.invoiceStatus === 'NOT_ISSUED').length },
+                      { value: 'ISSUING', label: 'Đang xuất HĐ', count: customerOrders.filter((o) => o.invoiceStatus === 'ISSUING').length },
+                      { value: 'ISSUED', label: 'Đã xuất HĐ', count: customerOrders.filter((o) => o.invoiceStatus === 'ISSUED').length }
+                    ].map((filterOpt) => (
+                      <button
+                        key={filterOpt.value}
+                        type="button"
+                        onClick={() => {
+                          setInvoiceStatusFilter(filterOpt.value as any);
+                          setVatPage(1);
+                        }}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: '11px',
+                          borderRadius: '6px',
+                          fontWeight: invoiceStatusFilter === filterOpt.value ? '700' : '500',
+                          cursor: 'pointer',
+                          border: '1px solid',
+                          borderColor: invoiceStatusFilter === filterOpt.value ? '#DC2626' : '#E5E7EB',
+                          backgroundColor: invoiceStatusFilter === filterOpt.value ? '#FEF2F2' : '#FFFFFF',
+                          color: invoiceStatusFilter === filterOpt.value ? '#DC2626' : '#4B5563',
+                          whiteSpace: 'nowrap',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span>{filterOpt.label}</span>
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            padding: '0 4px',
+                            borderRadius: '9999px',
+                            backgroundColor: invoiceStatusFilter === filterOpt.value ? '#DC2626' : '#F3F4F6',
+                            color: invoiceStatusFilter === filterOpt.value ? '#FFFFFF' : '#6B7280',
+                            fontWeight: '700'
+                          }}
+                        >
+                          {filterOpt.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Timeline items list */}
-              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: '0.35rem 0.85rem' }}>
-                {loadingDetails ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>Đang tải lịch sử...</div>
-                ) : timeline.length === 0 ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>Chưa có hoạt động nào phát sinh với khách hàng này</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {currentTimeline.map((item, idx) => {
-                      let iconBg = '#E0E7FF';
-                      let iconColor = '#4F46E5';
-                      let IconComp: any = Clock;
-                      let typeBadge = 'Hành động';
-                      let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
+              {/* Danh sách hiển thị theo Tab được chọn */}
+              {activeDetailTab === 'timeline' ? (
+                /* Tab 1: Timeline Lịch sử giao dịch & Chăm sóc */
+                <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: '0.35rem 0.85rem' }}>
+                  {loadingDetails ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>Đang tải lịch sử...</div>
+                  ) : timeline.length === 0 ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>Chưa có hoạt động nào phát sinh với khách hàng này</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {currentTimeline.map((item, idx) => {
+                        let iconBg = '#E0E7FF';
+                        let iconColor = '#4F46E5';
+                        let IconComp: any = Clock;
+                        let typeBadge = 'Hành động';
+                        let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
 
-                      if (item.type === 'ORDER') {
-                        iconBg = '#DCFCE7';
-                        iconColor = '#16A34A';
-                        IconComp = ShoppingBag;
-                        typeBadge = 'Đơn bán hàng';
-                        badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                      } else if (item.type === 'QUOTATION') {
-                        iconBg = '#FEF3C7';
-                        iconColor = '#D97706';
-                        IconComp = FileSpreadsheet;
-                        typeBadge = 'Báo giá';
-                        badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
-                      } else if (item.type === 'RECEIPT') {
-                        iconBg = '#E0F2FE';
-                        iconColor = '#0284C7';
-                        IconComp = CreditCard;
-                        typeBadge = 'Phiếu thu';
-                        badgeColor = 'bg-sky-50 text-sky-700 border-sky-200';
-                      } else if (item.type === 'HANDOVER') {
-                        iconBg = '#F3E8FF';
-                        iconColor = '#9333EA';
-                        IconComp = ArrowLeftRight;
-                        typeBadge = 'Bàn giao';
-                        badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
-                      } else if (item.type === 'CARE_LOG') {
-                        iconBg = '#FFEDD5';
-                        iconColor = '#EA580C';
-                        IconComp = item.actionType === 'CALL' ? Phone : item.actionType === 'MEETING' ? Users : item.actionType === 'EMAIL' ? Mail : FileText;
-                        typeBadge = 'Nhật ký chăm sóc';
-                        badgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
-                      } else if (item.type === 'CREATION') {
-                        iconBg = '#DBEAFE';
-                        iconColor = '#2563EB';
-                        IconComp = UserCheck;
-                        typeBadge = 'Khởi tạo hồ sơ';
-                        badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
-                      } else if (item.type === 'UPDATE') {
-                        iconBg = '#F1F5F9';
-                        iconColor = '#475569';
-                        IconComp = Edit2;
-                        typeBadge = 'Cập nhật';
-                        badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
-                      }
+                        if (item.type === 'ORDER') {
+                          iconBg = '#DCFCE7';
+                          iconColor = '#16A34A';
+                          IconComp = ShoppingBag;
+                          typeBadge = 'Đơn bán hàng';
+                          badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                        } else if (item.type === 'QUOTATION') {
+                          iconBg = '#FEF3C7';
+                          iconColor = '#D97706';
+                          IconComp = FileSpreadsheet;
+                          typeBadge = 'Báo giá';
+                          badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+                        } else if (item.type === 'RECEIPT') {
+                          iconBg = '#E0F2FE';
+                          iconColor = '#0284C7';
+                          IconComp = CreditCard;
+                          typeBadge = 'Phiếu thu';
+                          badgeColor = 'bg-sky-50 text-sky-700 border-sky-200';
+                        } else if (item.type === 'HANDOVER') {
+                          iconBg = '#F3E8FF';
+                          iconColor = '#9333EA';
+                          IconComp = ArrowLeftRight;
+                          typeBadge = 'Bàn giao';
+                          badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
+                        } else if (item.type === 'CARE_LOG') {
+                          iconBg = '#FFEDD5';
+                          iconColor = '#EA580C';
+                          IconComp = item.actionType === 'CALL' ? Phone : item.actionType === 'MEETING' ? Users : item.actionType === 'EMAIL' ? Mail : FileText;
+                          typeBadge = 'Nhật ký chăm sóc';
+                          badgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
+                        } else if (item.type === 'CREATION') {
+                          iconBg = '#DBEAFE';
+                          iconColor = '#2563EB';
+                          IconComp = UserCheck;
+                          typeBadge = 'Khởi tạo hồ sơ';
+                          badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+                        } else if (item.type === 'UPDATE') {
+                          iconBg = '#F1F5F9';
+                          iconColor = '#475569';
+                          IconComp = Edit2;
+                          typeBadge = 'Cập nhật';
+                          badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
+                        }
 
-                      return (
-                        <div
-                          key={item.id || idx}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '0.65rem',
-                            padding: '0.5rem 0.75rem',
-                            backgroundColor: '#FAFAFA',
-                            borderRadius: '0.5rem',
-                            border: '1px solid #F3F4F6'
-                          }}
-                        >
+                        return (
                           <div
+                            key={item.id || idx}
                             style={{
-                              width: '30px',
-                              height: '30px',
-                              borderRadius: '8px',
-                              backgroundColor: iconBg,
-                              color: iconColor,
                               display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0
+                              alignItems: 'flex-start',
+                              gap: '0.65rem',
+                              padding: '0.5rem 0.75rem',
+                              backgroundColor: '#FAFAFA',
+                              borderRadius: '0.5rem',
+                              border: '1px solid #F3F4F6'
                             }}
                           >
-                            <IconComp size={15} />
-                          </div>
-
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.15rem' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                                <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }} className="truncate">
-                                  {item.title}
-                                </span>
-                                <span className={`text-[10px] px-1.5 py-0.2 rounded border font-medium ${badgeColor}`}>
-                                  {typeBadge}
-                                </span>
-                                {item.status && (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 font-medium">
-                                    {item.type === 'QUOTATION' ? getQuotationStatusLabel(item.status) : getOrderStatusLabel(item.status)}
-                                  </span>
-                                )}
-                                {item.paymentStatus && (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 font-medium">
-                                    {getPaymentStatusLabel(item.paymentStatus)}
-                                  </span>
-                                )}
-                              </div>
-                              <span style={{ fontSize: '11px', color: '#9CA3AF', whiteSpace: 'nowrap' }} className="shrink-0">
-                                {new Date(item.date).toLocaleDateString('vi-VN')}
-                              </span>
+                            <div
+                              style={{
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: '8px',
+                                backgroundColor: iconBg,
+                                color: iconColor,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}
+                            >
+                              <IconComp size={15} />
                             </div>
 
-                            {item.type === 'RECEIPT' && (
-                              <div style={{ fontSize: '12px', color: '#374151', marginBottom: '0.15rem' }}>
-                                Đã thu: <strong style={{ color: '#0284C7' }}>{formatMoney(item.amount || 0)}</strong>
-                                {item.paymentMethod && (
-                                  <span style={{ marginLeft: '0.4rem', color: '#4B5563' }}>
-                                    ({getPaymentMethodLabel(item.paymentMethod)})
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.15rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                  <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }} className="truncate">
+                                    {item.title}
                                   </span>
-                                )}
-                              </div>
-                            )}
-
-                            {(item.type === 'ORDER' || item.type === 'QUOTATION') && item.amount !== undefined && (
-                              <div style={{ fontSize: '12px', color: '#374151', marginBottom: '0.15rem' }}>
-                                Giá trị: <strong>{formatMoney(item.amount)}</strong>
-                                {item.paid !== undefined && (
-                                  <span style={{ marginLeft: '0.4rem', color: '#16A34A' }}>
-                                    (Đã thu: {formatMoney(item.paid)})
+                                  <span className={`text-[10px] px-1.5 py-0.2 rounded border font-medium ${badgeColor}`}>
+                                    {typeBadge}
                                   </span>
-                                )}
-                                {item.remaining !== undefined && item.remaining > 0 && (
-                                  <span style={{ marginLeft: '0.4rem', color: '#DC2626', fontWeight: '600' }}>
-                                    [Còn nợ: {formatMoney(item.remaining)}]
-                                  </span>
-                                )}
+                                  {item.status && (
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 font-medium">
+                                      {item.type === 'QUOTATION' ? getQuotationStatusLabel(item.status) : getOrderStatusLabel(item.status)}
+                                    </span>
+                                  )}
+                                  {item.paymentStatus && (
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 font-medium">
+                                      {getPaymentStatusLabel(item.paymentStatus)}
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: '11px', color: '#9CA3AF', whiteSpace: 'nowrap' }} className="shrink-0">
+                                  {new Date(item.date).toLocaleDateString('vi-VN')}
+                                </span>
                               </div>
-                            )}
 
-                            {item.reason && (
-                              <div style={{ fontSize: '12px', color: '#4B5563', fontStyle: 'italic', marginBottom: '0.15rem' }} className="truncate" title={item.reason}>
-                                Lý do: {item.reason} {item.from && item.to ? `(${item.from} → ${item.to})` : ''}
-                              </div>
-                            )}
+                              {item.type === 'RECEIPT' && (
+                                <div style={{ fontSize: '12px', color: '#374151', marginBottom: '0.15rem' }}>
+                                  Đã thu: <strong style={{ color: '#0284C7' }}>{formatMoney(item.amount || 0)}</strong>
+                                  {item.paymentMethod && (
+                                    <span style={{ marginLeft: '0.4rem', color: '#4B5563' }}>
+                                      ({getPaymentMethodLabel(item.paymentMethod)})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
 
-                            {item.notes && (
-                              <div style={{ fontSize: '12px', color: '#4B5563', backgroundColor: item.type === 'CARE_LOG' ? '#FFFBEB' : 'transparent', padding: item.type === 'CARE_LOG' ? '0.25rem 0.45rem' : '0', borderRadius: '4px', border: item.type === 'CARE_LOG' ? '1px dashed #FDE68A' : 'none', marginTop: '0.15rem' }} className="line-clamp-2" title={item.notes}>
-                                {item.notes}
-                              </div>
-                            )}
+                              {(item.type === 'ORDER' || item.type === 'QUOTATION') && item.amount !== undefined && (
+                                <div style={{ fontSize: '12px', color: '#374151', marginBottom: '0.15rem' }}>
+                                  Giá trị: <strong>{formatMoney(item.amount)}</strong>
+                                  {item.paid !== undefined && (
+                                    <span style={{ marginLeft: '0.4rem', color: '#16A34A' }}>
+                                      (Đã thu: {formatMoney(item.paid)})
+                                    </span>
+                                  )}
+                                  {item.remaining !== undefined && item.remaining > 0 && (
+                                    <span style={{ marginLeft: '0.4rem', color: '#DC2626', fontWeight: '600' }}>
+                                      [Còn nợ: {formatMoney(item.remaining)}]
+                                    </span>
+                                  )}
+                                </div>
+                              )}
 
-                            {item.actor && (
-                              <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '0.15rem' }}>
-                                Thực hiện bởi: <strong className="text-gray-600">{item.actor}</strong>
-                              </div>
-                            )}
+                              {item.reason && (
+                                <div style={{ fontSize: '12px', color: '#4B5563', fontStyle: 'italic', marginBottom: '0.15rem' }} className="truncate" title={item.reason}>
+                                  Lý do: {item.reason} {item.from && item.to ? `(${item.from} → ${item.to})` : ''}
+                                </div>
+                              )}
+
+                              {item.notes && (
+                                <div style={{ fontSize: '12px', color: '#4B5563', backgroundColor: item.type === 'CARE_LOG' ? '#FFFBEB' : 'transparent', padding: item.type === 'CARE_LOG' ? '0.25rem 0.45rem' : '0', borderRadius: '4px', border: item.type === 'CARE_LOG' ? '1px dashed #FDE68A' : 'none', marginTop: '0.15rem' }} className="line-clamp-2" title={item.notes}>
+                                  {item.notes}
+                                </div>
+                              )}
+
+                              {item.actor && (
+                                <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '0.15rem' }}>
+                                  Thực hiện bởi: <strong className="text-gray-600">{item.actor}</strong>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Phân trang Timeline: Tự động phân trang khi vượt quá chiều cao */}
-              <div style={{ padding: '0.6rem 0.85rem', borderTop: '1px solid #F3F4F6', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', flexShrink: 0 }}>
-                <span style={{ color: '#6B7280' }}>
-                  {timeline.length > 0 ? (
-                    <>
-                      Trang <strong>{timelinePage}</strong>/{totalTimelinePages} ({timeline.length} hoạt động)
-                    </>
-                  ) : (
-                    '0 hoạt động'
+                        );
+                      })}
+                    </div>
                   )}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => setTimelinePage((p) => Math.max(1, p - 1))}
-                    disabled={timelinePage === 1}
-                    className="btn btn-secondary btn-sm disabled:opacity-30"
-                    style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', color: '#4B5563' }}
-                    title="Trang trước"
-                  >
-                    <ChevronLeft size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimelinePage((p) => Math.min(totalTimelinePages, p + 1))}
-                    disabled={timelinePage === totalTimelinePages || totalTimelinePages <= 1}
-                    className="btn btn-secondary btn-sm disabled:opacity-30"
-                    style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', color: '#4B5563' }}
-                    title="Trang sau"
-                  >
-                    <ChevronRight size={13} />
-                  </button>
                 </div>
+              ) : (
+                /* Tab 2: Hóa đơn VAT */
+                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0.45rem 0.85rem' }}>
+                  {loadingOrders ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>
+                      <Loader2 size={18} className="animate-spin inline mr-1 text-[#E53935]" />
+                      <span>Đang tải danh sách hóa đơn đơn hàng...</span>
+                    </div>
+                  ) : customerOrders.length === 0 ? (
+                    <div style={{ padding: '2.5rem 1rem', textAlign: 'center', color: '#9CA3AF' }}>
+                      <FileText size={28} className="mx-auto mb-1.5 text-gray-300" />
+                      <p style={{ fontSize: '12.5px', fontWeight: '600', color: '#6B7280', margin: 0 }}>
+                        Khách hàng chưa có đơn hàng nào
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>
+                        Các đơn hàng phát sinh sẽ tự động hiển thị để theo dõi và xuất hóa đơn VAT tại đây.
+                      </p>
+                    </div>
+                  ) : currentVatOrders.length === 0 ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#9CA3AF' }}>
+                      <Filter size={20} className="mx-auto mb-1 text-gray-300" />
+                      <span>Không có đơn hàng nào khớp với trạng thái hóa đơn đã chọn</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {currentVatOrders.map((order) => {
+                        const orderDateFormatted = order.orderDate
+                          ? new Date(order.orderDate).toLocaleDateString('vi-VN')
+                          : order.createdAt
+                          ? new Date(order.createdAt).toLocaleDateString('vi-VN')
+                          : '---';
+
+                        return (
+                          <div
+                            key={order.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '0.75rem',
+                              padding: '0.6rem 0.8rem',
+                              backgroundColor: '#FAFAFA',
+                              borderRadius: '0.5rem',
+                              border: '1px solid #F3F4F6',
+                              transition: 'all 0.15s ease'
+                            }}
+                            className="hover:border-gray-300 hover:shadow-xs"
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
+                              <div
+                                style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '8px',
+                                  backgroundColor:
+                                    order.invoiceStatus === 'ISSUED'
+                                      ? '#DCFCE7'
+                                      : order.invoiceStatus === 'ISSUING'
+                                      ? '#FEF3C7'
+                                      : '#F3F4F6',
+                                  color:
+                                    order.invoiceStatus === 'ISSUED'
+                                      ? '#16A34A'
+                                      : order.invoiceStatus === 'ISSUING'
+                                      ? '#D97706'
+                                      : '#6B7280',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}
+                              >
+                                <FileText size={15} />
+                              </div>
+
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                  <span style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }} className="truncate">
+                                    {order.code}
+                                  </span>
+                                  {order.totalAmount !== undefined && (
+                                    <span style={{ fontSize: '11.5px', color: '#4B5563', fontWeight: '500' }}>
+                                      • {formatMoney(Number(order.totalAmount))}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div style={{ fontSize: '11.5px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '2px', flexWrap: 'wrap' }}>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <Calendar size={11} className="text-gray-400" />
+                                    Ngày: <strong>{orderDateFormatted}</strong>
+                                  </span>
+                                  {order.vatRate !== undefined && (
+                                    <span className="text-[10.5px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-medium">
+                                      VAT {order.vatRate}%
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                              <div title="Nhấn để đổi trạng thái xuất hóa đơn VAT">
+                                <StatusBadgeDropdown
+                                  value={order.invoiceStatus || 'NOT_ISSUED'}
+                                  options={INVOICE_STATUS_OPTIONS}
+                                  onChange={(newStatus) => handleQuickInvoiceStatusChange(order.id, newStatus)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Footer Cột 3: Phân trang theo Tab */}
+              <div style={{ padding: '0.6rem 0.85rem', borderTop: '1px solid #F3F4F6', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', flexShrink: 0 }}>
+                {activeDetailTab === 'timeline' ? (
+                  <>
+                    <span style={{ color: '#6B7280' }}>
+                      {timeline.length > 0 ? (
+                        <>
+                          Trang <strong>{timelinePage}</strong>/{totalTimelinePages} ({timeline.length} hoạt động)
+                        </>
+                      ) : (
+                        '0 hoạt động'
+                      )}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setTimelinePage((p) => Math.max(1, p - 1))}
+                        disabled={timelinePage === 1}
+                        className="btn btn-secondary btn-sm disabled:opacity-30"
+                        style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', color: '#4B5563' }}
+                        title="Trang trước"
+                      >
+                        <ChevronLeft size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimelinePage((p) => Math.min(totalTimelinePages, p + 1))}
+                        disabled={timelinePage === totalTimelinePages || totalTimelinePages <= 1}
+                        className="btn btn-secondary btn-sm disabled:opacity-30"
+                        style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', color: '#4B5563' }}
+                        title="Trang sau"
+                      >
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ color: '#6B7280' }}>
+                      {filteredVatOrders.length > 0 ? (
+                        <>
+                          Trang <strong>{vatPage}</strong>/{totalVatPages} ({filteredVatOrders.length} đơn hàng)
+                        </>
+                      ) : (
+                        '0 đơn hàng'
+                      )}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setVatPage((p) => Math.max(1, p - 1))}
+                        disabled={vatPage === 1}
+                        className="btn btn-secondary btn-sm disabled:opacity-30"
+                        style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', color: '#4B5563' }}
+                        title="Trang trước"
+                      >
+                        <ChevronLeft size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVatPage((p) => Math.min(totalVatPages, p + 1))}
+                        disabled={vatPage === totalVatPages || totalVatPages <= 1}
+                        className="btn btn-secondary btn-sm disabled:opacity-30"
+                        style={{ width: '24px', height: '24px', borderRadius: '50%', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', color: '#4B5563' }}
+                        title="Trang sau"
+                      >
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           ) : (
