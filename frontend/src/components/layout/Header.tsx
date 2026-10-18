@@ -264,7 +264,7 @@ export const Header: React.FC<HeaderProps> = ({
     {
       id: 'inventory-overview',
       label: 'Kho & SKU',
-      match: ['inventory-overview', 'products', 'warehouses', 'categories', 'suppliers', 'product-types']
+      match: ['inventory-overview', 'products', 'warehouses', 'categories', 'suppliers', 'product-types', 'product-groups']
     },
     {
       id: 'sales-reports',

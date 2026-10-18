@@ -400,7 +400,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   const Icon = item.icon;
                   const isActive =
                     currentTab === item.id ||
-                    (item.id === 'products' && (currentTab === 'categories' || currentTab === 'product-types' || currentTab === 'products' || currentTab === 'goods-management'));
+                    (item.id === 'products' && (currentTab === 'categories' || currentTab === 'product-types' || currentTab === 'product-groups' || currentTab === 'products' || currentTab === 'goods-management'));
                   const targetTab =
                     item.id === 'products'
                       ? (localStorage.getItem('nk_goods_management_tab') || 'products')

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Package, Barcode, Boxes } from 'lucide-react';
+import { Layers, Package, Barcode, Boxes, Shapes } from 'lucide-react';
 import { CategoriesPage } from './CategoriesPage';
 import { ProductTypesPage } from './ProductTypesPage';
+import { ProductGroupsPage } from './ProductGroupsPage';
 import { ProductsPage } from './ProductsPage';
 
-export type GoodsTabType = 'categories' | 'product-types' | 'products';
+export type GoodsTabType = 'categories' | 'product-types' | 'product-groups' | 'products';
 
 interface GoodsManagementPageProps {
   initialTab?: string;
@@ -18,23 +19,40 @@ export const GoodsManagementPage: React.FC<GoodsManagementPageProps> = ({
   const [activeTab, setActiveTab] = useState<GoodsTabType>(() => {
     // 1. Kiểm tra hash URL
     const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
-    if (hash === 'categories' || hash === 'product-types' || hash === 'products') {
+    if (hash === 'categories' || hash === 'product-types' || hash === 'product-groups' || hash === 'products') {
       return hash as GoodsTabType;
     }
     // 2. Kiểm tra prop initialTab
-    if (initialTab && (initialTab === 'categories' || initialTab === 'product-types' || initialTab === 'products')) {
+    if (
+      initialTab &&
+      (initialTab === 'categories' ||
+        initialTab === 'product-types' ||
+        initialTab === 'product-groups' ||
+        initialTab === 'products')
+    ) {
       return initialTab as GoodsTabType;
     }
     // 3. Fallback localStorage
     const saved = localStorage.getItem('nk_goods_management_tab');
-    if (saved === 'categories' || saved === 'product-types' || saved === 'products') {
+    if (
+      saved === 'categories' ||
+      saved === 'product-types' ||
+      saved === 'product-groups' ||
+      saved === 'products'
+    ) {
       return saved as GoodsTabType;
     }
     return 'products';
   });
 
   useEffect(() => {
-    if (initialTab && (initialTab === 'categories' || initialTab === 'product-types' || initialTab === 'products')) {
+    if (
+      initialTab &&
+      (initialTab === 'categories' ||
+        initialTab === 'product-types' ||
+        initialTab === 'product-groups' ||
+        initialTab === 'products')
+    ) {
       setActiveTab(initialTab as GoodsTabType);
     }
   }, [initialTab]);
@@ -66,16 +84,16 @@ export const GoodsManagementPage: React.FC<GoodsManagementPageProps> = ({
               Quản Lý Hàng Hóa
             </h1>
             <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 leading-none">
-              3 Phân Hệ
+              4 Phân Hệ
             </span>
           </div>
           <p className="text-[11px] sm:text-xs text-slate-500 leading-tight mt-0.5 font-medium">
-            Quản lý tập trung danh mục Cấp 1, loại hàng Cấp 2 và danh mục sản phẩm chi tiết (SKU Master)
+            Quản lý tập trung danh mục Cấp 1, loại hàng Cấp 2, nhóm hàng Cấp 3 và danh mục sản phẩm chi tiết (SKU Master)
           </p>
         </div>
       </div>
 
-      {/* 3 TABS DẠNG PILL SEGMENTED CONTROL */}
+      {/* 4 TABS DẠNG PILL SEGMENTED CONTROL */}
       <div className="flex items-center gap-2 overflow-x-auto max-w-full">
         <div className="pill-nav shadow-xs" style={{ padding: '2px', gap: '2px' }}>
           <button
@@ -106,6 +124,19 @@ export const GoodsManagementPage: React.FC<GoodsManagementPageProps> = ({
 
           <button
             type="button"
+            id="tab-goods-groups"
+            onClick={() => handleTabChange('product-groups')}
+            className={`pill-tab-item flex items-center gap-1.5 ${
+              activeTab === 'product-groups' ? 'pill-tab-item-active active' : ''
+            }`}
+            style={{ padding: '4px 12px', fontSize: '12.5px' }}
+          >
+            <Shapes className={`w-3.5 h-3.5 ${activeTab === 'product-groups' ? 'text-white' : 'text-amber-600'}`} />
+            <span className="font-semibold">Nhóm</span>
+          </button>
+
+          <button
+            type="button"
             id="tab-goods-products"
             onClick={() => handleTabChange('products')}
             className={`pill-tab-item flex items-center gap-1.5 ${
@@ -125,6 +156,7 @@ export const GoodsManagementPage: React.FC<GoodsManagementPageProps> = ({
     <div className="tab-content-wrapper flex flex-col flex-1 min-h-0">
       {activeTab === 'categories' && <CategoriesPage headerSlot={masterHeader} />}
       {activeTab === 'product-types' && <ProductTypesPage headerSlot={masterHeader} />}
+      {activeTab === 'product-groups' && <ProductGroupsPage headerSlot={masterHeader} />}
       {activeTab === 'products' && <ProductsPage headerSlot={masterHeader} />}
     </div>
   );

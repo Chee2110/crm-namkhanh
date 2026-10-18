@@ -55,6 +55,7 @@ const VALID_TABS = [
   'warehouses',
   'categories',
   'product-types',
+  'product-groups',
   'products',
   'goods-management',
   'suppliers',
@@ -99,6 +100,7 @@ const TAB_TITLES: Record<string, string> = {
   warehouses: 'Quản lý kho vật lý',
   categories: 'Quản lý hàng hóa',
   'product-types': 'Quản lý hàng hóa',
+  'product-groups': 'Quản lý hàng hóa',
   products: 'Quản lý hàng hóa',
   'goods-management': 'Quản lý hàng hóa',
   suppliers: 'Nhà cung cấp',
@@ -236,6 +238,7 @@ const AppContent: React.FC = () => {
         return <WarehousesPage />;
       case 'categories':
       case 'product-types':
+      case 'product-groups':
       case 'products':
       case 'goods-management':
         return <GoodsManagementPage initialTab={currentTab} onNavigateTab={handleSelectTab} />;

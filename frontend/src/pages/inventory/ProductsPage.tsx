@@ -24,10 +24,11 @@ import {
   Download,
   Filter,
   Check,
-  ArrowLeft
+  ArrowLeft,
+  Boxes
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { Product, Warehouse, Category, ProductType, Supplier } from '../../types';
+import { Product, Warehouse, Category, ProductType, ProductGroup, Supplier } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { ImportExcelModal } from '../../components/common/ImportExcelModal';
 import ExcelJS from 'exceljs';
@@ -56,6 +57,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+  const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,6 +66,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
   const [warehouseFilter, setWarehouseFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [productTypeFilter, setProductTypeFilter] = useState('');
+  const [productGroupFilter, setProductGroupFilter] = useState('');
   const [lowStockFilter, setLowStockFilter] = useState(false);
   const [showCostPrice, setShowCostPrice] = useState(false);
 
@@ -797,6 +800,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     productTypeId: '',
     productTypeCode: 'A4',
     productTypeName: 'Giấy A4',
+    productGroupId: '',
     subTypeCode: '',
     subTypeName: '',
     imageUrl: '',
@@ -905,16 +909,18 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
 
   const loadMetadata = async () => {
     try {
-      const [resWh, resCat, resTypes, resSup] = await Promise.all([
+      const [resWh, resCat, resTypes, resGroups, resSup] = await Promise.all([
         api.get<Warehouse[]>('/warehouses'),
         api.get<Category[]>('/categories'),
         api.get<ProductType[]>('/product-types'),
+        api.get<ProductGroup[]>('/product-groups'),
         api.get<Supplier[]>('/suppliers')
       ]);
 
       setWarehouses(resWh.data || []);
       setCategories(resCat.data || []);
       setProductTypes(resTypes.data || []);
+      setProductGroups(resGroups.data || []);
       setSuppliers(resSup.data || []);
     } catch (err) {
       console.error('Lỗi khi tải dữ liệu cấu hình kho & phân loại:', err);
@@ -929,6 +935,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       if (warehouseFilter) query.append('warehouseId', warehouseFilter);
       if (categoryFilter) query.append('categoryId', categoryFilter);
       if (productTypeFilter) query.append('productTypeId', productTypeFilter);
+      if (productGroupFilter) query.append('productGroupId', productGroupFilter);
       if (lowStockFilter) query.append('lowStock', 'true');
 
       const resProd = await api.get<Product[]>(`/products?${query.toString()}`);
@@ -942,7 +949,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
 
   const loadData = async (silent: boolean | unknown = false) => {
     const isSilent = silent === true;
-    if (warehouses.length === 0 || categories.length === 0 || productTypes.length === 0) {
+    if (warehouses.length === 0 || categories.length === 0 || productTypes.length === 0 || productGroups.length === 0) {
       loadMetadata();
     }
     await loadProducts(isSilent);
@@ -958,7 +965,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       return;
     }
     loadProducts(true);
-  }, [search, warehouseFilter, categoryFilter, productTypeFilter, lowStockFilter]);
+  }, [search, warehouseFilter, categoryFilter, productTypeFilter, productGroupFilter, lowStockFilter]);
 
   const paginatedProducts = paginateProducts(products);
 
@@ -973,6 +980,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     const firstWh = warehouses[0];
     const firstCat = categories[0];
     const firstType = productTypes[0];
+    const firstGroup = productGroups.find((g) => g.productTypeId === firstType?.id);
     setFormData({
       ...initialFormData,
       warehouseId: firstWh?.id || '',
@@ -985,6 +993,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       productTypeId: firstType?.id || '',
       productTypeCode: firstType?.code || 'A4',
       productTypeName: firstType?.name || 'Giấy A4',
+      productGroupId: firstGroup?.id || '',
+      subTypeCode: firstGroup?.code || '',
+      subTypeName: firstGroup?.name || '',
       supplierId: suppliers[0]?.id || ''
     });
     setFormError(null);
@@ -1020,6 +1031,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     const matchedWh = warehouses.find((w) => w.id === p.warehouseId);
     const matchedCat = categories.find((c) => c.id === p.categoryId);
     const matchedType = productTypes.find((t) => t.id === p.productTypeId);
+    const matchedGroup = productGroups.find((g) => g.id === (p as any).productGroupId || (p.subTypeCode && g.code === p.subTypeCode));
 
     setFormData({
       warehouseId: p.warehouseId || '',
@@ -1032,8 +1044,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       productTypeId: p.productTypeId || '',
       productTypeCode: (p as any).productType?.code || matchedType?.code || '',
       productTypeName: (p as any).productType?.name || matchedType?.name || '',
-      subTypeCode: p.subTypeCode || '',
-      subTypeName: p.subTypeName || '',
+      productGroupId: (p as any).productGroupId || matchedGroup?.id || '',
+      subTypeCode: p.subTypeCode || matchedGroup?.code || '',
+      subTypeName: p.subTypeName || matchedGroup?.name || '',
       imageUrl: p.imageUrl || '',
       code: p.code,
       barcode: p.barcode || '',
@@ -1084,6 +1097,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
           brand: formData.brand?.trim() || null,
           color: formData.color?.trim() || null,
           specification: formData.specification?.trim() || null,
+          productGroupId: formData.productGroupId?.trim() || null,
           subTypeCode: formData.subTypeCode?.trim() || null,
           subTypeName: formData.subTypeName?.trim() || null,
           imageUrl: formData.imageUrl?.trim() || null,
@@ -1347,17 +1361,25 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                   </div>
                 </div>
 
-                {/* Danh mục - Loại hàng hóa (Nhập cùng nhau) */}
-                <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-100 pb-2.5">
-                    <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                      <Layers className="w-4 h-4 text-emerald-600" />
-                      Danh mục - Loại hàng hóa
-                    </span>
-                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
+                {/* Danh mục - Loại hàng hóa - Nhóm hàng hóa (Phân cấp 3 tầng tự động đi với nhau) */}
+                <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-100/90 space-y-3">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 border-b border-emerald-100 pb-2.5">
+                    <div>
+                      <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                        <Layers className="w-4 h-4 text-emerald-600" />
+                        Danh mục - Loại - Nhóm hàng hóa (Phân cấp 3 tầng)
+                      </span>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        Chọn bất kỳ cấp nào để hệ thống tự động điền các cấp liên kết tương ứng
+                      </p>
+                    </div>
+
+                    {/* 3 DROPDOWNS CHỌN NHANH TỰ ĐỘNG ĐI VỚI NHAU */}
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+                      {/* 1. Chọn Danh mục */}
                       {categories.length > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-emerald-800">Chọn danh mục:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-semibold text-emerald-800 text-[11px] whitespace-nowrap">Danh mục:</span>
                           <select
                             value={formData.categoryId}
                             onChange={(e) => {
@@ -1366,17 +1388,44 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                               if (cat) {
                                 const matchingTypes = productTypes.filter((t) => t.categoryId === cat.id);
                                 const firstPt = matchingTypes.length === 1 ? matchingTypes[0] : null;
+                                const matchingGroups = firstPt ? productGroups.filter((g) => g.productTypeId === firstPt.id) : [];
+                                const firstGroup = matchingGroups.length === 1 ? matchingGroups[0] : null;
+
+                                const currentTypeValid = matchingTypes.some((t) => t.id === formData.productTypeId);
+
                                 setFormData((prev) => ({
                                   ...prev,
                                   categoryId: cat.id,
                                   categoryCode: cat.code,
                                   categoryName: cat.name,
                                   category: cat.name,
-                                  ...(firstPt ? {
-                                    productTypeId: firstPt.id,
-                                    productTypeCode: firstPt.code,
-                                    productTypeName: firstPt.name
-                                  } : {})
+                                  ...(currentTypeValid
+                                    ? {}
+                                    : firstPt
+                                    ? {
+                                        productTypeId: firstPt.id,
+                                        productTypeCode: firstPt.code,
+                                        productTypeName: firstPt.name,
+                                        ...(firstGroup
+                                          ? {
+                                              productGroupId: firstGroup.id,
+                                              subTypeCode: firstGroup.code,
+                                              subTypeName: firstGroup.name
+                                            }
+                                          : {
+                                              productGroupId: '',
+                                              subTypeCode: '',
+                                              subTypeName: ''
+                                            })
+                                      }
+                                    : {
+                                        productTypeId: '',
+                                        productTypeCode: '',
+                                        productTypeName: '',
+                                        productGroupId: '',
+                                        subTypeCode: '',
+                                        subTypeName: ''
+                                      })
                                 }));
                               } else {
                                 setFormData((prev) => ({
@@ -1384,13 +1433,19 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                                   categoryId: '',
                                   categoryCode: '',
                                   categoryName: '',
-                                  category: ''
+                                  category: '',
+                                  productTypeId: '',
+                                  productTypeCode: '',
+                                  productTypeName: '',
+                                  productGroupId: '',
+                                  subTypeCode: '',
+                                  subTypeName: ''
                                 }));
                               }
                             }}
-                            className="px-2 py-1 text-xs border border-emerald-200 rounded-md bg-white focus:outline-none focus:border-emerald-500"
+                            className="px-2 py-1 text-xs border border-emerald-200 rounded-md bg-white focus:outline-none focus:border-emerald-500 max-w-[140px] truncate"
                           >
-                            <option value="">-- Danh mục có sẵn --</option>
+                            <option value="">-- Chọn danh mục --</option>
                             {categories.map((c) => (
                               <option key={c.id} value={c.id}>
                                 {c.name} ({c.code})
@@ -1400,9 +1455,10 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                         </div>
                       )}
 
+                      {/* 2. Chọn Loại hàng */}
                       {productTypes.length > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-purple-800">Chọn loại hàng:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-semibold text-purple-800 text-[11px] whitespace-nowrap">Loại hàng:</span>
                           <select
                             value={formData.productTypeId}
                             onChange={(e) => {
@@ -1410,30 +1466,52 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                               const pt = productTypes.find((t) => t.id === ptId);
                               if (pt) {
                                 const parentCat = categories.find((c) => c.id === pt.categoryId) || (pt as any).category;
+                                const matchingGroups = productGroups.filter((g) => g.productTypeId === pt.id);
+                                const firstGroup = matchingGroups.length === 1 ? matchingGroups[0] : null;
+                                const currentGroupValid = matchingGroups.some((g) => g.id === formData.productGroupId);
+
                                 setFormData((prev) => ({
                                   ...prev,
                                   productTypeId: pt.id,
                                   productTypeCode: pt.code,
                                   productTypeName: pt.name,
-                                  ...(parentCat ? {
-                                    categoryId: parentCat.id,
-                                    categoryCode: parentCat.code,
-                                    categoryName: parentCat.name,
-                                    category: parentCat.name
-                                  } : {})
+                                  ...(parentCat
+                                    ? {
+                                        categoryId: parentCat.id,
+                                        categoryCode: parentCat.code,
+                                        categoryName: parentCat.name,
+                                        category: parentCat.name
+                                      }
+                                    : {}),
+                                  ...(currentGroupValid
+                                    ? {}
+                                    : firstGroup
+                                    ? {
+                                        productGroupId: firstGroup.id,
+                                        subTypeCode: firstGroup.code,
+                                        subTypeName: firstGroup.name
+                                      }
+                                    : {
+                                        productGroupId: '',
+                                        subTypeCode: '',
+                                        subTypeName: ''
+                                      })
                                 }));
                               } else {
                                 setFormData((prev) => ({
                                   ...prev,
                                   productTypeId: '',
                                   productTypeCode: '',
-                                  productTypeName: ''
+                                  productTypeName: '',
+                                  productGroupId: '',
+                                  subTypeCode: '',
+                                  subTypeName: ''
                                 }));
                               }
                             }}
-                            className="px-2 py-1 text-xs border border-purple-200 rounded-md bg-white focus:outline-none focus:border-purple-500"
+                            className="px-2 py-1 text-xs border border-purple-200 rounded-md bg-white focus:outline-none focus:border-purple-500 max-w-[140px] truncate"
                           >
-                            <option value="">-- Loại hàng có sẵn --</option>
+                            <option value="">-- Chọn loại hàng --</option>
                             {productTypes
                               .filter((t) => !formData.categoryId || t.categoryId === formData.categoryId)
                               .map((t) => (
@@ -1444,32 +1522,99 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                           </select>
                         </div>
                       )}
+
+                      {/* 3. Chọn Nhóm hàng */}
+                      {productGroups.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <span className="font-semibold text-amber-800 text-[11px] whitespace-nowrap">Nhóm hàng:</span>
+                          <select
+                            value={formData.productGroupId}
+                            onChange={(e) => {
+                              const gId = e.target.value;
+                              const g = productGroups.find((item) => item.id === gId);
+                              if (g) {
+                                const parentType = productTypes.find((t) => t.id === g.productTypeId) || (g as any).productType;
+                                const parentCat = parentType
+                                  ? categories.find((c) => c.id === parentType.categoryId) || (parentType as any).category
+                                  : null;
+
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  productGroupId: g.id,
+                                  subTypeCode: g.code,
+                                  subTypeName: g.name,
+                                  ...(parentType
+                                    ? {
+                                        productTypeId: parentType.id,
+                                        productTypeCode: parentType.code,
+                                        productTypeName: parentType.name
+                                      }
+                                    : {}),
+                                  ...(parentCat
+                                    ? {
+                                        categoryId: parentCat.id,
+                                        categoryCode: parentCat.code,
+                                        categoryName: parentCat.name,
+                                        category: parentCat.name
+                                      }
+                                    : {})
+                                }));
+                              } else {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  productGroupId: '',
+                                  subTypeCode: '',
+                                  subTypeName: ''
+                                }));
+                              }
+                            }}
+                            className="px-2 py-1 text-xs border border-amber-200 rounded-md bg-white focus:outline-none focus:border-amber-500 max-w-[140px] truncate"
+                          >
+                            <option value="">-- Chọn nhóm hàng --</option>
+                            {productGroups
+                              .filter((g) => {
+                                if (formData.productTypeId) return g.productTypeId === formData.productTypeId;
+                                if (formData.categoryId) {
+                                  const pt = productTypes.find((t) => t.id === g.productTypeId);
+                                  return pt?.categoryId === formData.categoryId;
+                                }
+                                return true;
+                              })
+                              .map((g) => (
+                                <option key={g.id} value={g.id}>
+                                  {g.name} ({g.code})
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 3 CỤM CHI TIẾT: DANH MỤC - LOẠI HÀNG - NHÓM HÀNG */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                     {/* Cụm 1: Thông tin Danh mục */}
-                    <div className="p-3 bg-white/80 rounded-lg border border-emerald-100/90 space-y-2">
+                    <div className="p-3 bg-white/90 rounded-lg border border-emerald-100/90 space-y-2">
                       <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide flex items-center gap-1">
                         <Layers className="w-3.5 h-3.5 text-emerald-600" />
-                        Danh mục
+                        1. Danh mục (Cấp 1)
                       </span>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2.5">
                         <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">Mã danh mục</label>
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Mã danh mục</label>
                           <input
                             type="text"
-                            placeholder="VD: GIAY, BUT, BIABAN..."
+                            placeholder="VD: GIAY..."
                             value={formData.categoryCode}
                             onChange={(e) => setFormData({ ...formData, categoryCode: e.target.value.toUpperCase() })}
-                            className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                            className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">Tên danh mục</label>
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Tên danh mục</label>
                           <input
                             type="text"
-                            placeholder="VD: Giấy, Bút, Bìa sổ..."
+                            placeholder="VD: Giấy in..."
                             value={formData.categoryName}
                             onChange={(e) =>
                               setFormData({
@@ -1478,37 +1623,67 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                                 category: e.target.value
                               })
                             }
-                            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* Cụm 2: Thông tin Loại hàng hóa */}
-                    <div className="p-3 bg-white/80 rounded-lg border border-purple-100/90 space-y-2">
+                    <div className="p-3 bg-white/90 rounded-lg border border-purple-100/90 space-y-2">
                       <span className="text-[11px] font-bold text-purple-800 uppercase tracking-wide flex items-center gap-1">
                         <Package className="w-3.5 h-3.5 text-purple-600" />
-                        Loại hàng hóa
+                        2. Loại hàng hóa (Cấp 2)
                       </span>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2.5">
                         <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">Mã loại hàng</label>
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Mã loại hàng</label>
                           <input
                             type="text"
-                            placeholder="VD: A4, Bubi, A3..."
+                            placeholder="VD: A4, Bubi..."
                             value={formData.productTypeCode}
                             onChange={(e) => setFormData({ ...formData, productTypeCode: e.target.value.toUpperCase() })}
-                            className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                            className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">Tên loại hàng</label>
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Tên loại hàng</label>
                           <input
                             type="text"
-                            placeholder="VD: Giấy A4, Bút bi, Giấy photo..."
+                            placeholder="VD: Giấy A4..."
                             value={formData.productTypeName}
                             onChange={(e) => setFormData({ ...formData, productTypeName: e.target.value })}
-                            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cụm 3: Thông tin Nhóm hàng hóa */}
+                    <div className="p-3 bg-white/90 rounded-lg border border-amber-100/90 space-y-2">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1">
+                        <Boxes className="w-3.5 h-3.5 text-amber-600" />
+                        3. Nhóm hàng hóa (Cấp 3)
+                      </span>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Mã nhóm hàng</label>
+                          <input
+                            type="text"
+                            placeholder="VD: NH01, BIA-LA..."
+                            value={formData.subTypeCode}
+                            onChange={(e) => setFormData({ ...formData, subTypeCode: e.target.value.toUpperCase() })}
+                            className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Tên nhóm hàng</label>
+                          <input
+                            type="text"
+                            placeholder="VD: Bìa lá, Bút gel..."
+                            value={formData.subTypeName}
+                            onChange={(e) => setFormData({ ...formData, subTypeName: e.target.value })}
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
                           />
                         </div>
                       </div>
@@ -2010,6 +2185,22 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                 </option>
               ))}
             </select>
+
+            {productGroups.length > 0 && (
+              <select
+                className="input"
+                style={{ width: '150px', fontSize: '12.5px', height: '32px', borderRadius: '12px' }}
+                value={productGroupFilter}
+                onChange={(e) => setProductGroupFilter(e.target.value)}
+              >
+                <option value="">-- Tất cả nhóm --</option>
+                {productGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} ({g.code})
+                  </option>
+                ))}
+              </select>
+            )}
 
             <button
               type="button"

@@ -5,11 +5,12 @@ import { successResponse, errorResponse } from '../../common/utils/response';
 export class ProductsController {
   async getProducts(req: Request, res: Response) {
     try {
-      const { category, categoryId, productTypeId, warehouseId, supplierId, search, status, lowStock } = req.query;
+      const { category, categoryId, productTypeId, productGroupId, warehouseId, supplierId, search, status, lowStock } = req.query;
       const result = await productsService.getProducts({
         category: category as string,
         categoryId: categoryId as string,
         productTypeId: productTypeId as string,
+        productGroupId: productGroupId as string,
         warehouseId: warehouseId as string,
         supplierId: supplierId as string,
         search: search as string,
@@ -45,6 +46,9 @@ export class ProductsController {
         productTypeId,
         productTypeCode,
         productTypeName,
+        productGroupId,
+        productGroupCode,
+        productGroupName,
         warehouseId,
         warehouseCode,
         warehouseName,
@@ -88,6 +92,9 @@ export class ProductsController {
         productTypeId: productTypeId ? String(productTypeId).trim() : undefined,
         productTypeCode: productTypeCode ? String(productTypeCode).trim() : undefined,
         productTypeName: productTypeName ? String(productTypeName).trim() : undefined,
+        productGroupId: productGroupId ? String(productGroupId).trim() : undefined,
+        productGroupCode: productGroupCode ? String(productGroupCode).trim() : undefined,
+        productGroupName: productGroupName ? String(productGroupName).trim() : undefined,
         warehouseId: warehouseId ? String(warehouseId).trim() : undefined,
         warehouseCode: warehouseCode ? String(warehouseCode).trim() : undefined,
         warehouseName: warehouseName ? String(warehouseName).trim() : undefined,

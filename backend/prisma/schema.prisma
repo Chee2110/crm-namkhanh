@@ -207,20 +207,38 @@ model Category {
 
 // C.4 Loại hàng hóa (Cấp 2)
 model ProductType {
-  id          String    @id @default(uuid())
-  code        String    @unique // LH01, LH02...
-  name        String    // Giấy in A4, Giấy in A3, Bút bi, Bút lông dầu, Bìa còng 5cm...
-  categoryId  String    @map("category_id")
-  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  unit        String?   // Ream, Hộp, Cây, Chiếc
-  description String?   @db.Text
-  status      String    @default("ACTIVE")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id          String        @id @default(uuid())
+  code        String        @unique // LH01, LH02...
+  name        String        // Giấy in A4, Giấy in A3, Bút bi, Bút lông dầu, Bìa còng 5cm...
+  categoryId  String        @map("category_id")
+  category    Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  unit        String?       // Ream, Hộp, Cây, Chiếc
+  description String?       @db.Text
+  status      String        @default("ACTIVE")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
 
-  products    Product[]
+  productGroups ProductGroup[]
+  products      Product[]
 
   @@map("product_types")
+}
+
+// C.4.1 Nhóm hàng hóa (Cấp 3)
+model ProductGroup {
+  id            String       @id @default(uuid())
+  code          String       @unique // NH01, NH02...
+  name          String       // Bìa lá, Bìa còng, Bút bi gel...
+  productTypeId String       @map("product_type_id")
+  productType   ProductType  @relation(fields: [productTypeId], references: [id], onDelete: Cascade)
+  description   String?      @db.Text
+  status        String       @default("ACTIVE")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  products      Product[]
+
+  @@map("product_groups")
 }
 
 // C.6 Danh sách Nhà cung cấp
@@ -258,14 +276,16 @@ model Product {
   stockQuantity Int             @default(100) @map("stock_quantity")
   minStockLevel Int             @default(20) @map("min_stock_level") // Định mức tồn kho tối thiểu
   
-  warehouseId   String?         @map("warehouse_id")
-  warehouse     Warehouse?      @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
-  categoryId    String?         @map("category_id")
-  categoryRel   Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  productTypeId String?         @map("product_type_id")
-  productType   ProductType?    @relation(fields: [productTypeId], references: [id], onDelete: SetNull)
-  supplierId    String?         @map("supplier_id")
-  supplier      Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  warehouseId    String?         @map("warehouse_id")
+  warehouse      Warehouse?      @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  categoryId     String?         @map("category_id")
+  categoryRel    Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  productTypeId  String?         @map("product_type_id")
+  productType    ProductType?    @relation(fields: [productTypeId], references: [id], onDelete: SetNull)
+  productGroupId String?         @map("product_group_id")
+  productGroup   ProductGroup?   @relation(fields: [productGroupId], references: [id], onDelete: SetNull)
+  supplierId     String?         @map("supplier_id")
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
   // Quy cách thông số kỹ thuật
   brand         String?         // Thương hiệu (Double, Thiên Long, ...)

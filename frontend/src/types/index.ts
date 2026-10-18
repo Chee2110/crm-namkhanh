@@ -131,6 +131,30 @@ export interface ProductType {
   createdAt: string;
 }
 
+export interface ProductGroup {
+  id: string;
+  code: string;
+  name: string;
+  productTypeId: string;
+  productType?: {
+    id: string;
+    code: string;
+    name: string;
+    categoryId?: string;
+    category?: {
+      id: string;
+      code: string;
+      name: string;
+      warehouse?: { id: string; code: string; name: string } | null;
+    } | null;
+  } | null;
+  description?: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+  _count?: { products: number };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Supplier {
   id: string;
   code: string;
@@ -165,6 +189,8 @@ export interface Product {
   categoryRel?: Category | null;
   productTypeId?: string | null;
   productType?: ProductType | null;
+  productGroupId?: string | null;
+  productGroup?: ProductGroup | null;
   supplierId?: string | null;
   supplier?: Supplier | null;
   brand?: string | null;
