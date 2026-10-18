@@ -602,12 +602,10 @@ export const OrdersPage: React.FC = () => {
 
       let loadedOrders = resOrders.data || [];
       if (taxFilter === 'HAS_TAX') {
-        loadedOrders = loadedOrders.filter(
-          (o) => Number(o.vatAmount || 0) > 0 || Number(o.vatRate || 0) > 0
-        );
+        loadedOrders = loadedOrders.filter((o) => Number(o.vatAmount || 0) > 0);
       } else if (taxFilter === 'NO_TAX') {
         loadedOrders = loadedOrders.filter(
-          (o) => (Number(o.vatAmount || 0) === 0 && Number(o.vatRate || 0) === 0) || (!o.vatAmount && !o.vatRate)
+          (o) => Number(o.vatAmount || 0) <= 0 || Number(o.vatRate || 0) === 0
         );
       }
       setOrders(loadedOrders);
@@ -627,6 +625,7 @@ export const OrdersPage: React.FC = () => {
   };
 
   useEffect(() => {
+    setCurrentPage(1);
     loadData();
   }, [deliveryFilter, paymentFilter, invoiceFilter, taxFilter, search]);
 

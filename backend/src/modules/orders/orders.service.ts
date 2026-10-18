@@ -127,18 +127,16 @@ export class OrdersService {
       });
     }
 
-    if (params.taxStatus === 'HAS_TAX') {
+    const taxStatus = params.taxStatus?.toUpperCase();
+    if (taxStatus === 'HAS_TAX') {
+      andConditions.push({
+        vatAmount: { gt: 0 }
+      });
+    } else if (taxStatus === 'NO_TAX') {
       andConditions.push({
         OR: [
-          { vatAmount: { gt: 0 } },
-          { vatRate: { gt: 0 } }
-        ]
-      });
-    } else if (params.taxStatus === 'NO_TAX') {
-      andConditions.push({
-        AND: [
-          { OR: [{ vatAmount: 0 }, { vatAmount: null }] },
-          { OR: [{ vatRate: 0 }, { vatRate: null }] }
+          { vatAmount: { lte: 0 } },
+          { vatRate: 0 }
         ]
       });
     }
