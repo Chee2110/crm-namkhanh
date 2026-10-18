@@ -5,7 +5,7 @@ import { successResponse, errorResponse } from '../../common/utils/response';
 export class OrdersController {
   async getOrders(req: Request, res: Response) {
     try {
-      const { customerId, managerId, deliveryStatus, paymentStatus, invoiceStatus, search } = req.query;
+      const { customerId, managerId, deliveryStatus, paymentStatus, invoiceStatus, taxStatus, search } = req.query;
       const user = (req as any).user;
       const dataScope = (req as any).dataScope || 'ALL';
 
@@ -15,6 +15,7 @@ export class OrdersController {
         deliveryStatus: deliveryStatus as string,
         paymentStatus: paymentStatus as string,
         invoiceStatus: invoiceStatus as string,
+        taxStatus: taxStatus as string,
         search: search as string,
         dataScope,
         currentUserId: user?.id,

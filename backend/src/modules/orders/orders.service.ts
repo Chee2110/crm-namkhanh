@@ -97,32 +97,53 @@ export class OrdersService {
     deliveryStatus?: string;
     paymentStatus?: string;
     invoiceStatus?: string;
+    taxStatus?: string;
     search?: string;
     dataScope?: string;
     currentUserId?: string;
     departmentId?: string;
   }) {
-    const where: any = {};
+    const andConditions: any[] = [];
 
     if (params.dataScope === 'PERSONAL' && params.currentUserId) {
-      where.managerId = params.currentUserId;
+      andConditions.push({ managerId: params.currentUserId });
     } else if (params.dataScope === 'DEPARTMENT' && params.departmentId) {
-      where.manager = { departmentId: params.departmentId };
+      andConditions.push({ manager: { departmentId: params.departmentId } });
     }
 
-    if (params.customerId) where.customerId = params.customerId;
-    if (params.managerId) where.managerId = params.managerId;
-    if (params.deliveryStatus) where.deliveryStatus = params.deliveryStatus;
-    if (params.paymentStatus) where.paymentStatus = params.paymentStatus;
-    if (params.invoiceStatus) where.invoiceStatus = params.invoiceStatus;
+    if (params.customerId) andConditions.push({ customerId: params.customerId });
+    if (params.managerId) andConditions.push({ managerId: params.managerId });
+    if (params.deliveryStatus) andConditions.push({ deliveryStatus: params.deliveryStatus });
+    if (params.paymentStatus) andConditions.push({ paymentStatus: params.paymentStatus });
+    if (params.invoiceStatus) andConditions.push({ invoiceStatus: params.invoiceStatus });
     if (params.search) {
-      where.OR = [
-        { code: { contains: params.search, mode: 'insensitive' } },
-        { customer: { name: { contains: params.search, mode: 'insensitive' } } },
-        { contactPerson: { contains: params.search, mode: 'insensitive' } },
-        { phone: { contains: params.search, mode: 'insensitive' } }
-      ];
+      andConditions.push({
+        OR: [
+          { code: { contains: params.search, mode: 'insensitive' } },
+          { customer: { name: { contains: params.search, mode: 'insensitive' } } },
+          { contactPerson: { contains: params.search, mode: 'insensitive' } },
+          { phone: { contains: params.search, mode: 'insensitive' } }
+        ]
+      });
     }
+
+    if (params.taxStatus === 'HAS_TAX') {
+      andConditions.push({
+        OR: [
+          { vatAmount: { gt: 0 } },
+          { vatRate: { gt: 0 } }
+        ]
+      });
+    } else if (params.taxStatus === 'NO_TAX') {
+      andConditions.push({
+        AND: [
+          { OR: [{ vatAmount: 0 }, { vatAmount: null }] },
+          { OR: [{ vatRate: 0 }, { vatRate: null }] }
+        ]
+      });
+    }
+
+    const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
     return prisma.order.findMany({
       where,

@@ -6,10 +6,9 @@ import {
   Truck,
   Edit2,
   Trash2,
-  PackageMinus,
-  RotateCcw
+  PackageMinus
 } from 'lucide-react';
-import { Order, OrderReturn } from '../../../types';
+import { Order } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
 import { printA4 } from '../../../utils/printA4';
 import { formatVND } from '../../../utils/formatCurrency';
@@ -24,7 +23,7 @@ interface OrderDetailModalProps {
   onEdit?: (order: Order) => void;
   onDelete?: (id: string, code: string, deliveryStatus: string) => void;
   onReturn?: (order: Order) => void;
-  onPrintReturn?: (returnData: OrderReturn, order: Order) => void;
+  onPrintReturn?: (returnData: any, order: Order) => void;
   hasPermission?: (resource: string, action: any) => boolean;
   onExportExcel?: (order: Order) => void;
   onExportDeliveryNote?: (order: Order) => void;
@@ -46,7 +45,6 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   onEdit,
   onDelete,
   onReturn,
-  onPrintReturn,
   hasPermission = () => true,
   onExportExcel,
   onExportDeliveryNote
@@ -127,19 +125,6 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
               >
                 <PackageMinus className="w-3 h-3" />
                 <span>Đổi/Trả</span>
-              </button>
-            )}
-            {order.returns && order.returns.length > 0 && onPrintReturn && (
-              <button
-                onClick={() => {
-                  const ret = order.returns![0];
-                  onPrintReturn(ret, order);
-                }}
-                className="py-1 px-2 text-[11px] font-medium flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white rounded transition-colors cursor-pointer whitespace-nowrap"
-                title="Xem & in phiếu trả hàng A4"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Phiếu trả ({order.returns.length})</span>
               </button>
             )}
             {hasPermission('B_ORDERS', 'update') && onEdit && (
@@ -534,16 +519,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                         <span className="font-bold text-orange-700">
                           Tổng hoàn trả: {formatVND(Number(ret.totalRefundAmount))}
                         </span>
-                        {onPrintReturn && (
-                          <button
-                            type="button"
-                            onClick={() => onPrintReturn(ret, order)}
-                            className="px-2 py-0.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-[10.5px] font-semibold flex items-center gap-1 shadow-xs cursor-pointer"
-                          >
-                            <Printer className="w-3 h-3" />
-                            <span>In phiếu trả</span>
-                          </button>
-                        )}
+                        
                       </div>
                     </div>
                     <p className="text-gray-600 italic">Lý do: {ret.reason}</p>

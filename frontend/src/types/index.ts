@@ -703,6 +703,9 @@ export interface DashboardExecutiveKPIs {
   orderCount: number;
   totalVolume: number;
   totalCogs: number;
+  profitBeforeTax?: number;
+  totalVat?: number;
+  profitAfterTax?: number;
   grossProfit: number;
   grossMargin: number;
   totalDebt: number;

@@ -63,6 +63,8 @@ export class DashboardService {
         where: orderWhere,
         select: {
           id: true,
+          subtotal: true,
+          vatAmount: true,
           totalAmount: true,
           paidAmount: true,
           remainingAmount: true,
@@ -105,7 +107,7 @@ export class DashboardService {
       })
     ]);
 
-    // 1. Doanh thu thuần
+    // 1. Doanh thu
     const totalRevenue = orders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
     const orderCount = orders.length;
 
@@ -118,19 +120,35 @@ export class DashboardService {
       return sum + item.quantity * cost;
     }, 0);
 
-    // 4. Lợi nhuận gộp & Biên lợi nhuận
-    const grossProfit = totalRevenue - totalCogs;
+    // 4. Lợi nhuận trước thuế
+    const profitBeforeTax = totalRevenue - totalCogs;
+
+    // 5. Tổng thuế VAT
+    const totalVat = orders.reduce((sum, o) => {
+      const vat = Number(o.vatAmount || 0);
+      if (vat > 0) return sum + vat;
+      const sub = Number(o.subtotal || 0);
+      const tot = Number(o.totalAmount || 0);
+      if (tot > sub && sub > 0) return sum + (tot - sub);
+      return sum;
+    }, 0);
+
+    // 6. Tổng lợi nhuận sau thuế
+    const profitAfterTax = profitBeforeTax - totalVat;
+
+    // Lợi nhuận gộp & Biên lợi nhuận
+    const grossProfit = profitBeforeTax;
     const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
-    // 5. Tổng công nợ phải thu của khách
+    // 7. Tổng công nợ phải thu của khách
     const totalDebt = orders.reduce((sum, o) => sum + Number(o.remainingAmount), 0);
 
-    // 6. Dòng tiền ròng thực tế (Net Cashflow)
+    // 8. Dòng tiền ròng thực tế (Net Cashflow)
     const totalReceipts = receiptVouchers.reduce((sum, r) => sum + Number(r.amount), 0);
     const totalPayments = paymentVouchers.reduce((sum, p) => sum + Number(p.amount), 0);
     const netCashflow = totalReceipts - totalPayments;
 
-    // 7. Giá trị tồn kho
+    // 9. Giá trị tồn kho
     const totalStockQuantity = products.reduce((sum, p) => sum + p.stockQuantity, 0);
     const totalInventoryValue = products.reduce((sum, p) => sum + p.stockQuantity * Number(p.costPrice), 0);
     const lowStockCount = products.filter((p) => p.stockQuantity <= p.minStockLevel).length;
@@ -142,6 +160,9 @@ export class DashboardService {
         orderCount,
         totalVolume,
         totalCogs,
+        profitBeforeTax,
+        totalVat,
+        profitAfterTax,
         grossProfit,
         grossMargin: Number(grossMargin.toFixed(2)),
         totalDebt,

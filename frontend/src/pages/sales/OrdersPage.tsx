@@ -41,7 +41,6 @@ import { Order, Customer, Product, User, OrderReturn } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { OrderPrintModal } from './components/OrderPrintModal';
 import { OrderDetailModal } from './components/OrderDetailModal';
-import { OrderReturnPrintModal } from './components/OrderReturnPrintModal';
 import { CustomerAutocompleteInput } from '../../components/common/CustomerAutocompleteInput';
 import { printA4 } from '../../utils/printA4';
 import { exportOrderToExcel, exportDeliveryNoteToExcel, exportOrdersListToExcel } from '../../utils/crmExcelExport';
@@ -334,6 +333,7 @@ export const OrdersPage: React.FC = () => {
   const [deliveryFilter, setDeliveryFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
   const [invoiceFilter, setInvoiceFilter] = useState('');
+  const [taxFilter, setTaxFilter] = useState('');
 
   // Trang Tạo Đơn hàng mới (thay thế popup/modal thành trang riêng)
   const [isCreatePage, setIsCreatePage] = useState(false);
@@ -363,6 +363,7 @@ export const OrdersPage: React.FC = () => {
     dates: true,
     delivery: true,
     invoice: true,
+    vatAmount: true,
     totalAmount: true,
     paidAmount: true,
     remainingAmount: true,
@@ -379,6 +380,7 @@ export const OrdersPage: React.FC = () => {
     'dates',
     'delivery',
     'invoice',
+    'vatAmount',
     'totalAmount',
     'paidAmount',
     'remainingAmount',
@@ -395,6 +397,7 @@ export const OrdersPage: React.FC = () => {
     dates: 'Ngày đặt / Giao',
     delivery: 'Giao hàng',
     invoice: 'Hóa đơn',
+    vatAmount: 'Tổng thuế',
     totalAmount: 'Tổng giá trị đơn',
     paidAmount: 'Thực thu',
     remainingAmount: 'Còn phải thu',
@@ -405,10 +408,10 @@ export const OrdersPage: React.FC = () => {
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_orders_visible_cols_v5');
+      const saved = localStorage.getItem('namkhanh_orders_visible_cols_v6');
       if (saved) return JSON.parse(saved);
-      const old = localStorage.getItem('namkhanh_orders_visible_cols');
-      return old ? { ...defaultVisibleCols, ...JSON.parse(old), stt: true } : defaultVisibleCols;
+      const old = localStorage.getItem('namkhanh_orders_visible_cols_v5') || localStorage.getItem('namkhanh_orders_visible_cols');
+      return old ? { ...defaultVisibleCols, ...JSON.parse(old), stt: true, vatAmount: true } : defaultVisibleCols;
     } catch {
       return defaultVisibleCols;
     }
@@ -416,13 +419,15 @@ export const OrdersPage: React.FC = () => {
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_orders_col_order_v5');
+      const saved = localStorage.getItem('namkhanh_orders_col_order_v6');
       if (saved) return withActionsLast(JSON.parse(saved), defaultColOrder);
-      const old = localStorage.getItem('namkhanh_orders_col_order');
+      const old = localStorage.getItem('namkhanh_orders_col_order_v5') || localStorage.getItem('namkhanh_orders_col_order');
       if (old) {
         const parsed = withActionsLast(JSON.parse(old), defaultColOrder);
-        if (!parsed.includes('stt')) return ['stt', ...parsed];
-        return parsed;
+        const baseList = parsed.includes('stt') ? parsed : ['stt', ...parsed];
+        const listWithVat = baseList.includes('vatAmount') ? baseList : [...baseList.slice(0, Math.max(0, baseList.indexOf('totalAmount'))), 'vatAmount', ...baseList.slice(Math.max(0, baseList.indexOf('totalAmount')))];
+        return withActionsLast(listWithVat, defaultColOrder);
+
       }
       return defaultColOrder;
     } catch {
@@ -439,6 +444,7 @@ export const OrdersPage: React.FC = () => {
     dates: 160,
     delivery: 140,
     invoice: 130,
+    vatAmount: 130,
     totalAmount: 170,
     paidAmount: 140,
     remainingAmount: 160,
@@ -447,7 +453,7 @@ export const OrdersPage: React.FC = () => {
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'orders_v5',
+    tableKey: 'orders_v6',
     defaultWidths: defaultOrderWidths,
     minWidth: 50,
     minWidths: {
@@ -459,6 +465,7 @@ export const OrdersPage: React.FC = () => {
       dates: 140,
       delivery: 120,
       invoice: 110,
+      vatAmount: 100,
       totalAmount: 150,
       paidAmount: 120,
       remainingAmount: 140,
@@ -471,19 +478,21 @@ export const OrdersPage: React.FC = () => {
     const withoutStt = newOrder.filter((k) => k !== 'stt');
     const normalized = withActionsLast(['stt', ...withoutStt], defaultColOrder);
     setColumnOrder(normalized);
-    localStorage.setItem('namkhanh_orders_col_order_v5', JSON.stringify(normalized));
+    localStorage.setItem('namkhanh_orders_col_order_v6', JSON.stringify(normalized));
   };
 
   const toggleColumnVisibility = (key: string) => {
     const updated = { ...visibleColumns, [key]: !visibleColumns[key] };
     setVisibleColumns(updated);
-    localStorage.setItem('namkhanh_orders_visible_cols_v5', JSON.stringify(updated));
+    localStorage.setItem('namkhanh_orders_visible_cols_v6', JSON.stringify(updated));
   };
 
   const resetColumns = () => {
     setVisibleColumns(defaultVisibleCols);
     setColumnOrder(defaultColOrder);
     resetWidths();
+    localStorage.removeItem('namkhanh_orders_visible_cols_v6');
+    localStorage.removeItem('namkhanh_orders_col_order_v6');
     localStorage.removeItem('namkhanh_orders_visible_cols_v5');
     localStorage.removeItem('namkhanh_orders_col_order_v5');
     localStorage.removeItem('namkhanh_orders_visible_cols');
@@ -525,10 +534,6 @@ export const OrdersPage: React.FC = () => {
       condition?: 'GOOD' | 'DEFECTIVE';
     }>
   });
-
-  // In ấn Phiếu Trả Hàng A4
-  const [selectedPrintReturn, setSelectedPrintReturn] = useState<{ returnData: OrderReturn; order: Order } | null>(null);
-  const [isReturnPrintModalOpen, setIsReturnPrintModalOpen] = useState(false);
 
   // Form states
   const [formError, setFormError] = useState<string | null>(null);
@@ -583,8 +588,9 @@ export const OrdersPage: React.FC = () => {
       if (deliveryFilter) query.append('deliveryStatus', deliveryFilter);
       if (paymentFilter) query.append('paymentStatus', paymentFilter);
       if (invoiceFilter) query.append('invoiceStatus', invoiceFilter);
+      if (taxFilter) query.append('taxStatus', taxFilter);
 
-      const hasFilter = Boolean(search || deliveryFilter || paymentFilter || invoiceFilter);
+      const hasFilter = Boolean(search || deliveryFilter || paymentFilter || invoiceFilter || taxFilter);
 
       const [resOrders, resAllOrders, resCustomers, resProducts, resUsers] = await Promise.all([
         api.get<Order[]>(`/orders?${query.toString()}`),
@@ -594,7 +600,16 @@ export const OrdersPage: React.FC = () => {
         api.get<User[]>('/users').catch(() => ({ data: [] }))
       ]);
 
-      const loadedOrders = resOrders.data || [];
+      let loadedOrders = resOrders.data || [];
+      if (taxFilter === 'HAS_TAX') {
+        loadedOrders = loadedOrders.filter(
+          (o) => Number(o.vatAmount || 0) > 0 || Number(o.vatRate || 0) > 0
+        );
+      } else if (taxFilter === 'NO_TAX') {
+        loadedOrders = loadedOrders.filter(
+          (o) => (Number(o.vatAmount || 0) === 0 && Number(o.vatRate || 0) === 0) || (!o.vatAmount && !o.vatRate)
+        );
+      }
       setOrders(loadedOrders);
       if (resAllOrders) {
         setAllOrders(resAllOrders.data || []);
@@ -613,7 +628,7 @@ export const OrdersPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [deliveryFilter, paymentFilter, invoiceFilter, search]);
+  }, [deliveryFilter, paymentFilter, invoiceFilter, taxFilter, search]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -675,7 +690,7 @@ export const OrdersPage: React.FC = () => {
       alert(
         '⚠️ Đơn hàng đã ở trạng thái ĐÃ GIAO HÀNG (DELIVERED).\n' +
         'Quy trình quản lý kho & kế toán không cho phép xóa trực tiếp sản phẩm khỏi đơn đã xuất giao!\n\n' +
-        'Vui lòng sử dụng tính năng [Lập Phiếu Đổi/Trả Hàng Hoàn Kho] để hoàn hàng về kho và giảm trừ công nợ theo đúng chuẩn.'
+        'Không thể xóa sản phẩm khỏi đơn hàng đã giao hoàn tất.'
       );
       return;
     }
@@ -1310,11 +1325,6 @@ export const OrdersPage: React.FC = () => {
         setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
       }
 
-      if (createdReturn) {
-        setSelectedPrintReturn({ returnData: createdReturn, order: updatedOrder });
-        setIsReturnPrintModalOpen(true);
-      }
-
       setSelectedOrder(null);
       loadData();
     } catch (err: any) {
@@ -1469,7 +1479,7 @@ export const OrdersPage: React.FC = () => {
                     Khi tăng số lượng, hệ thống kiểm tra tồn kho và trừ thêm lượng chênh lệch (Δ &gt; 0).
                     Khi giảm số lượng, lượng dư được tự động hoàn trả vào kho (Δ &lt; 0).
                     <br />
-                    <em>Quy tắc: Không xóa trực tiếp sản phẩm đã giao. Nếu khách trả lại hàng, hãy đóng form và sử dụng tính năng <strong>[Lập Phiếu Đổi/Trả Hàng Hoàn Kho]</strong>.</em>
+                    <em>Quy tắc: Không xóa trực tiếp sản phẩm của đơn hàng đã giao hoàn tất.</em>
                   </p>
                 </div>
               </div>
@@ -2030,7 +2040,17 @@ export const OrdersPage: React.FC = () => {
             <option value="ISSUED">Đã xuất HĐ</option>
           </select>
 
-          {(search || deliveryFilter || paymentFilter || invoiceFilter) && (
+          <select
+            value={taxFilter}
+            onChange={(e) => setTaxFilter(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 h-[34px] bg-white focus:outline-none focus:border-[#E53935]"
+          >
+            <option value="">Thuế VAT: Tất cả</option>
+            <option value="HAS_TAX">Có thuế VAT</option>
+            <option value="NO_TAX">Không thuế</option>
+          </select>
+
+          {(search || deliveryFilter || paymentFilter || invoiceFilter || taxFilter) && (
             <button
               type="button"
               onClick={() => {
@@ -2038,6 +2058,7 @@ export const OrdersPage: React.FC = () => {
                 setDeliveryFilter('');
                 setPaymentFilter('');
                 setInvoiceFilter('');
+                setTaxFilter('');
               }}
               className="px-2.5 py-1 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-1 transition-colors cursor-pointer border border-red-200 h-[34px]"
               title="Khôi phục toàn bộ danh sách đơn hàng"
@@ -2270,6 +2291,24 @@ export const OrdersPage: React.FC = () => {
                                   </div>
                                 </td>
                               );
+                            case 'vatAmount': {
+                              const vat = Number(order.vatAmount || 0);
+                              const rate = order.vatRate !== undefined && order.vatRate !== null ? Number(order.vatRate) : null;
+                              return (
+                                <td key={colKey} className="py-2 px-2.5 text-center whitespace-nowrap overflow-hidden tabular-nums">
+                                  {vat > 0 ? (
+                                    <div className="inline-flex items-center justify-center gap-1 font-semibold text-slate-800" title={rate !== null ? `Thuế VAT ${rate}%: ${formatVND(vat)}` : `Tổng thuế: ${formatVND(vat)}`}>
+                                      <span>{formatVND(vat)}</span>
+                                      {rate !== null && rate > 0 && (
+                                        <span className="text-[10px] text-gray-500 font-medium">({rate}%)</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400 text-xs font-medium">0 ₫</span>
+                                  )}
+                                </td>
+                              );
+                            }
                             case 'totalAmount':
                               return (
                                 <td key={colKey} className="py-2 px-2.5 text-center font-bold text-gray-900 whitespace-nowrap overflow-hidden tabular-nums">
@@ -2381,23 +2420,6 @@ export const OrdersPage: React.FC = () => {
                                         className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-md transition-colors cursor-pointer"
                                       >
                                         <PackageMinus className="w-4 h-4 text-orange-600" />
-                                      </button>
-                                    )}
-
-                                    {/* In phiếu trả hàng đã lập */}
-                                    {order.returns && order.returns.length > 0 && (
-                                      <button
-                                        title={`Xem & In phiếu trả hàng A4 (${order.returns.length} phiếu đã lập)`}
-                                        onClick={() => {
-                                          setSelectedPrintReturn({ returnData: order.returns![0], order });
-                                          setIsReturnPrintModalOpen(true);
-                                        }}
-                                        className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-md transition-colors cursor-pointer relative"
-                                      >
-                                        <RotateCcw className="w-4 h-4 text-amber-600" />
-                                        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center">
-                                          {order.returns.length}
-                                        </span>
                                       </button>
                                     )}
 
@@ -2888,7 +2910,7 @@ export const OrdersPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setIsReturnModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg"
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2924,8 +2946,8 @@ export const OrdersPage: React.FC = () => {
                             {idx + 1}
                           </td>
                           <td className="p-2.5">
-                            <div className="font-bold text-gray-900">{item.productName}</div>
-                            <div className="text-[10px] font-mono text-gray-500 text-center">{item.productCode}</div>
+                            <div className="font-semibold text-gray-900">{item.productName}</div>
+                            <div className="text-[10px] text-gray-500 font-mono">{item.productCode}</div>
                           </td>
                           <td className="p-2.5 text-center text-gray-600">{item.unit}</td>
                           <td className="p-2.5 text-center font-semibold text-gray-700">{item.orderQuantity}</td>
@@ -3054,13 +3076,13 @@ export const OrdersPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsReturnModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs"
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs cursor-pointer"
                 >
                   Đóng
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+                  className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer"
                 >
                   Xác nhận Nhập kho & Trả hàng
                 </button>
@@ -3078,10 +3100,6 @@ export const OrdersPage: React.FC = () => {
         onEdit={(ord) => openEditOrder(ord)}
         onDelete={(id, code, deliveryStatus) => handleDelete(id, code, deliveryStatus)}
         onReturn={(ord) => openReturnModal(ord)}
-        onPrintReturn={(returnData, ord) => {
-          setSelectedPrintReturn({ returnData, order: ord });
-          setIsReturnPrintModalOpen(true);
-        }}
         hasPermission={hasPermission}
         onExportExcel={(ord) => handleExportSingleOrderExcel(ord)}
         onExportDeliveryNote={(ord) => handleExportDeliveryNoteExcel(ord)}
@@ -3097,16 +3115,7 @@ export const OrdersPage: React.FC = () => {
         order={selectedPrintOrder}
       />
 
-      {/* MODAL IN PHIẾU NHẬP KHO TRẢ HÀNG A4 */}
-      <OrderReturnPrintModal
-        isOpen={isReturnPrintModalOpen}
-        onClose={() => {
-          setIsReturnPrintModalOpen(false);
-          setSelectedPrintReturn(null);
-        }}
-        orderReturn={selectedPrintReturn?.returnData || null}
-        order={selectedPrintReturn?.order || null}
-      />
+      
 
       {/* MODAL IMPORT HÀNG HÓA TỪ EXCEL/CSV */}
       <ImportItemsModal

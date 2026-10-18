@@ -12,6 +12,7 @@ import {
   PieChart as PieIcon,
   BarChart3,
   FileSpreadsheet,
+  Receipt,
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
@@ -157,6 +158,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
     return list.slice((profitPage - 1) * PROFIT_PER_PAGE, profitPage * PROFIT_PER_PAGE);
   }, [profitData?.categoryProfits, profitPage]);
 
+  // Các chỉ số tính toán cho 6 thẻ thống kê điều hành
+  const totalRevenue = overview?.kpis.totalRevenue || 0;
+  const totalCogs = overview?.kpis.totalCogs || 0;
+  const profitBeforeTax = overview?.kpis.profitBeforeTax ?? (totalRevenue - totalCogs);
+  const totalVat = overview?.kpis.totalVat ?? 0;
+  const profitAfterTax = overview?.kpis.profitAfterTax ?? (profitBeforeTax - totalVat);
+  const totalDebt = overview?.kpis.totalDebt || 0;
+
+  const marginBeforeTax = totalRevenue > 0 ? ((profitBeforeTax / totalRevenue) * 100).toFixed(1) : '0';
+  const marginAfterTax = totalRevenue > 0 ? ((profitAfterTax / totalRevenue) * 100).toFixed(1) : '0';
+
   return (
     <div className="space-y-6 pb-12">
       {/* ================= HEADER ĐIỀU HÀNH ================= */}
@@ -235,88 +247,144 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
         </div>
       </div>
 
-      {/* ================= 4 EXECUTIVE STAT CARDS ================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Tổng doanh thu thuần */}
+      {/* ================= 6 EXECUTIVE STAT CARDS ================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        {/* 1. Doanh thu */}
         <div
           onClick={() => onNavigateTab?.('sales-overview')}
           className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-red-200 transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Doanh thu thuần</span>
-            <div className="w-8 h-8 rounded-xl bg-red-50 text-[#EA332A] flex items-center justify-center">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Doanh thu">
+              Doanh thu
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-red-50 text-[#EA332A] flex items-center justify-center shrink-0">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-black text-slate-900">
-              {formatVND(overview?.kpis.totalRevenue || 0)}
+            <div className="text-lg xl:text-xl font-black text-slate-900 truncate" title={formatVND(totalRevenue)}>
+              {formatVND(totalRevenue)}
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
-              <span className="font-semibold text-slate-700">{overview?.kpis.orderCount || 0}</span> đơn hàng đã chốt
+              <span className="font-semibold text-slate-700">{overview?.kpis.orderCount || 0}</span> đơn hàng
             </div>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#EA332A]"></div>
         </div>
 
-        {/* 2. Giá vốn hàng bán (COGS) */}
+        {/* 2. Giá vốn */}
         <div
           onClick={() => onNavigateTab?.('inventory-overview')}
           className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-amber-200 transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Giá vốn hàng bán</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Giá vốn">
+              Giá vốn
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
               <ShoppingBag className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-black text-slate-900">
-              {formatVND(overview?.kpis.totalCogs || 0)}
+            <div className="text-lg xl:text-xl font-black text-slate-900 truncate" title={formatVND(totalCogs)}>
+              {formatVND(totalCogs)}
             </div>
-            <div className="flex items-center gap-1 text-xs text-amber-600 mt-1 font-semibold">
-              Sản lượng: {new Intl.NumberFormat('vi-VN').format(overview?.kpis.totalVolume || 0)} SP
+            <div className="flex items-center gap-1 text-xs text-amber-600 mt-1 font-semibold truncate">
+              SL: {new Intl.NumberFormat('vi-VN').format(overview?.kpis.totalVolume || 0)} SP
             </div>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500"></div>
         </div>
 
-        {/* 3. Lợi nhuận gộp & Biên lãi */}
+        {/* 3. Lợi nhuận trước thuế */}
+        <div
+          onClick={() => setActiveSubTab('profit')}
+          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-blue-200 transition-all cursor-pointer"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Lợi nhuận trước thuế">
+              Lợi nhuận trước thuế
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className={`text-lg xl:text-xl font-black truncate ${profitBeforeTax >= 0 ? 'text-blue-600' : 'text-red-500'}`} title={formatVND(profitBeforeTax)}>
+              {formatVND(profitBeforeTax)}
+            </div>
+            <div className="flex items-center gap-1 text-xs text-blue-600 mt-1 font-semibold">
+              Biên lãi: {marginBeforeTax}%
+            </div>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500"></div>
+        </div>
+
+        {/* 4. Tổng thuế VAT */}
+        <div
+          onClick={() => onNavigateTab?.('finances')}
+          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-orange-200 transition-all cursor-pointer"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Tổng thuế VAT">
+              Tổng thuế VAT
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+              <Receipt className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-lg xl:text-xl font-black text-orange-600 truncate" title={formatVND(totalVat)}>
+              {formatVND(totalVat)}
+            </div>
+            <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+              Thuế GTGT đơn hàng
+            </div>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-500"></div>
+        </div>
+
+        {/* 5. Tổng lợi nhuận sau thuế */}
         <div
           onClick={() => setActiveSubTab('profit')}
           className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-emerald-200 transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Lợi nhuận gộp</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Tổng lợi nhuận sau thuế">
+              Tổng lợi nhuận sau thuế
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-black text-emerald-600">
-              {formatVND(overview?.kpis.grossProfit || 0)}
+            <div className={`text-lg xl:text-xl font-black truncate ${profitAfterTax >= 0 ? 'text-emerald-600' : 'text-red-500'}`} title={formatVND(profitAfterTax)}>
+              {formatVND(profitAfterTax)}
             </div>
             <div className="flex items-center gap-1 text-xs text-emerald-600 mt-1 font-semibold">
-              Biên lãi: {overview?.kpis.grossMargin || 0}%
+              Biên lãi ròng: {marginAfterTax}%
             </div>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
         </div>
 
-        {/* 4. Tổng công nợ phải thu */}
+        {/* 6. Tổng công nợ */}
         <div
           onClick={() => onNavigateTab?.('customers')}
           className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-purple-200 transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Công nợ phải thu</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Tổng công nợ">
+              Tổng công nợ
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
               <CreditCard className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-black text-purple-700">
-              {formatVND(overview?.kpis.totalDebt || 0)}
+            <div className="text-lg xl:text-xl font-black text-purple-700 truncate" title={formatVND(totalDebt)}>
+              {formatVND(totalDebt)}
             </div>
             <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
               Chưa thanh toán hết
