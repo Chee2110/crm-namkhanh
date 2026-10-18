@@ -236,6 +236,7 @@ export const InboundReceiptsPage: React.FC = () => {
   const canDelete =
     user?.roles?.includes('ADMIN') ||
     user?.roles?.includes('CEO') ||
+    user?.roles?.includes('WAREHOUSE') ||
     hasPermission('C_INBOUND_RECEIPTS', 'delete');
 
   // Tải danh mục hỗ trợ (Kho, Nhà cung cấp)
@@ -349,6 +350,10 @@ export const InboundReceiptsPage: React.FC = () => {
     try {
       await api.delete(`/inbound-receipts/${deleteConfirm.receipt.id}`);
       setDeleteConfirm({ isOpen: false, receipt: null });
+      if (isCreatePage) {
+        setIsCreatePage(false);
+        setEditingReceipt(null);
+      }
       loadReceipts();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Có lỗi xảy ra khi xóa phiếu');
@@ -405,6 +410,9 @@ export const InboundReceiptsPage: React.FC = () => {
           setEditingReceipt(null);
           loadReceipts();
         }}
+        onDelete={canDelete && editingReceipt ? () => {
+          setDeleteConfirm({ isOpen: true, receipt: editingReceipt });
+        } : undefined}
       />
     );
   }
@@ -887,8 +895,8 @@ export const InboundReceiptsPage: React.FC = () => {
                                         </button>
                                       )}
 
-                                      {/* Xóa phiếu (nếu DRAFT hoặc REJECTED) */}
-                                      {canDelete && (r.status === 'DRAFT' || r.status === 'REJECTED') && (
+                                      {/* Xóa phiếu */}
+                                      {canDelete && (
                                         <button
                                           onClick={() => setDeleteConfirm({ isOpen: true, receipt: r })}
                                           className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
@@ -954,6 +962,10 @@ export const InboundReceiptsPage: React.FC = () => {
         onCancel={(rec) => {
           setSelectedReceiptForDetail(null);
           setCancelDialog({ isOpen: true, receipt: rec, reason: '' });
+        }}
+        onDelete={(rec) => {
+          setSelectedReceiptForDetail(null);
+          setDeleteConfirm({ isOpen: true, receipt: rec });
         }}
       />
 
@@ -1089,6 +1101,11 @@ export const InboundReceiptsPage: React.FC = () => {
               Bạn có chắc chắn muốn xóa vĩnh viễn phiếu nhập kho{' '}
               <strong className="text-slate-900 font-mono">{deleteConfirm.receipt.code}</strong>? Thao tác này không thể hoàn tác.
             </p>
+            {deleteConfirm.receipt.status === 'APPROVED' && (
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 leading-relaxed">
+                <strong>Lưu ý:</strong> Phiếu này đã nhập kho. Khi xóa, hệ thống sẽ tự động trừ lại số lượng tồn kho tương ứng.
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"

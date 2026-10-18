@@ -842,29 +842,61 @@ export class InboundReceiptsService {
   }
 
   /**
-   * Xóa phiếu nhập kho (chỉ được xóa khi ở trạng thái DRAFT hoặc REJECTED)
+   * Xóa phiếu nhập kho
+   * Nếu phiếu đã duyệt (APPROVED), tự động trừ lại số lượng tồn kho tương ứng
    */
   async deleteReceipt(id: string, currentUserId: string) {
-    const receipt = await prisma.inboundReceipt.findUnique({ where: { id } });
+    const receipt = await prisma.inboundReceipt.findUnique({
+      where: { id },
+      include: { items: true }
+    });
     if (!receipt) throw new Error('Không tìm thấy phiếu nhập kho');
 
-    if (receipt.status === 'APPROVED') {
-      throw new Error('Không thể xóa phiếu nhập kho đã được phê duyệt. Vui lòng thực hiện thao tác hủy phiếu');
-    }
+    return await prisma.$transaction(async (tx) => {
+      // Nếu phiếu đã từng duyệt kho, hoàn tác trừ lại số lượng tồn kho đã cộng
+      if (receipt.status === 'APPROVED') {
+        for (const item of receipt.items) {
+          const qtyToDeduct = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
+          if (qtyToDeduct > 0) {
+            let product = item.productId
+              ? await tx.product.findUnique({ where: { id: item.productId } })
+              : (item.productCode && item.productCode !== 'N/A'
+                  ? await tx.product.findUnique({ where: { code: item.productCode } })
+                  : null);
 
-    await prisma.inboundReceipt.delete({ where: { id } });
-
-    await prisma.auditLog.create({
-      data: {
-        userId: currentUserId,
-        action: 'DELETE',
-        entityType: 'InboundReceipt',
-        entityId: id,
-        oldValue: { code: receipt.code, status: receipt.status }
+            if (product) {
+              await tx.product.update({
+                where: { id: product.id },
+                data: {
+                  stockQuantity: {
+                    decrement: qtyToDeduct
+                  }
+                }
+              });
+            }
+          }
+        }
       }
-    });
 
-    return { success: true, message: `Đã xóa phiếu nhập kho ${receipt.code}` };
+      await tx.inboundReceipt.delete({ where: { id } });
+
+      await tx.auditLog.create({
+        data: {
+          userId: currentUserId,
+          action: 'DELETE',
+          entityType: 'InboundReceipt',
+          entityId: id,
+          oldValue: {
+            code: receipt.code,
+            status: receipt.status,
+            totalAmount: Number(receipt.totalAmount),
+            warehouseId: receipt.warehouseId
+          }
+        }
+      });
+
+      return { success: true, message: `Đã xóa phiếu nhập kho ${receipt.code}` };
+    });
   }
 }
 

@@ -45,6 +45,7 @@ interface InboundReceiptCreatePageProps {
   suppliers: Supplier[];
   onBack: () => void;
   onSuccess: (receipt: InboundReceipt) => void;
+  onDelete?: () => void;
 }
 
 interface FormItem {
@@ -78,7 +79,8 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
   warehouses,
   suppliers,
   onBack,
-  onSuccess
+  onSuccess,
+  onDelete
 }) => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -610,6 +612,18 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
 
         {/* Nút hành động phía trên */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+          {editingReceipt && onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="px-3.5 py-1.5 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+              title="Xóa phiếu nhập kho này"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+              <span>Xóa phiếu</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onBack}
@@ -1128,6 +1142,18 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
         </div>
 
         <div className="flex items-center gap-3">
+          {editingReceipt && onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="px-4 py-2 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Xóa phiếu nhập kho này"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+              <span>Xóa phiếu</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onBack}

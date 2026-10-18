@@ -21,7 +21,8 @@ import {
   Package,
   Tag,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Trash2
 } from 'lucide-react';
 import { InboundReceipt, InboundReceiptType, InboundReceiptStatus } from '../../../types';
 import { useAuth } from '../../../context/AuthContext';
@@ -36,6 +37,7 @@ interface InboundReceiptDetailModalProps {
   onApprove?: (receipt: InboundReceipt) => void;
   onReject?: (receipt: InboundReceipt) => void;
   onCancel?: (receipt: InboundReceipt) => void;
+  onDelete?: (receipt: InboundReceipt) => void;
 }
 
 export const InboundReceiptDetailModal: React.FC<InboundReceiptDetailModalProps> = ({
@@ -47,7 +49,8 @@ export const InboundReceiptDetailModal: React.FC<InboundReceiptDetailModalProps>
   onVerify,
   onApprove,
   onReject,
-  onCancel
+  onCancel,
+  onDelete
 }) => {
   if (!isOpen || !receipt) return null;
 
@@ -58,6 +61,12 @@ export const InboundReceiptDetailModal: React.FC<InboundReceiptDetailModalProps>
     user?.roles?.includes('ADMIN') ||
     user?.roles?.includes('CEO') ||
     hasPermission('C_INBOUND_RECEIPTS', 'update');
+
+  const canDelete =
+    user?.roles?.includes('ADMIN') ||
+    user?.roles?.includes('CEO') ||
+    user?.roles?.includes('WAREHOUSE') ||
+    hasPermission('C_INBOUND_RECEIPTS', 'delete');
 
   const typeConfig: Record<InboundReceiptType, { label: string; color: string }> = {
     PURCHASE: { label: 'Nhập mua hàng từ NCC', color: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -172,6 +181,17 @@ export const InboundReceiptDetailModal: React.FC<InboundReceiptDetailModalProps>
               >
                 <Ban className="w-3.5 h-3.5 text-red-600" />
                 <span>Hủy phiếu</span>
+              </button>
+            )}
+
+            {canDelete && onDelete && (
+              <button
+                onClick={() => onDelete(receipt)}
+                className="px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Xóa vĩnh viễn phiếu nhập kho này"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                <span>Xóa phiếu</span>
               </button>
             )}
 

@@ -108,11 +108,11 @@ async function main() {
           dataScope = 'ALL';
         }
       } else if (code === 'WAREHOUSE') {
-        if (mod.group === 'Kho & Hàng hóa' || ['B_ORDERS', 'A_DOCUMENTS'].includes(mod.code)) {
+        if (mod.group === 'KHO & HÀNG HÓA' || mod.group === 'Kho & Hàng hóa' || ['B_ORDERS', 'A_DOCUMENTS'].includes(mod.code)) {
           canRead = true;
           canCreate = true;
           canUpdate = true;
-          canDelete = false;
+          canDelete = mod.code === 'C_INBOUND_RECEIPTS';
           dataScope = 'ALL';
         }
       }
