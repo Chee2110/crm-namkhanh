@@ -12,7 +12,8 @@
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:seed-bulk": "tsx prisma/seed-bulk.ts",
-    "prisma:clear": "tsx prisma/clear-database.ts"
+    "prisma:clear": "tsx prisma/clear-database.ts",
+    "prisma:clear-transactions": "tsx prisma/clear-transactions.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.18.0",
