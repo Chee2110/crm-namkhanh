@@ -358,6 +358,16 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
 
         if (!hasAnyData) return;
 
+        // Bỏ qua dòng mẫu/dòng trống nếu các cột định danh chính (như Mã SP & Tên SP) đều để trống
+        if (requiredFields.length >= 2) {
+          const primaryFields = requiredFields.slice(0, 2);
+          const hasAnyPrimary = primaryFields.some((rf) => {
+            const matchingKey = Object.keys(rowObj).find((k) => k.toLowerCase() === rf.toLowerCase());
+            return matchingKey && String(rowObj[matchingKey] ?? '').trim() !== '';
+          });
+          if (!hasAnyPrimary) return;
+        }
+
         // Kiểm tra dữ liệu bắt buộc
         for (const rf of requiredFields) {
           const matchingKey = Object.keys(rowObj).find((k) => k.toLowerCase() === rf.toLowerCase());
@@ -441,6 +451,15 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
       headerRow.forEach((h, idx) => {
         rowObj[h] = values[idx] !== undefined ? values[idx] : '';
       });
+
+      if (requiredFields.length >= 2) {
+        const primaryFields = requiredFields.slice(0, 2);
+        const hasAnyPrimary = primaryFields.some((rf) => {
+          const matchingKey = Object.keys(rowObj).find((k) => k.toLowerCase() === rf.toLowerCase());
+          return matchingKey && String(rowObj[matchingKey] ?? '').trim() !== '';
+        });
+        if (!hasAnyPrimary) continue;
+      }
 
       for (const rf of requiredFields) {
         const matchingKey = Object.keys(rowObj).find((k) => k.toLowerCase() === rf.toLowerCase());

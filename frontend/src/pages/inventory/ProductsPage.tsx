@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Package,
   Plus,
-  Search,
   Warehouse as WarehouseIcon,
   Layers,
   Truck,
@@ -10,14 +9,8 @@ import {
   Edit2,
   Trash2,
   AlertCircle,
-  X,
-  Eye,
-  SlidersHorizontal,
-  CheckCircle2,
   AlertTriangle,
   FileSpreadsheet,
-  GripVertical,
-  Columns,
   Upload,
   Image as ImageIcon,
   Loader2,
@@ -50,6 +43,13 @@ interface ProductsPageProps {
   headerSlot?: React.ReactNode;
 }
 
+const normalizeTextLabel = (val?: string | null): string => {
+  if (!val) return '';
+  const trimmed = String(val).trim().replace(/\s+/g, ' ');
+  if (!trimmed) return '';
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+};
+
 export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
   const { hasPermission } = useAuth();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -64,11 +64,11 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
   // Filters
   const [search, setSearch] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [productTypeFilter, setProductTypeFilter] = useState('');
+  const [categoryFilter] = useState('');
+  const [productTypeFilter] = useState('');
   const [productGroupFilter, setProductGroupFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [lowStockFilter, setLowStockFilter] = useState(false);
-  const [showCostPrice, setShowCostPrice] = useState(false);
 
   // Pagination (vừa vặn màn hình laptop, tự động tăng/giảm dòng khi zoom)
   const {
@@ -87,9 +87,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
   });
 
   // Header filter states
-  const [openFilterCol, setOpenFilterCol] = useState<'categoryName' | 'productTypeName' | null>(null);
-  const [catSearchTerm, setCatSearchTerm] = useState('');
-  const [typeSearchTerm, setTypeSearchTerm] = useState('');
+  const [openFilterCol, setOpenFilterCol] = useState<string | null>(null);
+  const [whSearchTerm, setWhSearchTerm] = useState('');
+  const [groupSearchTerm, setGroupSearchTerm] = useState('');
   const filterMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -106,87 +106,79 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     };
   }, [openFilterCol]);
 
-  // Modal Import Excel & Drag-and-drop Cột
+  // Modal Import Excel & Tùy chỉnh Cột (Chuẩn 15 cột dữ liệu theo file DU_LIEU_HANG_HOA.xlsx + Trạng thái + Thao tác)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
 
   const defaultVisibleCols: Record<string, boolean> = {
     stt: true,
-    code: true,
+    warehouseCode: true,
+    warehouseName: true,
+    subTypeName: true,
     image: true,
+    code: true,
     name: true,
     brand: true,
-    unit: true,
     color: true,
     specification: true,
+    unit: true,
     costPrice: true,
     sellingPrice: true,
     vatRate: true,
-    warehouseName: true,
     stockQuantity: true,
-    categoryName: true,
-    productTypeName: true,
-    subTypeCode: true,
-    subTypeName: true,
     status: true,
     actions: true
   };
 
   const defaultColOrder = [
     'stt',
-    'code',
+    'warehouseCode',
+    'warehouseName',
+    'subTypeName',
     'image',
+    'code',
     'name',
     'brand',
-    'unit',
     'color',
     'specification',
+    'unit',
     'costPrice',
     'sellingPrice',
     'vatRate',
-    'warehouseName',
     'stockQuantity',
-    'categoryName',
-    'productTypeName',
-    'subTypeCode',
-    'subTypeName',
     'status',
     'actions'
   ];
 
   const columnLabels: Record<string, string> = {
     stt: 'Stt',
-    code: 'Mã hàng hóa',
+    warehouseCode: 'Mã kho',
+    warehouseName: 'Tên Kho',
+    subTypeName: 'Tên nhóm loại',
     image: 'Hình ảnh',
-    name: 'Tên hàng hóa',
+    code: 'Mã sản phẩm',
+    name: 'Tên sản phẩm',
     brand: 'Thương hiệu',
-    unit: 'ĐVT',
     color: 'Màu sắc',
     specification: 'Quy cách',
+    unit: 'Đơn vị tính',
     costPrice: 'Giá nhập',
     sellingPrice: 'Giá bán',
     vatRate: 'Thuế VAT',
-    warehouseName: 'Kho',
     stockQuantity: 'Tồn kho',
-    categoryName: 'Danh mục',
-    productTypeName: 'Loại hàng hóa',
-    subTypeCode: 'Mã nhóm loại',
-    subTypeName: 'Tên nhóm loại',
     status: 'Trạng thái',
     actions: 'Thao tác'
   };
 
-  // Cấu hình hiển thị và thứ tự cột mặc định:
-  // Mã hàng hóa -> Hình ảnh -> Tên hàng hóa -> Thương hiệu -> ĐVT -> Màu sắc -> Giá -> Các kho -> Tồn kho -> Danh mục -> Loại -> Trạng thái -> Thao tác
-
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_products_visible_cols_v7');
+      const saved = localStorage.getItem('namkhanh_products_visible_cols_v8');
       if (saved) {
         const parsed = JSON.parse(saved);
-        delete parsed.warehouseCode;
         delete parsed.categoryCode;
+        delete parsed.categoryName;
         delete parsed.productTypeCode;
+        delete parsed.productTypeName;
+        delete parsed.subTypeCode;
         delete parsed.minStockLevel;
         delete parsed.maxStockLevel;
         if (parsed.warehouseName !== undefined && parsed.code !== undefined) return parsed;
@@ -199,7 +191,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
-      // Dọn dẹp cache cũ các phiên bản v1 - v6 để đảm bảo thứ tự mặc định mới có hiệu lực ngay
       const oldKeys = [
         'namkhanh_products_col_order',
         'namkhanh_products_visible_cols',
@@ -212,7 +203,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         'namkhanh_products_col_order_v5',
         'namkhanh_products_visible_cols_v5',
         'namkhanh_products_col_order_v6',
-        'namkhanh_products_visible_cols_v6'
+        'namkhanh_products_visible_cols_v6',
+        'namkhanh_products_col_order_v7',
+        'namkhanh_products_visible_cols_v7'
       ];
       oldKeys.forEach((k) => {
         try {
@@ -222,11 +215,20 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         }
       });
 
-      const saved = localStorage.getItem('namkhanh_products_col_order_v7');
+      const saved = localStorage.getItem('namkhanh_products_col_order_v8');
       if (saved) {
         const parsed = JSON.parse(saved);
         const filtered = parsed.filter(
-          (c: string) => !['warehouseCode', 'categoryCode', 'productTypeCode', 'minStockLevel', 'maxStockLevel'].includes(c)
+          (c: string) =>
+            ![
+              'categoryCode',
+              'categoryName',
+              'productTypeCode',
+              'productTypeName',
+              'subTypeCode',
+              'minStockLevel',
+              'maxStockLevel'
+            ].includes(c)
         );
         if (filtered.includes('code')) return withActionsLast(filtered, defaultColOrder);
       }
@@ -238,34 +240,35 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
 
   const defaultProductWidths: Record<string, number> = {
     stt: 50,
+    warehouseCode: 85,
+    warehouseName: 115,
+    subTypeName: 140,
+    image: 75,
     code: 115,
-    image: 85,
-    name: 240,
+    name: 250,
     brand: 115,
-    unit: 90,
-    color: 90,
+    color: 95,
     specification: 120,
+    unit: 95,
     costPrice: 110,
     sellingPrice: 110,
     vatRate: 85,
-    warehouseName: 120,
-    stockQuantity: 105,
-    categoryName: 135,
-    productTypeName: 135,
-    subTypeCode: 105,
-    subTypeName: 120,
+    stockQuantity: 100,
     status: 135,
     actions: 95
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'products_v7',
+    tableKey: 'products_v8',
     defaultWidths: defaultProductWidths,
     minWidth: 50,
     minWidths: {
       stt: 45,
-      code: 90,
+      warehouseCode: 70,
+      warehouseName: 90,
+      subTypeName: 100,
       image: 65,
+      code: 90,
       name: 150,
       brand: 80,
       unit: 70,
@@ -274,12 +277,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       costPrice: 85,
       sellingPrice: 85,
       vatRate: 70,
-      warehouseName: 90,
       stockQuantity: 75,
-      categoryName: 100,
-      productTypeName: 100,
-      subTypeCode: 85,
-      subTypeName: 90,
       status: 100,
       actions: 80
     }
@@ -289,7 +287,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     const normalized = withActionsLast(newOrder, defaultColOrder);
     setColumnOrder(normalized);
     try {
-      localStorage.setItem('namkhanh_products_col_order_v7', JSON.stringify(normalized));
+      localStorage.setItem('namkhanh_products_col_order_v8', JSON.stringify(normalized));
     } catch {
       // ignore
     }
@@ -299,7 +297,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     const updated = { ...visibleColumns, [key]: !visibleColumns[key] };
     setVisibleColumns(updated);
     try {
-      localStorage.setItem('namkhanh_products_visible_cols_v7', JSON.stringify(updated));
+      localStorage.setItem('namkhanh_products_visible_cols_v8', JSON.stringify(updated));
     } catch {
       // ignore
     }
@@ -323,7 +321,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       'namkhanh_products_visible_cols_v6',
       'namkhanh_products_col_order_v6',
       'namkhanh_products_visible_cols_v7',
-      'namkhanh_products_col_order_v7'
+      'namkhanh_products_col_order_v7',
+      'namkhanh_products_visible_cols_v8',
+      'namkhanh_products_col_order_v8'
     ];
     oldKeys.forEach((k) => {
       try {
@@ -334,14 +334,14 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     });
   };
 
-
   const handleImportProducts = async (rows: Record<string, any>[]) => {
     let successCount = 0;
     const errList: string[] = [];
 
     const parseNum = (val: any, fallback = 0) => {
-      if (val === undefined || val === null || val === '') return fallback;
+      if (val === undefined || val === null || String(val).trim() === '') return fallback;
       const cleaned = String(val).replace(/[^0-9.-]+/g, '');
+      if (!cleaned) return fallback;
       const parsed = Number(cleaned);
       return isNaN(parsed) ? fallback : parsed;
     };
@@ -352,26 +352,26 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         const name = String(r['Tên sản phẩm'] || r['Tên SP'] || '').trim();
         if (!code || !name) continue;
 
-        const warehouseCode = String(r['Mã kho'] || r['Mã Kho'] || '').trim();
-        const warehouseName = String(r['Tên Kho'] || r['Tên kho'] || '').trim();
+        const warehouseCode = String(r['Mã kho'] || r['Mã Kho'] || '').trim().toUpperCase() || 'NK01';
+        const warehouseName = String(r['Tên Kho'] || r['Tên kho'] || '').trim() || 'Kho số 1';
         const categoryCode = String(r['Mã danh mục'] || r['Mã Danh Mục'] || '').trim();
         const categoryName = String(r['Tên danh mục'] || r['Tên Danh Mục'] || '').trim();
         const productTypeCode = String(r['Mã loại'] || r['Mã Loại'] || '').trim();
         const productTypeName = String(r['Tên loại'] || r['Tên Loại'] || '').trim();
         const subTypeCode = String(r['Mã nhóm loại'] || r['Mã Nhóm Loại'] || '').trim();
-        const subTypeName = String(r['Tên nhóm loại'] || r['Tên Nhóm Loại'] || '').trim();
+        const subTypeName = normalizeTextLabel(r['Tên nhóm loại'] || r['Tên Nhóm Loại'] || '');
         let imageUrl = String(r['Hình ảnh sản phẩm'] || r['Hình ảnh'] || r['image'] || '').trim();
         const brand = String(r['Thương hiệu'] || r['Nhãn hiệu'] || '').trim();
         const color = String(r['Màu sắc'] || '').trim();
         const specification = String(r['Quy cách'] || '').trim();
-        const unit = String(r['Đơn vị tính'] || r['ĐVT'] || 'Cái').trim();
-        const costPrice = parseNum(r['Giá nhập'] || r['Giá vốn'], 0);
+        const unit = normalizeTextLabel(r['Đơn vị tính'] || r['ĐVT'] || 'Chiếc') || 'Chiếc';
+        const costPrice = parseNum(r['Giá nhập'] ?? r['Giá vốn'], 0);
         const sellingPrice = parseNum(r['Giá bán'], 0);
-        const vatRate = parseNum(r['Thuế VAT'] || r['VAT'], 8);
-        const stockQuantity = parseNum(r['Tồn kho'] || r['Số lượng tồn'] || r['Số lượng'] || r['Tồn'] || r['Tồn kho tối thiểu'], 100);
+        const vatRate = parseNum(r['Thuế VAT'] ?? r['VAT'], 8);
+        const rawStock = r['Tồn kho'] ?? r['Số lượng tồn'] ?? r['Số lượng'] ?? r['Tồn'];
+        const stockQuantity = parseNum(rawStock, 0);
 
         // NẾU CÓ HÌNH ẢNH TRÍCH XUẤT TỪ FILE EXCEL (dạng blob hoặc data:image/)
-        // Upload lên backend /api/v1/products/upload-image để lưu file vật lý vào /uploads/
         if (r._imageBlob || (imageUrl && imageUrl.startsWith('data:image/'))) {
           try {
             const fd = new FormData();
@@ -404,13 +404,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
           name,
           warehouseCode,
           warehouseName,
-          categoryCode,
-          categoryName,
-          category: categoryName || 'Văn phòng phẩm',
-          productTypeCode,
-          productTypeName,
-          subTypeCode,
-          subTypeName,
+          categoryCode: categoryCode || undefined,
+          categoryName: categoryName || undefined,
+          category: subTypeName || categoryName || 'Văn phòng phẩm',
+          productTypeCode: productTypeCode || undefined,
+          productTypeName: productTypeName || undefined,
+          subTypeCode: subTypeCode || undefined,
+          subTypeName: subTypeName || undefined,
           imageUrl: imageUrl || null,
           brand,
           color,
@@ -437,7 +437,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         errList.push(err.response?.data?.message || err.message || 'Lỗi lưu sản phẩm');
       }
     }
-    await loadData();
+    await Promise.all([loadMetadata(), loadProducts(false)]);
     return {
       success: successCount > 0,
       count: successCount,
@@ -474,7 +474,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
   ): Promise<{ base64: string; extension: 'png' | 'jpeg' } | null> => {
     if (!url) return null;
     try {
-      // 1. Nếu là data URL
       if (url.startsWith('data:image/')) {
         const match = url.match(/^data:image\/(png|jpeg|jpg);base64,(.+)$/i);
         if (match) {
@@ -485,7 +484,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         }
       }
 
-      // 2. Fetch ảnh trực tiếp (qua Vite proxy cho /uploads/... hoặc external URL)
       let res: globalThis.Response | null = null;
       try {
         res = await fetch(url);
@@ -541,7 +539,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       workbook.creator = 'Công ty TNHH TM&DV Nam Khánh';
       workbook.created = new Date();
 
-      const worksheet = workbook.addWorksheet('CẤU TRÚC SẢN PHẨM', {
+      const worksheet = workbook.addWorksheet('DANH SÁCH MẪU', {
         views: [{ state: 'frozen', xSplit: 0, ySplit: 1, showGridLines: true }]
       });
 
@@ -551,12 +549,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       > = {
         stt: { label: 'Stt', bg: 'FFD9E1F2', width: 7, align: 'center' },
         warehouseCode: { label: 'Mã kho', bg: 'FFD9E1F2', width: 14, align: 'center' },
-        warehouseName: { label: 'Tên Kho', bg: 'FFD9E1F2', width: 26, align: 'left' },
-        categoryCode: { label: 'Mã danh mục', bg: 'FFBDD7EE', width: 15, align: 'center' },
-        categoryName: { label: 'Tên danh mục', bg: 'FFBDD7EE', width: 24, align: 'left' },
-        productTypeCode: { label: 'Mã loại', bg: 'FFE2EFDA', width: 15, align: 'center' },
-        productTypeName: { label: 'Tên loại', bg: 'FFE2EFDA', width: 24, align: 'left' },
-        subTypeCode: { label: 'Mã nhóm loại', bg: 'FFFCE4D6', width: 16, align: 'center' },
+        warehouseName: { label: 'Tên Kho', bg: 'FFD9E1F2', width: 22, align: 'left' },
         subTypeName: { label: 'Tên nhóm loại', bg: 'FFFCE4D6', width: 22, align: 'left' },
         image: { label: 'Hình ảnh sản phẩm', bg: 'FFA9D08E', width: 18, align: 'center' },
         code: { label: 'Mã sản phẩm', bg: 'FFBDD7EE', width: 16, align: 'center' },
@@ -568,11 +561,27 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         costPrice: { label: 'Giá nhập', bg: 'FFD9E1F2', width: 16, align: 'right', format: '#,##0' },
         sellingPrice: { label: 'Giá bán', bg: 'FFD9E1F2', width: 16, align: 'right', format: '#,##0' },
         vatRate: { label: 'Thuế VAT', bg: 'FFD9E1F2', width: 12, align: 'center' },
-        stockQuantity: { label: 'Tồn kho', bg: 'FFD9E1F2', width: 14, align: 'right', format: '#,##0' }
+        stockQuantity: { label: 'Tồn kho', bg: 'FFD9E1F2', width: 14, align: 'right', format: '#,##0.##' }
       };
 
-      // Xác định thứ tự cột theo columnOrder hiển thị (loại bỏ cột actions)
-      const exportCols = columnOrder.filter((k) => k !== 'actions' && exportColsDef[k]);
+      // Xuất đúng 15 cột chuẩn như file DU_LIEU_HANG_HOA.xlsx
+      const exportCols = [
+        'stt',
+        'warehouseCode',
+        'warehouseName',
+        'subTypeName',
+        'image',
+        'code',
+        'name',
+        'brand',
+        'color',
+        'specification',
+        'unit',
+        'costPrice',
+        'sellingPrice',
+        'vatRate',
+        'stockQuantity'
+      ];
       const imageColIdx = exportCols.indexOf('image');
 
       // 1. Cấu hình tiêu đề cột và độ rộng
@@ -589,7 +598,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       const headerRow = worksheet.addRow(headerRowValues);
       headerRow.height = 30;
 
-      // Tô màu nền, font chữ và viền cho từng ô tiêu đề chuẩn theo ảnh
       headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         const colKey = exportCols[colNumber - 1];
         const colDef = exportColsDef[colKey];
@@ -633,26 +641,11 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
             case 'warehouseName':
               rowData[k] = p.warehouse?.name || (p as any).warehouseName || 'Kho số 1';
               break;
-            case 'categoryCode':
-              rowData[k] = p.categoryRel?.code || (p as any).categoryCode || 'GIAY';
-              break;
-            case 'categoryName':
-              rowData[k] = p.categoryRel?.name || (p as any).categoryName || p.category || 'Giấy';
-              break;
-            case 'productTypeCode':
-              rowData[k] = p.productType?.code || (p as any).productTypeCode || 'A4';
-              break;
-            case 'productTypeName':
-              rowData[k] = p.productType?.name || (p as any).productTypeName || 'Giấy A4';
-              break;
-            case 'subTypeCode':
-              rowData[k] = p.subTypeCode || '—';
-              break;
             case 'subTypeName':
-              rowData[k] = p.subTypeName || '—';
+              rowData[k] = p.productGroup?.name || p.subTypeName || '';
               break;
             case 'image':
-              rowData[k] = ''; // Để trống ô để nhúng thumbnail hình ảnh, không ghi text URL
+              rowData[k] = '';
               break;
             case 'code':
               rowData[k] = p.code;
@@ -661,13 +654,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
               rowData[k] = p.name;
               break;
             case 'brand':
-              rowData[k] = p.brand || '—';
+              rowData[k] = p.brand || '';
               break;
             case 'color':
-              rowData[k] = p.color || '—';
+              rowData[k] = p.color || '';
               break;
             case 'specification':
-              rowData[k] = p.specification || '—';
+              rowData[k] = p.specification || '';
               break;
             case 'unit':
               rowData[k] = p.unit;
@@ -679,7 +672,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
               rowData[k] = Number(p.sellingPrice) || 0;
               break;
             case 'vatRate':
-              rowData[k] = `${p.vatRate ?? 8}%`;
+              rowData[k] = p.vatRate ?? 8;
               break;
             case 'stockQuantity':
               rowData[k] = Number(p.stockQuantity) || 0;
@@ -690,9 +683,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         });
 
         const dataRow = worksheet.addRow(rowData);
-        dataRow.height = 38; // Chiều cao hàng vừa vặn với thumbnail ảnh
+        dataRow.height = 38;
 
-        // Định dạng font, border, căn lề từng ô dữ liệu
         dataRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
           const colKey = exportCols[colNumber - 1];
           const colDef = exportColsDef[colKey];
@@ -735,8 +727,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                 base64: imgData.base64,
                 extension: imgData.extension
               });
-              // Row 1 là tiêu đề (0-based: 0), sản phẩm đầu tiên là row 2 (0-based: 1).
-              // Canh giữa ảnh 34x34 px trong ô (cột rộng 18, hàng cao 38pt)
               worksheet.addImage(imageId, {
                 tl: { col: imageColIdx + 0.35, row: idx + 1 + 0.12 },
                 ext: { width: 34, height: 34 },
@@ -763,13 +753,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `CAU_TRUC_SAN_PHAM_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      link.download = `DU_LIEU_HANG_HOA_${new Date().toISOString().slice(0, 10)}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      setToastMessage(`Đã xuất thành công ${products.length} dòng dữ liệu Cấu Trúc Sản Phẩm vào file Excel (.xlsx)!`);
+      setToastMessage(`Đã xuất thành công ${products.length} dòng dữ liệu Hàng hóa chuẩn 15 cột ra file Excel (.xlsx)!`);
     } catch (err) {
       console.error('Lỗi khi xuất file Excel:', err);
       alert('Có lỗi xảy ra khi tạo file Excel');
@@ -777,8 +767,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       setIsExporting(false);
     }
   };
-
-  const [showSpecs, setShowSpecs] = useState(false);
 
   // Modal Create / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -794,12 +782,12 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     warehouseCode: 'NK01',
     warehouseName: 'Kho số 1',
     categoryId: '',
-    categoryCode: 'GIAY',
-    categoryName: 'Giấy',
-    category: 'Giấy',
+    categoryCode: '',
+    categoryName: '',
+    category: '',
     productTypeId: '',
-    productTypeCode: 'A4',
-    productTypeName: 'Giấy A4',
+    productTypeCode: '',
+    productTypeName: '',
     productGroupId: '',
     subTypeCode: '',
     subTypeName: '',
@@ -807,18 +795,18 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     code: '',
     barcode: '',
     name: '',
-    brand: 'Double',
-    color: 'Trắng',
-    specification: '500 tờ/ream',
-    unit: 'Ream',
+    brand: '',
+    color: '',
+    specification: '',
+    unit: 'Chiếc',
     supplierId: '',
     supplierName: '',
     supplierPhone: '',
     supplierAddress: '',
-    costPrice: 45000,
-    sellingPrice: 65000,
+    costPrice: 0,
+    sellingPrice: 0,
     vatRate: 8,
-    stockQuantity: 100,
+    stockQuantity: 0,
     minStockLevel: 0,
     maxStockLevel: 0,
     length: 0,
@@ -887,7 +875,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       }
     } catch (err: any) {
       console.warn('Lỗi tải ảnh lên backend, dùng bản xem trước data URL:', err);
-      // Fallback preview dạng DataURL
       const reader = new FileReader();
       reader.onloadend = () => {
         const resultStr = reader.result as string;
@@ -936,6 +923,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       if (categoryFilter) query.append('categoryId', categoryFilter);
       if (productTypeFilter) query.append('productTypeId', productTypeFilter);
       if (productGroupFilter) query.append('productGroupId', productGroupFilter);
+      if (statusFilter) query.append('status', statusFilter);
       if (lowStockFilter) query.append('lowStock', 'true');
 
       const resProd = await api.get<Product[]>(`/products?${query.toString()}`);
@@ -949,7 +937,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
 
   const loadData = async (silent: boolean | unknown = false) => {
     const isSilent = silent === true;
-    if (warehouses.length === 0 || categories.length === 0 || productTypes.length === 0 || productGroups.length === 0) {
+    if (warehouses.length === 0 || productGroups.length === 0) {
       loadMetadata();
     }
     await loadProducts(isSilent);
@@ -965,7 +953,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       return;
     }
     loadProducts(true);
-  }, [search, warehouseFilter, categoryFilter, productTypeFilter, productGroupFilter, lowStockFilter]);
+  }, [search, warehouseFilter, categoryFilter, productTypeFilter, productGroupFilter, statusFilter, lowStockFilter]);
 
   const paginatedProducts = paginateProducts(products);
 
@@ -977,22 +965,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
   const openAddModal = () => {
     setEditingProduct(null);
     setFormTab('structure');
-    const firstWh = warehouses[0];
-    const firstCat = categories[0];
-    const firstType = productTypes[0];
-    const firstGroup = productGroups.find((g) => g.productTypeId === firstType?.id);
+    const firstWh = warehouses.find((w) => w.code === 'NK01') || warehouses[0];
+    const firstGroup = productGroups[0];
     setFormData({
       ...initialFormData,
       warehouseId: firstWh?.id || '',
       warehouseCode: firstWh?.code || 'NK01',
       warehouseName: firstWh?.name || 'Kho số 1',
-      categoryId: firstCat?.id || '',
-      categoryCode: firstCat?.code || 'GIAY',
-      categoryName: firstCat?.name || 'Giấy',
-      category: firstCat?.name || 'Giấy',
-      productTypeId: firstType?.id || '',
-      productTypeCode: firstType?.code || 'A4',
-      productTypeName: firstType?.name || 'Giấy A4',
       productGroupId: firstGroup?.id || '',
       subTypeCode: firstGroup?.code || '',
       subTypeName: firstGroup?.name || '',
@@ -1014,7 +993,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       );
       await api.put(`/products/${productId}`, { status: newStatus });
       setToastMessage(newStatus === 'ACTIVE' ? 'Đã kích hoạt kinh doanh sản phẩm!' : 'Đã chuyển sang tạm dừng kinh doanh!');
-      // Đồng bộ ngầm không tải lại toàn trang
       loadData(true);
     } catch (err: any) {
       setProducts((prev) =>
@@ -1031,12 +1009,17 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     const matchedWh = warehouses.find((w) => w.id === p.warehouseId);
     const matchedCat = categories.find((c) => c.id === p.categoryId);
     const matchedType = productTypes.find((t) => t.id === p.productTypeId);
-    const matchedGroup = productGroups.find((g) => g.id === (p as any).productGroupId || (p.subTypeCode && g.code === p.subTypeCode));
+    const matchedGroup = productGroups.find(
+      (g) =>
+        g.id === (p as any).productGroupId ||
+        (p.subTypeCode && g.code === p.subTypeCode) ||
+        (p.subTypeName && g.name.toLowerCase() === p.subTypeName.toLowerCase())
+    );
 
     setFormData({
       warehouseId: p.warehouseId || '',
-      warehouseCode: p.warehouse?.code || matchedWh?.code || '',
-      warehouseName: p.warehouse?.name || matchedWh?.name || '',
+      warehouseCode: p.warehouse?.code || matchedWh?.code || 'NK01',
+      warehouseName: p.warehouse?.name || matchedWh?.name || 'Kho số 1',
       categoryId: p.categoryId || '',
       categoryCode: (p as any).categoryRel?.code || matchedCat?.code || '',
       categoryName: p.category || (p as any).categoryRel?.name || matchedCat?.name || '',
@@ -1046,7 +1029,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       productTypeName: (p as any).productType?.name || matchedType?.name || '',
       productGroupId: (p as any).productGroupId || matchedGroup?.id || '',
       subTypeCode: p.subTypeCode || matchedGroup?.code || '',
-      subTypeName: p.subTypeName || matchedGroup?.name || '',
+      subTypeName: p.productGroup?.name || p.subTypeName || matchedGroup?.name || '',
       imageUrl: p.imageUrl || '',
       code: p.code,
       barcode: p.barcode || '',
@@ -1054,7 +1037,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       brand: p.brand || '',
       color: p.color || '',
       specification: p.specification || '',
-      unit: p.unit,
+      unit: p.unit || 'Chiếc',
       supplierId: p.supplierId || '',
       supplierName: p.supplier?.name || '',
       supplierPhone: p.supplier?.phone || '',
@@ -1062,7 +1045,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
       costPrice: Number(p.costPrice) || 0,
       sellingPrice: Number(p.sellingPrice) || 0,
       vatRate: p.vatRate ?? 8,
-      stockQuantity: p.stockQuantity ?? 0,
+      stockQuantity: Number(p.stockQuantity) || 0,
       minStockLevel: 0,
       maxStockLevel: 0,
       length: Number(p.length) || 0,
@@ -1080,71 +1063,73 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
     e.preventDefault();
     setFormError(null);
 
-      if (!formData.name?.trim() || !formData.code?.trim()) {
-        setFormError('Vui lòng nhập Mã sản phẩm (SKU) và Tên sản phẩm');
-        setFormTab('general');
-        return;
-      }
+    if (!formData.name?.trim() || !formData.code?.trim()) {
+      setFormError('Vui lòng nhập Mã sản phẩm (SKU) và Tên sản phẩm');
+      setFormTab('general');
+      return;
+    }
 
-      try {
-        setSaving(true);
-        const cat = categories.find((c) => c.id === formData.categoryId);
-        const payload = {
-          ...formData,
-          code: formData.code.trim().toUpperCase(),
-          name: formData.name.trim(),
-          unit: formData.unit.trim(),
-          brand: formData.brand?.trim() || null,
-          color: formData.color?.trim() || null,
-          specification: formData.specification?.trim() || null,
-          productGroupId: formData.productGroupId?.trim() || null,
-          subTypeCode: formData.subTypeCode?.trim() || null,
-          subTypeName: formData.subTypeName?.trim() || null,
-          imageUrl: formData.imageUrl?.trim() || null,
-          category: cat ? cat.name : (formData.categoryName || formData.category || 'Văn phòng phẩm'),
-          costPrice: Number(formData.costPrice) || 0,
-          sellingPrice: Number(formData.sellingPrice) || 0,
-          vatRate: Number(formData.vatRate) || 8,
-          minStockLevel: 0,
-          maxStockLevel: 0,
-          stockQuantity: Number(formData.stockQuantity) || 0
-        };
+    try {
+      setSaving(true);
+      const normalizedGroupName = normalizeTextLabel(formData.subTypeName);
+      const normalizedUnit = normalizeTextLabel(formData.unit) || 'Chiếc';
+      const payload = {
+        ...formData,
+        code: formData.code.trim().toUpperCase(),
+        name: formData.name.trim(),
+        unit: normalizedUnit,
+        brand: formData.brand?.trim() || null,
+        color: formData.color?.trim() || null,
+        specification: formData.specification?.trim() || null,
+        warehouseCode: formData.warehouseCode?.trim().toUpperCase() || 'NK01',
+        warehouseName: formData.warehouseName?.trim() || 'Kho số 1',
+        productGroupId: formData.productGroupId?.trim() || null,
+        subTypeCode: formData.subTypeCode?.trim() || null,
+        subTypeName: normalizedGroupName || null,
+        imageUrl: formData.imageUrl?.trim() || null,
+        category: normalizedGroupName || formData.categoryName || formData.category || 'Văn phòng phẩm',
+        costPrice: Number(formData.costPrice) || 0,
+        sellingPrice: Number(formData.sellingPrice) || 0,
+        vatRate: Number(formData.vatRate) || 8,
+        minStockLevel: 0,
+        maxStockLevel: 0,
+        stockQuantity: Number(formData.stockQuantity) || 0
+      };
 
-        if (editingProduct) {
-          const res = await api.put(`/products/${editingProduct.id}`, payload);
-          const updatedData = res.data?.data || res.data;
-          // Cập nhật tức thì sản phẩm trong bảng để hiển thị ngay ảnh và thông tin mới
-          setProducts((prev) =>
-            prev.map((item) =>
-              item.id === editingProduct.id
-                ? {
+      if (editingProduct) {
+        const res = await api.put(`/products/${editingProduct.id}`, payload);
+        const updatedData = res.data?.data || res.data;
+        setProducts((prev) =>
+          prev.map((item) =>
+            item.id === editingProduct.id
+              ? {
                   ...item,
                   ...payload,
                   imageUrl: payload.imageUrl,
                   ...(typeof updatedData === 'object' && updatedData !== null ? updatedData : {})
                 }
-                : item
-            )
-          );
-          setToastMessage('Đã cập nhật sản phẩm thành công');
-        } else {
-          const res = await api.post('/products', payload);
-          const createdData = res.data?.data || res.data;
-          if (createdData && typeof createdData === 'object' && createdData.id) {
-            setProducts((prev) => [createdData, ...prev]);
-          }
-          setToastMessage('Đã thêm sản phẩm mới thành công');
+              : item
+          )
+        );
+        setToastMessage('Đã cập nhật sản phẩm thành công');
+      } else {
+        const res = await api.post('/products', payload);
+        const createdData = res.data?.data || res.data;
+        if (createdData && typeof createdData === 'object' && createdData.id) {
+          setProducts((prev) => [createdData, ...prev]);
         }
-        setIsModalOpen(false);
-        setEditingProduct(null);
-        setFormError(null);
-        await loadData(true);
-      } catch (err: any) {
-        setFormError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu hàng hóa');
-      } finally {
-        setSaving(false);
+        setToastMessage('Đã thêm sản phẩm mới thành công');
       }
-    };
+      setIsModalOpen(false);
+      setEditingProduct(null);
+      setFormError(null);
+      await Promise.all([loadMetadata(), loadData(true)]);
+    } catch (err: any) {
+      setFormError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu hàng hóa');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleCancelCreate = () => {
     setIsModalOpen(false);
@@ -1194,8 +1179,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                   </h2>
                   <p className="text-xs text-gray-500 m-0 mt-0.5 font-normal">
                     {editingProduct
-                      ? 'Cập nhật thông tin chi tiết sản phẩm, giá bán, cấu trúc phân loại và thông số kỹ thuật'
-                      : 'Tự động tạo Nhà cung cấp nếu tên NCC mới chưa có trên hệ thống. Áp thuế VAT 8% ngành VPP'}
+                      ? 'Cập nhật thông tin chi tiết sản phẩm, giá bán, kho lưu trữ và nhóm loại hàng hóa'
+                      : 'Tự động tạo Nhóm loại hoặc Nhà cung cấp nếu chưa có trên hệ thống. Áp thuế VAT 8% ngành VPP'}
                   </p>
                 </div>
               </div>
@@ -1250,21 +1235,23 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
             <button
               type="button"
               onClick={() => setFormTab('structure')}
-              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${formTab === 'structure'
-                ? 'border-[#E53935] text-[#E53935] bg-white rounded-t-lg shadow-xs'
-                : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100/60 rounded-t-lg'
-                }`}
+              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+                formTab === 'structure'
+                  ? 'border-[#E53935] text-[#E53935] bg-white rounded-t-lg shadow-xs'
+                  : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100/60 rounded-t-lg'
+              }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>1. Kho & Phân loại</span>
+              <span>1. Kho & Nhóm loại</span>
             </button>
             <button
               type="button"
               onClick={() => setFormTab('general')}
-              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${formTab === 'general'
-                ? 'border-[#E53935] text-[#E53935] bg-white rounded-t-lg shadow-xs'
-                : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100/60 rounded-t-lg'
-                }`}
+              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+                formTab === 'general'
+                  ? 'border-[#E53935] text-[#E53935] bg-white rounded-t-lg shadow-xs'
+                  : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100/60 rounded-t-lg'
+              }`}
             >
               <Package className="w-3.5 h-3.5" />
               <span>2. Sản phẩm & Hình ảnh</span>
@@ -1272,10 +1259,11 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
             <button
               type="button"
               onClick={() => setFormTab('price')}
-              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${formTab === 'price'
-                ? 'border-[#E53935] text-[#E53935] bg-white rounded-t-lg shadow-xs'
-                : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100/60 rounded-t-lg'
-                }`}
+              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+                formTab === 'price'
+                  ? 'border-[#E53935] text-[#E53935] bg-white rounded-t-lg shadow-xs'
+                  : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100/60 rounded-t-lg'
+              }`}
             >
               <DollarSign className="w-3.5 h-3.5" />
               <span>3. Giá & Tồn kho</span>
@@ -1283,10 +1271,11 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
             <button
               type="button"
               onClick={() => setFormTab('supplier')}
-              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${formTab === 'supplier'
-                ? 'border-[#E53935] text-[#E53935] bg-white rounded-t-lg shadow-xs'
-                : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100/60 rounded-t-lg'
-                }`}
+              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+                formTab === 'supplier'
+                  ? 'border-[#E53935] text-[#E53935] bg-white rounded-t-lg shadow-xs'
+                  : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100/60 rounded-t-lg'
+              }`}
             >
               <Truck className="w-3.5 h-3.5" />
               <span>4. Nhà cung cấp & Khác</span>
@@ -1301,15 +1290,15 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
               </div>
             )}
 
-            {/* TAB 1: KHO & PHÂN LOẠI */}
+            {/* TAB 1: KHO & NHÓM LOẠI (1 CẤP ĐƠN GIẢN THEO CHUẨN FILE EXCEL) */}
             {formTab === 'structure' && (
               <div className="space-y-4">
                 {/* Kho hàng */}
                 <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-2.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
                       <WarehouseIcon className="w-3.5 h-3.5 text-blue-600" />
-                      Kho lưu trữ
+                      Kho lưu trữ (Mặc định: NK01 - Kho số 1)
                     </span>
                     {warehouses.length > 0 && (
                       <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
@@ -1361,332 +1350,91 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                   </div>
                 </div>
 
-                {/* Danh mục - Loại hàng hóa - Nhóm hàng hóa (Phân cấp 3 tầng tự động đi với nhau) */}
-                <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-100/90 space-y-3">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 border-b border-emerald-100 pb-2.5">
+                {/* Nhóm loại hàng hóa (1 cấp duy nhất theo chuẩn DU_LIEU_HANG_HOA.xlsx) */}
+                <div className="p-4 bg-amber-50/40 rounded-xl border border-amber-100/90 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-100 pb-2.5">
                     <div>
-                      <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                        <Layers className="w-4 h-4 text-emerald-600" />
-                        Danh mục - Loại - Nhóm hàng hóa (Phân cấp 3 tầng)
+                      <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                        <Boxes className="w-4 h-4 text-amber-600" />
+                        Nhóm loại hàng hóa (Tên nhóm loại)
                       </span>
                       <p className="text-[11px] text-gray-500 mt-0.5">
-                        Chọn bất kỳ cấp nào để hệ thống tự động điền các cấp liên kết tương ứng
+                        Chọn nhóm loại có sẵn hoặc nhập tên nhóm loại mới (hệ thống tự động chuẩn hóa và tạo mới nếu chưa có)
                       </p>
                     </div>
 
-                    {/* 3 DROPDOWNS CHỌN NHANH TỰ ĐỘNG ĐI VỚI NHAU */}
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
-                      {/* 1. Chọn Danh mục */}
-                      {categories.length > 0 && (
-                        <div className="flex items-center gap-1">
-                          <span className="font-semibold text-emerald-800 text-[11px] whitespace-nowrap">Danh mục:</span>
-                          <select
-                            value={formData.categoryId}
-                            onChange={(e) => {
-                              const catId = e.target.value;
-                              const cat = categories.find((c) => c.id === catId);
-                              if (cat) {
-                                const matchingTypes = productTypes.filter((t) => t.categoryId === cat.id);
-                                const firstPt = matchingTypes.length === 1 ? matchingTypes[0] : null;
-                                const matchingGroups = firstPt ? productGroups.filter((g) => g.productTypeId === firstPt.id) : [];
-                                const firstGroup = matchingGroups.length === 1 ? matchingGroups[0] : null;
-
-                                const currentTypeValid = matchingTypes.some((t) => t.id === formData.productTypeId);
-
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  categoryId: cat.id,
-                                  categoryCode: cat.code,
-                                  categoryName: cat.name,
-                                  category: cat.name,
-                                  ...(currentTypeValid
-                                    ? {}
-                                    : firstPt
-                                    ? {
-                                        productTypeId: firstPt.id,
-                                        productTypeCode: firstPt.code,
-                                        productTypeName: firstPt.name,
-                                        ...(firstGroup
-                                          ? {
-                                              productGroupId: firstGroup.id,
-                                              subTypeCode: firstGroup.code,
-                                              subTypeName: firstGroup.name
-                                            }
-                                          : {
-                                              productGroupId: '',
-                                              subTypeCode: '',
-                                              subTypeName: ''
-                                            })
-                                      }
-                                    : {
-                                        productTypeId: '',
-                                        productTypeCode: '',
-                                        productTypeName: '',
-                                        productGroupId: '',
-                                        subTypeCode: '',
-                                        subTypeName: ''
-                                      })
-                                }));
-                              } else {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  categoryId: '',
-                                  categoryCode: '',
-                                  categoryName: '',
-                                  category: '',
-                                  productTypeId: '',
-                                  productTypeCode: '',
-                                  productTypeName: '',
-                                  productGroupId: '',
-                                  subTypeCode: '',
-                                  subTypeName: ''
-                                }));
-                              }
-                            }}
-                            className="px-2 py-1 text-xs border border-emerald-200 rounded-md bg-white focus:outline-none focus:border-emerald-500 max-w-[140px] truncate"
-                          >
-                            <option value="">-- Chọn danh mục --</option>
-                            {categories.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name} ({c.code})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {/* 2. Chọn Loại hàng */}
-                      {productTypes.length > 0 && (
-                        <div className="flex items-center gap-1">
-                          <span className="font-semibold text-purple-800 text-[11px] whitespace-nowrap">Loại hàng:</span>
-                          <select
-                            value={formData.productTypeId}
-                            onChange={(e) => {
-                              const ptId = e.target.value;
-                              const pt = productTypes.find((t) => t.id === ptId);
-                              if (pt) {
-                                const parentCat = categories.find((c) => c.id === pt.categoryId) || (pt as any).category;
-                                const matchingGroups = productGroups.filter((g) => g.productTypeId === pt.id);
-                                const firstGroup = matchingGroups.length === 1 ? matchingGroups[0] : null;
-                                const currentGroupValid = matchingGroups.some((g) => g.id === formData.productGroupId);
-
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  productTypeId: pt.id,
-                                  productTypeCode: pt.code,
-                                  productTypeName: pt.name,
-                                  ...(parentCat
-                                    ? {
-                                        categoryId: parentCat.id,
-                                        categoryCode: parentCat.code,
-                                        categoryName: parentCat.name,
-                                        category: parentCat.name
-                                      }
-                                    : {}),
-                                  ...(currentGroupValid
-                                    ? {}
-                                    : firstGroup
-                                    ? {
-                                        productGroupId: firstGroup.id,
-                                        subTypeCode: firstGroup.code,
-                                        subTypeName: firstGroup.name
-                                      }
-                                    : {
-                                        productGroupId: '',
-                                        subTypeCode: '',
-                                        subTypeName: ''
-                                      })
-                                }));
-                              } else {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  productTypeId: '',
-                                  productTypeCode: '',
-                                  productTypeName: '',
-                                  productGroupId: '',
-                                  subTypeCode: '',
-                                  subTypeName: ''
-                                }));
-                              }
-                            }}
-                            className="px-2 py-1 text-xs border border-purple-200 rounded-md bg-white focus:outline-none focus:border-purple-500 max-w-[140px] truncate"
-                          >
-                            <option value="">-- Chọn loại hàng --</option>
-                            {productTypes
-                              .filter((t) => !formData.categoryId || t.categoryId === formData.categoryId)
-                              .map((t) => (
-                                <option key={t.id} value={t.id}>
-                                  {t.name} ({t.code})
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {/* 3. Chọn Nhóm hàng */}
-                      {productGroups.length > 0 && (
-                        <div className="flex items-center gap-1">
-                          <span className="font-semibold text-amber-800 text-[11px] whitespace-nowrap">Nhóm hàng:</span>
-                          <select
-                            value={formData.productGroupId}
-                            onChange={(e) => {
-                              const gId = e.target.value;
-                              const g = productGroups.find((item) => item.id === gId);
-                              if (g) {
-                                const parentType = productTypes.find((t) => t.id === g.productTypeId) || (g as any).productType;
-                                const parentCat = parentType
-                                  ? categories.find((c) => c.id === parentType.categoryId) || (parentType as any).category
-                                  : null;
-
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  productGroupId: g.id,
-                                  subTypeCode: g.code,
-                                  subTypeName: g.name,
-                                  ...(parentType
-                                    ? {
-                                        productTypeId: parentType.id,
-                                        productTypeCode: parentType.code,
-                                        productTypeName: parentType.name
-                                      }
-                                    : {}),
-                                  ...(parentCat
-                                    ? {
-                                        categoryId: parentCat.id,
-                                        categoryCode: parentCat.code,
-                                        categoryName: parentCat.name,
-                                        category: parentCat.name
-                                      }
-                                    : {})
-                                }));
-                              } else {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  productGroupId: '',
-                                  subTypeCode: '',
-                                  subTypeName: ''
-                                }));
-                              }
-                            }}
-                            className="px-2 py-1 text-xs border border-amber-200 rounded-md bg-white focus:outline-none focus:border-amber-500 max-w-[140px] truncate"
-                          >
-                            <option value="">-- Chọn nhóm hàng --</option>
-                            {productGroups
-                              .filter((g) => {
-                                if (formData.productTypeId) return g.productTypeId === formData.productTypeId;
-                                if (formData.categoryId) {
-                                  const pt = productTypes.find((t) => t.id === g.productTypeId);
-                                  return pt?.categoryId === formData.categoryId;
-                                }
-                                return true;
-                              })
-                              .map((g) => (
-                                <option key={g.id} value={g.id}>
-                                  {g.name} ({g.code})
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
+                    {productGroups.length > 0 && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
+                        <span className="font-semibold text-amber-800 whitespace-nowrap">Chọn nhanh:</span>
+                        <select
+                          value={formData.productGroupId}
+                          onChange={(e) => {
+                            const gId = e.target.value;
+                            const g = productGroups.find((item) => item.id === gId);
+                            if (g) {
+                              setFormData((prev) => ({
+                                ...prev,
+                                productGroupId: g.id,
+                                subTypeCode: g.code,
+                                subTypeName: g.name
+                              }));
+                            } else {
+                              setFormData((prev) => ({
+                                ...prev,
+                                productGroupId: '',
+                                subTypeCode: '',
+                                subTypeName: ''
+                              }));
+                            }
+                          }}
+                          className="px-2.5 py-1 text-xs border border-amber-200 rounded-md bg-white focus:outline-none focus:border-amber-500 min-w-[180px]"
+                        >
+                          <option value="">-- Nhóm loại có sẵn --</option>
+                          {productGroups.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.name} ({g.code})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
-                  {/* 3 CỤM CHI TIẾT: DANH MỤC - LOẠI HÀNG - NHÓM HÀNG */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                    {/* Cụm 1: Thông tin Danh mục */}
-                    <div className="p-3 bg-white/90 rounded-lg border border-emerald-100/90 space-y-2">
-                      <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide flex items-center gap-1">
-                        <Layers className="w-3.5 h-3.5 text-emerald-600" />
-                        1. Danh mục (Cấp 1)
-                      </span>
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <div>
-                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Mã danh mục</label>
-                          <input
-                            type="text"
-                            placeholder="VD: GIAY..."
-                            value={formData.categoryCode}
-                            onChange={(e) => setFormData({ ...formData, categoryCode: e.target.value.toUpperCase() })}
-                            className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Tên danh mục</label>
-                          <input
-                            type="text"
-                            placeholder="VD: Giấy in..."
-                            value={formData.categoryName}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                categoryName: e.target.value,
-                                category: e.target.value
-                              })
-                            }
-                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                          />
-                        </div>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Tên nhóm loại <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="VD: Bút bi, Bút chì, Băng dính, File nan nhựa..."
+                        value={formData.subTypeName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const matched = productGroups.find(
+                            (g) => g.name.toLowerCase() === val.trim().toLowerCase()
+                          );
+                          setFormData({
+                            ...formData,
+                            subTypeName: val,
+                            productGroupId: matched ? matched.id : '',
+                            subTypeCode: matched ? matched.code : formData.subTypeCode
+                          });
+                        }}
+                        className="w-full px-3 py-2 text-xs font-medium border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                      />
                     </div>
-
-                    {/* Cụm 2: Thông tin Loại hàng hóa */}
-                    <div className="p-3 bg-white/90 rounded-lg border border-purple-100/90 space-y-2">
-                      <span className="text-[11px] font-bold text-purple-800 uppercase tracking-wide flex items-center gap-1">
-                        <Package className="w-3.5 h-3.5 text-purple-600" />
-                        2. Loại hàng hóa (Cấp 2)
-                      </span>
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <div>
-                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Mã loại hàng</label>
-                          <input
-                            type="text"
-                            placeholder="VD: A4, Bubi..."
-                            value={formData.productTypeCode}
-                            onChange={(e) => setFormData({ ...formData, productTypeCode: e.target.value.toUpperCase() })}
-                            className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Tên loại hàng</label>
-                          <input
-                            type="text"
-                            placeholder="VD: Giấy A4..."
-                            value={formData.productTypeName}
-                            onChange={(e) => setFormData({ ...formData, productTypeName: e.target.value })}
-                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Cụm 3: Thông tin Nhóm hàng hóa */}
-                    <div className="p-3 bg-white/90 rounded-lg border border-amber-100/90 space-y-2">
-                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1">
-                        <Boxes className="w-3.5 h-3.5 text-amber-600" />
-                        3. Nhóm hàng hóa (Cấp 3)
-                      </span>
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <div>
-                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Mã nhóm hàng</label>
-                          <input
-                            type="text"
-                            placeholder="VD: NH01, BIA-LA..."
-                            value={formData.subTypeCode}
-                            onChange={(e) => setFormData({ ...formData, subTypeCode: e.target.value.toUpperCase() })}
-                            className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">Tên nhóm hàng</label>
-                          <input
-                            type="text"
-                            placeholder="VD: Bìa lá, Bút gel..."
-                            value={formData.subTypeName}
-                            onChange={(e) => setFormData({ ...formData, subTypeName: e.target.value })}
-                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                          />
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Mã nhóm loại <span className="text-gray-400 font-normal">(Tự sinh nếu để trống)</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="VD: BUT-BI, BANG-DINH..."
+                        value={formData.subTypeCode}
+                        onChange={(e) => setFormData({ ...formData, subTypeCode: e.target.value.toUpperCase() })}
+                        className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                      />
                     </div>
                   </div>
                 </div>
@@ -1702,7 +1450,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                     Hình ảnh sản phẩm (Tỉ lệ 1:1)
                   </label>
                   <div className="flex flex-col sm:flex-row items-center gap-3.5">
-                    {/* Box xem trước ảnh hình vuông 1:1 */}
                     <div
                       className="relative group rounded-xl border border-gray-300 bg-white overflow-hidden shrink-0 flex items-center justify-center shadow-xs"
                       style={{
@@ -1743,7 +1490,6 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                       )}
                     </div>
 
-                    {/* Nút upload & ô nhập URL */}
                     <div className="flex-1 min-w-0 space-y-2 w-full">
                       <div className="flex items-center gap-2 flex-wrap">
                         <label className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded-lg cursor-pointer shadow-xs transition-colors shrink-0">
@@ -1789,7 +1535,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                       type="text"
                       required
                       disabled={!!editingProduct}
-                      placeholder="VD: DBA480, TL027..."
+                      placeholder="VD: TL027, BDG5cm, FNN1L..."
                       value={formData.code}
                       onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                       className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg disabled:bg-gray-100 focus:outline-none focus:border-[#E53935]"
@@ -1802,7 +1548,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                     <input
                       type="text"
                       required
-                      placeholder="VD: Giấy Double A4 80gsm, Bút bi xanh..."
+                      placeholder="VD: Bút bi TL027, Băng dính trong 5cm..."
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full px-3 py-2 text-xs font-medium border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
@@ -1815,7 +1561,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                     <label className="block text-xs font-semibold text-gray-700 mb-1">Thương hiệu</label>
                     <input
                       type="text"
-                      placeholder="VD: Double, Thiên long, Bến Nghé, Plus..."
+                      placeholder="VD: Thiên Long, Deli, Kingjim, Kokuyo..."
                       value={formData.brand}
                       onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
@@ -1825,7 +1571,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                     <label className="block text-xs font-semibold text-gray-700 mb-1">Màu sắc</label>
                     <input
                       type="text"
-                      placeholder="VD: Trắng, Xanh, Đen, Đỏ, Vàng..."
+                      placeholder="VD: Xanh, Đen, Đỏ, Trắng, Vàng..."
                       value={formData.color}
                       onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
@@ -1838,7 +1584,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                     <label className="block text-xs font-semibold text-gray-700 mb-1">Quy cách</label>
                     <input
                       type="text"
-                      placeholder="VD: 500 tờ/ream, 20 cây/ hộp, 5 ream/thùng..."
+                      placeholder="VD: 0.5mm, 6 cuộn/cây, A4, 7cm..."
                       value={formData.specification}
                       onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
@@ -1851,7 +1597,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                     <input
                       type="text"
                       required
-                      placeholder="VD: Ream, Cây, hộp, Cuộn, Cái..."
+                      placeholder="VD: Chiếc, Hộp, Cuộn, Tập, Quyển..."
                       value={formData.unit}
                       onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
@@ -1886,7 +1632,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                       step="any"
                       value={formData.costPrice}
                       onChange={(e) =>
-                        setFormData({ ...formData, costPrice: Math.max(0, parseInt(e.target.value) || 0) })
+                        setFormData({ ...formData, costPrice: Math.max(0, parseFloat(e.target.value) || 0) })
                       }
                       className="w-full px-3 py-2 text-xs font-bold border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
                     />
@@ -1905,7 +1651,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                       step="any"
                       value={formData.sellingPrice}
                       onChange={(e) =>
-                        setFormData({ ...formData, sellingPrice: Math.max(0, parseInt(e.target.value) || 0) })
+                        setFormData({ ...formData, sellingPrice: Math.max(0, parseFloat(e.target.value) || 0) })
                       }
                       className="w-full px-3 py-2 text-xs font-bold text-[#E53935] border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
                     />
@@ -1920,7 +1666,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                     <label className="block text-xs font-semibold text-gray-700 mb-1">Thuế VAT (%)</label>
                     <select
                       value={formData.vatRate}
-                      onChange={(e) => setFormData({ ...formData, vatRate: parseInt(e.target.value) || 8 })}
+                      onChange={(e) => setFormData({ ...formData, vatRate: parseInt(e.target.value) ?? 8 })}
                       className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white"
                     >
                       <option value={8}>8% (Tiêu chuẩn)</option>
@@ -1937,9 +1683,10 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                     <input
                       type="number"
                       min="0"
+                      step="any"
                       value={formData.stockQuantity}
                       onChange={(e) =>
-                        setFormData({ ...formData, stockQuantity: Math.max(0, parseInt(e.target.value) || 0) })
+                        setFormData({ ...formData, stockQuantity: Math.max(0, parseFloat(e.target.value) || 0) })
                       }
                       className="w-full px-3 py-2 text-xs font-bold text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935]"
                     />
@@ -2189,14 +1936,14 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
             {productGroups.length > 0 && (
               <select
                 className="input"
-                style={{ width: '150px', fontSize: '12.5px', height: '32px', borderRadius: '12px' }}
+                style={{ width: '165px', fontSize: '12.5px', height: '32px', borderRadius: '12px' }}
                 value={productGroupFilter}
                 onChange={(e) => setProductGroupFilter(e.target.value)}
               >
-                <option value="">-- Tất cả nhóm --</option>
+                <option value="">-- Tất cả nhóm loại --</option>
                 {productGroups.map((g) => (
                   <option key={g.id} value={g.id}>
-                    {g.name} ({g.code})
+                    {g.name}
                   </option>
                 ))}
               </select>
@@ -2261,7 +2008,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
               disabled={isExporting}
               className="btn btn-secondary btn-sm"
               style={{ fontSize: '12.5px', height: '32px', borderRadius: '12px', gap: '0.35rem', backgroundColor: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}
-              title="Xuất bảng Cấu trúc sản phẩm ra file Excel chuẩn định dạng (.xlsx)"
+              title="Xuất bảng dữ liệu Hàng hóa chuẩn 15 cột ra file Excel (.xlsx)"
             >
               {isExporting ? (
                 <>
@@ -2310,7 +2057,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
               Danh mục sản phẩm SKU ({products.length})
             </span>
             <span style={{ fontSize: '12.1px', color: '#6B7280', marginLeft: '0.35rem' }}>
-              • Kéo thả tiêu đề cột để sắp xếp thứ tự hiển thị
+              • Chuẩn 15 cột dữ liệu hàng hóa
             </span>
           </div>
 
@@ -2361,27 +2108,27 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                           {columnLabels[colKey]}
                         </span>
 
-                        {/* Nút lọc cho Danh mục */}
-                        {colKey === 'categoryName' && (
+                        {/* Nút lọc cho Nhóm loại */}
+                        {colKey === 'subTypeName' && (
                           <div className="relative inline-flex items-center">
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenFilterCol(openFilterCol === 'categoryName' ? null : 'categoryName');
+                                setOpenFilterCol(openFilterCol === 'subTypeName' ? null : 'subTypeName');
                               }}
                               onMouseDown={(e) => e.stopPropagation()}
-                              title={categoryFilter ? 'Đang lọc danh mục (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo danh mục'}
+                              title={productGroupFilter ? 'Đang lọc nhóm loại (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo nhóm loại'}
                               className={`p-1 rounded-md transition-colors cursor-pointer ${
-                                categoryFilter
+                                productGroupFilter
                                   ? 'text-[#E53935] bg-red-50 border border-red-200'
                                   : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
                               }`}
                             >
-                              <Filter size={11} className={categoryFilter ? 'fill-[#E53935]' : ''} />
+                              <Filter size={11} className={productGroupFilter ? 'fill-[#E53935]' : ''} />
                             </button>
 
-                            {openFilterCol === 'categoryName' && (
+                            {openFilterCol === 'subTypeName' && (
                               <div
                                 ref={filterMenuRef}
                                 onClick={(e) => e.stopPropagation()}
@@ -2391,13 +2138,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                               >
                                 <div className="flex items-center justify-between px-1.5 py-1 mb-1.5 border-b border-gray-100">
                                   <span className="font-bold text-gray-800 text-[11px] uppercase tracking-wider">
-                                    Lọc Danh mục
+                                    Lọc Nhóm loại
                                   </span>
-                                  {categoryFilter && (
+                                  {productGroupFilter && (
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        setCategoryFilter('');
+                                        setProductGroupFilter('');
                                         setOpenFilterCol(null);
                                       }}
                                       className="text-[11px] text-[#E53935] hover:underline font-semibold cursor-pointer"
@@ -2407,13 +2154,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                                   )}
                                 </div>
 
-                                {categories.length > 5 && (
+                                {productGroups.length > 5 && (
                                   <div className="mb-1.5 px-0.5">
                                     <input
                                       type="text"
-                                      placeholder="Tìm danh mục..."
-                                      value={catSearchTerm}
-                                      onChange={(e) => setCatSearchTerm(e.target.value)}
+                                      placeholder="Tìm nhóm loại..."
+                                      value={groupSearchTerm}
+                                      onChange={(e) => setGroupSearchTerm(e.target.value)}
                                       className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-[#E53935]"
                                     />
                                   </div>
@@ -2423,36 +2170,39 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setCategoryFilter('');
+                                      setProductGroupFilter('');
                                       setOpenFilterCol(null);
                                     }}
                                     className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                                      categoryFilter === ''
+                                      productGroupFilter === ''
                                         ? 'bg-red-50 text-[#E53935] font-semibold'
                                         : 'text-gray-700 hover:bg-gray-50'
                                     }`}
                                   >
-                                    <span>-- Tất cả danh mục --</span>
-                                    {categoryFilter === '' && <Check size={13} className="text-[#E53935]" />}
+                                    <span>-- Tất cả nhóm loại --</span>
+                                    {productGroupFilter === '' && <Check size={13} className="text-[#E53935]" />}
                                   </button>
-                                  {categories
-                                    .filter((c) => !catSearchTerm || c.name.toLowerCase().includes(catSearchTerm.toLowerCase()))
-                                    .map((c) => (
+                                  {productGroups
+                                    .filter((pg) => {
+                                      if (groupSearchTerm && !pg.name.toLowerCase().includes(groupSearchTerm.toLowerCase())) return false;
+                                      return true;
+                                    })
+                                    .map((pg) => (
                                       <button
-                                        key={c.id}
+                                        key={pg.id}
                                         type="button"
                                         onClick={() => {
-                                          setCategoryFilter(c.id);
+                                          setProductGroupFilter(pg.id);
                                           setOpenFilterCol(null);
                                         }}
                                         className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                                          categoryFilter === c.id
+                                          productGroupFilter === pg.id
                                             ? 'bg-red-50 text-[#E53935] font-semibold'
                                             : 'text-gray-700 hover:bg-gray-50'
                                         }`}
                                       >
-                                        <span className="truncate mr-2">{c.name}</span>
-                                        {categoryFilter === c.id && <Check size={13} className="text-[#E53935] shrink-0" />}
+                                        <span className="truncate mr-2">{pg.name}</span>
+                                        {productGroupFilter === pg.id && <Check size={13} className="text-[#E53935] shrink-0" />}
                                       </button>
                                     ))}
                                 </div>
@@ -2461,27 +2211,27 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                           </div>
                         )}
 
-                        {/* Nút lọc cho Loại hàng hóa */}
-                        {colKey === 'productTypeName' && (
+                        {/* Nút lọc cho Kho lưu trữ */}
+                        {colKey === 'warehouseName' && (
                           <div className="relative inline-flex items-center">
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenFilterCol(openFilterCol === 'productTypeName' ? null : 'productTypeName');
+                                setOpenFilterCol(openFilterCol === 'warehouseName' ? null : 'warehouseName');
                               }}
                               onMouseDown={(e) => e.stopPropagation()}
-                              title={productTypeFilter ? 'Đang lọc loại hàng (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo loại hàng hóa'}
+                              title={warehouseFilter ? 'Đang lọc kho lưu trữ (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo kho'}
                               className={`p-1 rounded-md transition-colors cursor-pointer ${
-                                productTypeFilter
+                                warehouseFilter
                                   ? 'text-[#E53935] bg-red-50 border border-red-200'
                                   : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
                               }`}
                             >
-                              <Filter size={11} className={productTypeFilter ? 'fill-[#E53935]' : ''} />
+                              <Filter size={11} className={warehouseFilter ? 'fill-[#E53935]' : ''} />
                             </button>
 
-                            {openFilterCol === 'productTypeName' && (
+                            {openFilterCol === 'warehouseName' && (
                               <div
                                 ref={filterMenuRef}
                                 onClick={(e) => e.stopPropagation()}
@@ -2491,13 +2241,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                               >
                                 <div className="flex items-center justify-between px-1.5 py-1 mb-1.5 border-b border-gray-100">
                                   <span className="font-bold text-gray-800 text-[11px] uppercase tracking-wider">
-                                    Lọc Loại hàng
+                                    Lọc Kho lưu trữ
                                   </span>
-                                  {productTypeFilter && (
+                                  {warehouseFilter && (
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        setProductTypeFilter('');
+                                        setWarehouseFilter('');
                                         setOpenFilterCol(null);
                                       }}
                                       className="text-[11px] text-[#E53935] hover:underline font-semibold cursor-pointer"
@@ -2507,13 +2257,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                                   )}
                                 </div>
 
-                                {productTypes.length > 5 && (
+                                {warehouses.length > 5 && (
                                   <div className="mb-1.5 px-0.5">
                                     <input
                                       type="text"
-                                      placeholder="Tìm loại hàng..."
-                                      value={typeSearchTerm}
-                                      onChange={(e) => setTypeSearchTerm(e.target.value)}
+                                      placeholder="Tìm kho..."
+                                      value={whSearchTerm}
+                                      onChange={(e) => setWhSearchTerm(e.target.value)}
                                       className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-[#E53935]"
                                     />
                                   </div>
@@ -2523,42 +2273,136 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setProductTypeFilter('');
+                                      setWarehouseFilter('');
                                       setOpenFilterCol(null);
                                     }}
                                     className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                                      productTypeFilter === ''
+                                      warehouseFilter === ''
                                         ? 'bg-red-50 text-[#E53935] font-semibold'
                                         : 'text-gray-700 hover:bg-gray-50'
                                     }`}
                                   >
-                                    <span>-- Tất cả loại hàng --</span>
-                                    {productTypeFilter === '' && <Check size={13} className="text-[#E53935]" />}
+                                    <span>-- Tất cả kho lưu trữ --</span>
+                                    {warehouseFilter === '' && <Check size={13} className="text-[#E53935]" />}
                                   </button>
-                                  {productTypes
-                                    .filter((pt) => {
-                                      if (categoryFilter && pt.categoryId !== categoryFilter) return false;
-                                      if (typeSearchTerm && !pt.name.toLowerCase().includes(typeSearchTerm.toLowerCase())) return false;
-                                      return true;
-                                    })
-                                    .map((pt) => (
+                                  {warehouses
+                                    .filter((w) => !whSearchTerm || w.name.toLowerCase().includes(whSearchTerm.toLowerCase()))
+                                    .map((w) => (
                                       <button
-                                        key={pt.id}
+                                        key={w.id}
                                         type="button"
                                         onClick={() => {
-                                          setProductTypeFilter(pt.id);
+                                          setWarehouseFilter(w.id);
                                           setOpenFilterCol(null);
                                         }}
                                         className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                                          productTypeFilter === pt.id
+                                          warehouseFilter === w.id
                                             ? 'bg-red-50 text-[#E53935] font-semibold'
                                             : 'text-gray-700 hover:bg-gray-50'
                                         }`}
                                       >
-                                        <span className="truncate mr-2">{pt.name}</span>
-                                        {productTypeFilter === pt.id && <Check size={13} className="text-[#E53935] shrink-0" />}
+                                        <span className="truncate mr-2">{w.name}</span>
+                                        {warehouseFilter === w.id && <Check size={13} className="text-[#E53935] shrink-0" />}
                                       </button>
                                     ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Nút lọc cho Trạng thái */}
+                        {colKey === 'status' && (
+                          <div className="relative inline-flex items-center">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenFilterCol(openFilterCol === 'status' ? null : 'status');
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              title={statusFilter ? 'Đang lọc trạng thái (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo trạng thái'}
+                              className={`p-1 rounded-md transition-colors cursor-pointer ${
+                                statusFilter
+                                  ? 'text-[#E53935] bg-red-50 border border-red-200'
+                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <Filter size={11} className={statusFilter ? 'fill-[#E53935]' : ''} />
+                            </button>
+
+                            {openFilterCol === 'status' && (
+                              <div
+                                ref={filterMenuRef}
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                className="absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-200 p-2 z-50 text-left normal-case tracking-normal font-normal text-xs animate-in fade-in zoom-in-95"
+                                style={{ width: '180px' }}
+                              >
+                                <div className="flex items-center justify-between px-1.5 py-1 mb-1.5 border-b border-gray-100">
+                                  <span className="font-bold text-gray-800 text-[11px] uppercase tracking-wider">
+                                    Lọc Trạng thái
+                                  </span>
+                                  {statusFilter && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setStatusFilter('');
+                                        setOpenFilterCol(null);
+                                      }}
+                                      className="text-[11px] text-[#E53935] hover:underline font-semibold cursor-pointer"
+                                    >
+                                      Bỏ lọc
+                                    </button>
+                                  )}
+                                </div>
+
+                                <div className="space-y-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setStatusFilter('');
+                                      setOpenFilterCol(null);
+                                    }}
+                                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                      statusFilter === ''
+                                        ? 'bg-red-50 text-[#E53935] font-semibold'
+                                        : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    <span>-- Tất cả trạng thái --</span>
+                                    {statusFilter === '' && <Check size={13} className="text-[#E53935]" />}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setStatusFilter('ACTIVE');
+                                      setOpenFilterCol(null);
+                                    }}
+                                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                      statusFilter === 'ACTIVE'
+                                        ? 'bg-emerald-50 text-emerald-700 font-semibold'
+                                        : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    <span>Đang kinh doanh</span>
+                                    {statusFilter === 'ACTIVE' && <Check size={13} className="text-emerald-600" />}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setStatusFilter('INACTIVE');
+                                      setOpenFilterCol(null);
+                                    }}
+                                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                      statusFilter === 'INACTIVE'
+                                        ? 'bg-amber-50 text-amber-700 font-semibold'
+                                        : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    <span>Ngừng kinh doanh</span>
+                                    {statusFilter === 'INACTIVE' && <Check size={13} className="text-amber-600" />}
+                                  </button>
                                 </div>
                               </div>
                             )}
@@ -2627,42 +2471,14 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                                   {p.warehouse?.name || (p as any).warehouseName || 'Kho số 1'}
                                 </td>
                               );
-                            case 'categoryCode':
+                            case 'subTypeName': {
+                              const groupLabel = p.productGroup?.name || p.subTypeName || '—';
                               return (
-                                <td key={colKey} className="py-1 px-2 text-center whitespace-nowrap font-mono text-gray-600">
-                                  {p.categoryRel?.code || (p as any).categoryCode || 'GIAY'}
+                                <td key={colKey} className="py-1 px-2 text-center text-gray-700 truncate" title={groupLabel}>
+                                  {groupLabel}
                                 </td>
                               );
-                            case 'categoryName':
-                              return (
-                                <td key={colKey} className="py-1 px-2 text-center text-gray-700 truncate" title={p.categoryRel?.name || (p as any).categoryName || p.category || 'Giấy'}>
-                                  {p.categoryRel?.name || (p as any).categoryName || p.category || 'Giấy'}
-                                </td>
-                              );
-                            case 'productTypeCode':
-                              return (
-                                <td key={colKey} className="py-1 px-2 text-center whitespace-nowrap font-mono text-gray-600">
-                                  {p.productType?.code || (p as any).productTypeCode || 'A4'}
-                                </td>
-                              );
-                            case 'productTypeName':
-                              return (
-                                <td key={colKey} className="py-1 px-2 text-center text-gray-700 truncate" title={p.productType?.name || (p as any).productTypeName || 'Giấy A4'}>
-                                  {p.productType?.name || (p as any).productTypeName || 'Giấy A4'}
-                                </td>
-                              );
-                            case 'subTypeCode':
-                              return (
-                                <td key={colKey} className="py-1 px-2 text-center whitespace-nowrap font-mono text-gray-500">
-                                  {p.subTypeCode || '—'}
-                                </td>
-                              );
-                            case 'subTypeName':
-                              return (
-                                <td key={colKey} className="py-1 px-2 text-center text-gray-700 truncate" title={p.subTypeName || '—'}>
-                                  {p.subTypeName || '—'}
-                                </td>
-                              );
+                            }
                             case 'image': {
                               const imgUrl = formatImageUrl(p.imageUrl);
                               return (
@@ -2756,7 +2572,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
                             case 'stockQuantity':
                               return (
                                 <td key={colKey} className="py-1 px-2 text-right font-bold text-gray-900 tabular-nums whitespace-nowrap">
-                                  {Number(p.stockQuantity ?? 0).toLocaleString('vi-VN')}
+                                  {Number(p.stockQuantity ?? 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}
                                 </td>
                               );
                             case 'status':
@@ -2830,22 +2646,16 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
         </div>
       </div>
 
-
-      {/* MODAL IMPORT EXCEL HÀNG LOẠT (CẤU TRÚC 21 CỘT) */}
+      {/* MODAL IMPORT EXCEL HÀNG LOẠT (CHUẨN 15 CỘT DU_LIEU_HANG_HOA.XLSX) */}
       <ImportExcelModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        title="Nhập danh sách Sản phẩm từ Excel (Cấu trúc 21 cột)"
-        sampleFileName="Cau_Truc_San_Pham_NamKhanh.xlsx"
+        title="Nhập danh sách Hàng hóa từ Excel (Chuẩn 15 cột)"
+        sampleFileName="Du_Lieu_Hang_Hoa_NamKhanh.xlsx"
         sampleHeaders={[
           'Stt',
           'Mã kho',
           'Tên Kho',
-          'Mã danh mục',
-          'Tên danh mục',
-          'Mã loại',
-          'Tên loại',
-          'Mã nhóm loại',
           'Tên nhóm loại',
           'Hình ảnh sản phẩm',
           'Mã sản phẩm',
@@ -2864,53 +2674,43 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({ headerSlot }) => {
             '1',
             'NK01',
             'Kho số 1',
-            'GIAY',
-            'Giấy',
-            'A4',
-            'Giấy A4',
-            'GIN',
-            'Giấy in',
-            '', // Ô ảnh để trống văn bản vì hình ảnh mẫu đã được nhúng trực tiếp
-            'DBA480',
-            'Giấy Double A4 80gsm',
-            'Double',
-            'Trắng',
-            '500 tờ/ream',
-            'Ream',
-            45000,
-            65000,
+            'Bút bi',
+            '',
+            'TL027',
+            'Bút bi TL027',
+            'Thiên Long',
+            'Xanh',
+            '0.5mm',
+            'Chiếc',
+            3273,
+            3900,
             8,
-            5000
+            3209
           ],
           [
             '2',
-            'NK02',
+            'NK01',
             'Kho số 1',
-            'BUT',
-            'Bút',
-            'Bubi',
-            'Bút bi',
-            'BN',
-            'Bút bi nước',
-            '', // Ô ảnh để trống văn bản vì hình ảnh mẫu đã được nhúng trực tiếp
-            'TL027',
-            'Bút bi xanh',
-            'Thiên long',
-            'Xanh',
-            '20 cây/ hộp',
-            'Cây, hộp',
-            35000,
-            65000,
+            'Băng dính',
+            '',
+            'BDG5cm',
+            'Băng dính giấy 5cm',
+            '',
+            'Trắng',
+            '6 cuộn/cây',
+            'Cuộn',
+            12833,
+            16500,
             8,
-            50
+            148
           ]
         ]}
         sampleImages={[
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4CAYAAAA5ZDbSAAACu0lEQVR4nO3YMU4DMRBGYQRXpaHnCHScgtNwDypKSkBIQRGKCAkb27sez8zvN9JrooTd+HOciKv3z68d6XblfQMEMAFMAE8awOJ1A355faPOuQJ7v/kZGwK8dHGm//SAbgIG1HfWIFcDAxtnWpCrgMGNN7XIRWBw404NMsCJZzMwuPGnhAxw8gFYfAAWn9XA4OYYgMUHYPEBWHzcga8fnqlQOmDvBctceODTG765e6JCW5CHAgPbDzo0sPdCZQ5g8cICgwswAUwAi5cW+DBWC9P6963vB2CAtYCtswYetYEAFt9AZsCHGQ3cuhCqTQfcCz7bBkoL3LrQ1sBRN1Da72Br4F7Pt35cFti6tQsKcBJglQAWD2DxABYPYPEAFg9g8QAWD2DxABYPYPEAFg9g8QAWD2DxABYvPDDIAFN2YJC34aYApm0BLB7A4gEsXjrgt48dnSQB7L2IGUoL7L1wmQJYvHTA3guWLYDFA1g8gMUDuHKB/j7+u1zegAA3wY0F3v6eyvcB8DAMi3sAOBBGv3uo/bsp/5PlBRxlQ7SsxTLw/9zHjxaBD0+eFdhyQ2xB7g58irwEvHSEzAJstSFMj+j/kH9eeH45gG03gtl3cC3w0gAcHJjvYIBNgG/vH1csyP5V7c+puda6+5kIeL9AJeBeixgZLA3wz+fg8hxQL32Ce2FkAfMC3q/PsCN6ZrBewKUPWNcj+tLFWo7omVva0BZH9P5aXY7o3cS/otedUuc/AM+B61be9Yim+tL8igYYYFIABhlgygQMcj/cVMC0LoDFCwkM8lhcF2CQx+G6ATPjBmDxAVh8ABYfgMVnNTDIOQZg8QFYfAAWn03AIMeeEi7AyacLMMgxpwa3GhjkWFOL2wR8jAy0zxyvf61ZE/ApMvnU4tUMDHQO2M3AlCOAxQNYPIDFA1g8gMX7Brb7JwaNoLXWAAAAAElFTkSuQmCC',
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4CAYAAAA5ZDbSAAACB0lEQVR4nO3dzU0CURSGYaLFWYFF0Icl2ICxCTuwD1cuWRpjgiE6ySDg3PljzrnzvMm3YTEMPOSGBQmbj8+vvdW7zdI3YIANsAFe6QBXvsmA3953NvEWBV76xa9xVwG+9OSavimgewEDXbYhyMXAYOPUB7kIGG68SpE7geHGrQQZcOJGA8ONXxcy4OQB/u3m4fVkNbR64HOwNUEPBl4LbnZkwIDrBO6De9jt9mnpWx4U4ELcZtkC3AMXcKIAAwYMOH6AAQMGnDDAgAEDjh9gwIABJwwwYMCA4wcYMGDACQMMGDDg+AEGDBhwwgADBgw4foABAwacMMCAzyJnC3DhsgYYMGDACQMMGDDg+AEGDBhwwgADBgw4foABAwacMMCAAQOOH2DAgAEnDDBgwIDjBxgwYMAJAwwYMOD4AQYMGHDCAAMGDDh+qwXe+/dRwICTA+/9A3j9wE2Pzy8nqyHAF3ABA04RYMCAMwcYMODMAQYMOHOAAQPOHGDA9QO3u7vfLn0Lkwa41QEXMOBUAW4FGHC6ALcCXDlwjQ0GhpyjdMBz/RDu/HX7PBozwP9eF7AjOnijgCFP0XynRBcu4Ks0J3BzlRHAkGP2YzIRMORYlRzNvYGbz8oxdKbvm/lr3vtS3FHAx0fE7s/jNudKzXoBXzqyLSbsaGDLMcCVD3DlA1z5AFc+wJXvG6pqUpLu8p4XAAAAAElFTkSuQmCC'
         ]}
-        requiredFields={['Mã sản phẩm', 'Tên sản phẩm', 'Đơn vị tính', 'Giá bán']}
-        fieldMappingHelp="File mẫu chuẩn theo form 'CẤU TRÚC SẢN PHẨM' gồm đúng 21 cột kèm ảnh mẫu được nhúng trực tiếp. Khi điền file của bạn, bạn có thể chèn ảnh (Insert Picture) vào ô cột Hình ảnh sản phẩm hoặc dán link URL ảnh."
+        requiredFields={['Mã sản phẩm', 'Tên sản phẩm']}
+        fieldMappingHelp="File mẫu chuẩn theo form 'DU_LIEU_HANG_HOA.xlsx' gồm đúng 15 cột dữ liệu kèm ảnh mẫu được nhúng trực tiếp. Khi điền file của bạn, bạn có thể chèn ảnh (Insert Picture) vào ô cột Hình ảnh sản phẩm hoặc dán link URL ảnh."
         onImport={handleImportProducts}
       />
       <Toast

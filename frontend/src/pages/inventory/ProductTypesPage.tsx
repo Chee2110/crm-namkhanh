@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Package,
   Plus,
@@ -8,7 +8,9 @@ import {
   Trash2,
   AlertCircle,
   X,
-  Warehouse as WarehouseIcon
+  Warehouse as WarehouseIcon,
+  Filter,
+  Check
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { ProductType, Category } from '../../types';
@@ -31,6 +33,42 @@ export const ProductTypesPage: React.FC<ProductTypesPageProps> = ({ headerSlot }
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [unitFilter, setUnitFilter] = useState('');
+
+  // Header filter states
+  const [openFilterCol, setOpenFilterCol] = useState<string | null>(null);
+  const [catSearchTerm, setCatSearchTerm] = useState('');
+  const [nameSearchInput, setNameSearchInput] = useState('');
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
+        setOpenFilterCol(null);
+      }
+    };
+    if (openFilterCol) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openFilterCol]);
+
+  // Unique units for header filter
+  const uniqueUnits = useMemo(() => {
+    const set = new Set<string>();
+    productTypes.forEach((t) => {
+      if (t.unit && t.unit.trim()) set.add(t.unit.trim());
+    });
+    return Array.from(set).sort();
+  }, [productTypes]);
+
+  // Client-side filtering by unit
+  const filteredProductTypes = useMemo(() => {
+    if (!unitFilter) return productTypes;
+    return productTypes.filter((t) => t.unit?.trim().toLowerCase() === unitFilter.trim().toLowerCase());
+  }, [productTypes, unitFilter]);
 
   // Pagination (vừa vặn màn hình laptop, tự động tăng/giảm dòng khi zoom)
   const {
@@ -41,12 +79,16 @@ export const ProductTypesPage: React.FC<ProductTypesPageProps> = ({ headerSlot }
     startIndex,
     paginate: paginateProductTypes
   } = useAutoTablePagination({
-    totalItems: productTypes.length,
+    totalItems: filteredProductTypes.length,
     rowHeight: 34,
     topOffset: 250,
     minRows: 6,
     maxRows: 50,
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [unitFilter]);
 
   const defaultColOrder = ['stt', 'code', 'name', 'category', 'unit', 'skuCount', 'actions'];
 
@@ -202,7 +244,7 @@ export const ProductTypesPage: React.FC<ProductTypesPageProps> = ({ headerSlot }
     loadProductTypes(true);
   }, [search, categoryFilter]);
 
-  const paginatedProductTypes = paginateProductTypes(productTypes);
+  const paginatedProductTypes = paginateProductTypes(filteredProductTypes);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,7 +393,9 @@ export const ProductTypesPage: React.FC<ProductTypesPageProps> = ({ headerSlot }
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      className={`py-1.5 ${colKey === 'actions' ? 'px-1.5' : 'px-2.5'} select-none overflow-hidden ${
+                      className={`py-1.5 ${colKey === 'actions' ? 'px-1.5' : 'px-2.5'} select-none ${
+                        openFilterCol === colKey ? 'overflow-visible z-40' : 'overflow-hidden'
+                      } ${
                         colKey === 'actions'
                           ? 'sticky-action-th text-center'
                           : colKey === 'stt' || colKey === 'unit' || colKey === 'skuCount'
@@ -360,10 +404,295 @@ export const ProductTypesPage: React.FC<ProductTypesPageProps> = ({ headerSlot }
                       }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultTypeWidths[colKey]}px`,
-                        position: colKey === 'actions' ? 'sticky' : 'relative'
+                        position: colKey === 'actions' ? 'sticky' : 'relative',
+                        zIndex: openFilterCol === colKey ? 40 : undefined
                       }}
                     >
-                      <span>{columnLabels[colKey]}</span>
+                      <div
+                        className={`inline-flex items-center gap-1.5 w-full ${
+                          colKey === 'stt' || colKey === 'actions' || colKey === 'skuCount'
+                            ? 'justify-center'
+                            : colKey === 'unit'
+                            ? 'justify-center'
+                            : 'justify-between'
+                        }`}
+                      >
+                        <span className="truncate">{columnLabels[colKey]}</span>
+
+                        {/* Nút lọc cho Tên loại hàng */}
+                        {colKey === 'name' && (
+                          <div className="relative inline-flex items-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNameSearchInput(search);
+                                setOpenFilterCol(openFilterCol === 'name' ? null : 'name');
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              title={search ? 'Đang lọc tìm kiếm (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo tên loại hàng'}
+                              className={`p-1 rounded-md transition-colors cursor-pointer ${
+                                search
+                                  ? 'text-[#E53935] bg-red-50 border border-red-200'
+                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <Filter size={11} className={search ? 'fill-[#E53935]' : ''} />
+                            </button>
+
+                            {openFilterCol === 'name' && (
+                              <div
+                                ref={filterMenuRef}
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-200 p-2.5 z-50 text-left normal-case tracking-normal font-normal text-xs animate-in fade-in zoom-in-95"
+                                style={{ width: '220px' }}
+                              >
+                                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-gray-100">
+                                  <span className="font-bold text-gray-800 text-[11px] uppercase tracking-wider">
+                                    Lọc theo tên / mã
+                                  </span>
+                                  {search && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSearch('');
+                                        setNameSearchInput('');
+                                        setOpenFilterCol(null);
+                                      }}
+                                      className="text-[11px] text-[#E53935] hover:underline font-semibold cursor-pointer"
+                                    >
+                                      Bỏ lọc
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="space-y-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Nhập từ khóa tìm..."
+                                    value={nameSearchInput}
+                                    onChange={(e) => setNameSearchInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        setSearch(nameSearchInput);
+                                        setOpenFilterCol(null);
+                                      }
+                                    }}
+                                    autoFocus
+                                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-[#E53935]"
+                                  />
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setOpenFilterCol(null)}
+                                      className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-md"
+                                    >
+                                      Đóng
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSearch(nameSearchInput);
+                                        setOpenFilterCol(null);
+                                      }}
+                                      className="px-2.5 py-1 text-xs bg-[#E53935] text-white font-medium rounded-md hover:bg-red-700"
+                                    >
+                                      Áp dụng
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Nút lọc cho Danh mục */}
+                        {colKey === 'category' && (
+                          <div className="relative inline-flex items-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenFilterCol(openFilterCol === 'category' ? null : 'category');
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              title={categoryFilter ? 'Đang lọc danh mục (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo danh mục'}
+                              className={`p-1 rounded-md transition-colors cursor-pointer ${
+                                categoryFilter
+                                  ? 'text-[#E53935] bg-red-50 border border-red-200'
+                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <Filter size={11} className={categoryFilter ? 'fill-[#E53935]' : ''} />
+                            </button>
+
+                            {openFilterCol === 'category' && (
+                              <div
+                                ref={filterMenuRef}
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-200 p-2 z-50 text-left normal-case tracking-normal font-normal text-xs animate-in fade-in zoom-in-95"
+                                style={{ width: '220px' }}
+                              >
+                                <div className="flex items-center justify-between px-1.5 py-1 mb-1.5 border-b border-gray-100">
+                                  <span className="font-bold text-gray-800 text-[11px] uppercase tracking-wider">
+                                    Lọc Danh mục
+                                  </span>
+                                  {categoryFilter && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setCategoryFilter('');
+                                        setOpenFilterCol(null);
+                                      }}
+                                      className="text-[11px] text-[#E53935] hover:underline font-semibold cursor-pointer"
+                                    >
+                                      Bỏ lọc
+                                    </button>
+                                  )}
+                                </div>
+
+                                {categories.length > 5 && (
+                                  <div className="mb-1.5 px-0.5">
+                                    <input
+                                      type="text"
+                                      placeholder="Tìm danh mục..."
+                                      value={catSearchTerm}
+                                      onChange={(e) => setCatSearchTerm(e.target.value)}
+                                      className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-[#E53935]"
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="max-h-52 overflow-y-auto space-y-0.5 custom-scrollbar">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCategoryFilter('');
+                                      setOpenFilterCol(null);
+                                    }}
+                                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                      categoryFilter === ''
+                                        ? 'bg-red-50 text-[#E53935] font-semibold'
+                                        : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    <span>-- Tất cả danh mục --</span>
+                                    {categoryFilter === '' && <Check size={13} className="text-[#E53935]" />}
+                                  </button>
+                                  {categories
+                                    .filter((c) => !catSearchTerm || c.name.toLowerCase().includes(catSearchTerm.toLowerCase()))
+                                    .map((c) => (
+                                      <button
+                                        key={c.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setCategoryFilter(c.id);
+                                          setOpenFilterCol(null);
+                                        }}
+                                        className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                          categoryFilter === c.id
+                                            ? 'bg-red-50 text-[#E53935] font-semibold'
+                                            : 'text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        <span className="truncate mr-2">{c.name}</span>
+                                        {categoryFilter === c.id && <Check size={13} className="text-[#E53935] shrink-0" />}
+                                      </button>
+                                    ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Nút lọc cho ĐVT */}
+                        {colKey === 'unit' && (
+                          <div className="relative inline-flex items-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenFilterCol(openFilterCol === 'unit' ? null : 'unit');
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              title={unitFilter ? 'Đang lọc ĐVT (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo ĐVT'}
+                              className={`p-1 rounded-md transition-colors cursor-pointer ${
+                                unitFilter
+                                  ? 'text-[#E53935] bg-red-50 border border-red-200'
+                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <Filter size={11} className={unitFilter ? 'fill-[#E53935]' : ''} />
+                            </button>
+
+                            {openFilterCol === 'unit' && (
+                              <div
+                                ref={filterMenuRef}
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-200 p-2 z-50 text-left normal-case tracking-normal font-normal text-xs animate-in fade-in zoom-in-95"
+                                style={{ width: '170px' }}
+                              >
+                                <div className="flex items-center justify-between px-1.5 py-1 mb-1.5 border-b border-gray-100">
+                                  <span className="font-bold text-gray-800 text-[11px] uppercase tracking-wider">
+                                    Lọc ĐVT
+                                  </span>
+                                  {unitFilter && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setUnitFilter('');
+                                        setOpenFilterCol(null);
+                                      }}
+                                      className="text-[11px] text-[#E53935] hover:underline font-semibold cursor-pointer"
+                                    >
+                                      Bỏ lọc
+                                    </button>
+                                  )}
+                                </div>
+
+                                <div className="max-h-52 overflow-y-auto space-y-0.5 custom-scrollbar">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setUnitFilter('');
+                                      setOpenFilterCol(null);
+                                    }}
+                                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                      unitFilter === ''
+                                        ? 'bg-red-50 text-[#E53935] font-semibold'
+                                        : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    <span>-- Tất cả ĐVT --</span>
+                                    {unitFilter === '' && <Check size={13} className="text-[#E53935]" />}
+                                  </button>
+                                  {uniqueUnits.map((u) => (
+                                    <button
+                                      key={u}
+                                      type="button"
+                                      onClick={() => {
+                                        setUnitFilter(u);
+                                        setOpenFilterCol(null);
+                                      }}
+                                      className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                        unitFilter === u
+                                          ? 'bg-red-50 text-[#E53935] font-semibold'
+                                          : 'text-gray-700 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      <span className="truncate mr-2">{u}</span>
+                                      {unitFilter === u && <Check size={13} className="text-[#E53935] shrink-0" />}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
                       {colKey !== 'actions' && (
                         <div
                           className="col-resizer"

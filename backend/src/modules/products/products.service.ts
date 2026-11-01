@@ -1,4 +1,14 @@
 import { prisma } from '../../config/db';
+import { slugifyGroupCode } from '../product-groups/product-groups.service';
+
+function normalizeLabel(val?: string | null): string {
+  if (!val) return '';
+  const trimmed = String(val).trim().replace(/\s+/g, ' ');
+  if (!trimmed) return '';
+  // Chuẩn hóa chữ cái đầu viết hoa (ví dụ: 'bút chì' -> 'Bút chì', 'màng PE' -> 'Màng PE', 'Bút Dạ' -> 'Bút dạ')
+  if (trimmed.toLowerCase() === 'bút dạ') return 'Bút dạ';
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
 
 export class ProductsService {
   async getProducts(params?: {
@@ -16,18 +26,36 @@ export class ProductsService {
     if (params?.category) where.category = params.category;
     if (params?.categoryId) where.categoryId = params.categoryId;
     if (params?.productTypeId) where.productTypeId = params.productTypeId;
-    if (params?.productGroupId) where.productGroupId = params.productGroupId;
+    if (params?.productGroupId) {
+      const pg = await prisma.productGroup.findUnique({ where: { id: params.productGroupId } });
+      if (pg) {
+        where.OR = [
+          { productGroupId: params.productGroupId },
+          { subTypeName: { equals: pg.name, mode: 'insensitive' } }
+        ];
+      } else {
+        where.productGroupId = params.productGroupId;
+      }
+    }
     if (params?.warehouseId) where.warehouseId = params.warehouseId;
     if (params?.supplierId) where.supplierId = params.supplierId;
     if (params?.status) where.status = params.status;
 
     if (params?.search) {
-      where.OR = [
+      const searchCond = [
         { code: { contains: params.search, mode: 'insensitive' } },
         { name: { contains: params.search, mode: 'insensitive' } },
+        { subTypeName: { contains: params.search, mode: 'insensitive' } },
+        { brand: { contains: params.search, mode: 'insensitive' } },
         { barcode: { contains: params.search, mode: 'insensitive' } },
         { description: { contains: params.search, mode: 'insensitive' } }
       ];
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: searchCond }];
+        delete where.OR;
+      } else {
+        where.OR = searchCond;
+      }
     }
 
     const products = await prisma.product.findMany({
@@ -62,6 +90,123 @@ export class ProductsService {
     });
     if (!product) throw new Error('Không tìm thấy sản phẩm');
     return product;
+  }
+
+  private async resolveOrCreateProductGroup(
+    productGroupId?: string | null,
+    subTypeCode?: string | null,
+    subTypeName?: string | null,
+    productTypeId?: string | null
+  ): Promise<{ id: string | null; code: string | null; name: string | null }> {
+    const cleanGroupId = productGroupId && productGroupId.trim() ? productGroupId.trim() : null;
+    const rawCode = subTypeCode && subTypeCode.trim() ? subTypeCode.trim().toUpperCase() : null;
+    const rawName = normalizeLabel(subTypeName);
+
+    if (cleanGroupId) {
+      const pg = await prisma.productGroup.findUnique({ where: { id: cleanGroupId } });
+      if (pg) {
+        return {
+          id: pg.id,
+          code: rawCode || pg.code,
+          name: rawName || pg.name
+        };
+      }
+    }
+
+    if (!rawName && !rawCode) {
+      return { id: null, code: null, name: null };
+    }
+
+    let pg = null;
+    if (rawName) {
+      pg = await prisma.productGroup.findFirst({
+        where: { name: { equals: rawName, mode: 'insensitive' } }
+      });
+    }
+    if (!pg && rawCode) {
+      pg = await prisma.productGroup.findUnique({ where: { code: rawCode } });
+    }
+
+    if (!pg) {
+      const groupName = rawName || rawCode!;
+      const baseCode = rawCode || slugifyGroupCode(groupName);
+      let finalCode = baseCode;
+      let counter = 2;
+      while (await prisma.productGroup.findUnique({ where: { code: finalCode } })) {
+        finalCode = `${baseCode}-${counter}`;
+        counter++;
+      }
+
+      pg = await prisma.productGroup.create({
+        data: {
+          code: finalCode,
+          name: groupName,
+          productTypeId: productTypeId || null,
+          status: 'ACTIVE'
+        }
+      });
+    }
+
+    return {
+      id: pg.id,
+      code: pg.code,
+      name: pg.name
+    };
+  }
+
+  private async resolveOrCreateWarehouse(
+    warehouseId?: string | null,
+    warehouseCode?: string | null,
+    warehouseName?: string | null,
+    fallbackDefault = false
+  ): Promise<string | null> {
+    const cleanId = warehouseId && warehouseId.trim() ? warehouseId.trim() : null;
+    if (cleanId) {
+      const wh = await prisma.warehouse.findUnique({ where: { id: cleanId } });
+      if (wh) return wh.id;
+    }
+
+    const wCode = (warehouseCode || '').trim().toUpperCase();
+    const wName = (warehouseName || '').trim();
+
+    if (wCode || wName) {
+      let wh = null;
+      if (wCode) wh = await prisma.warehouse.findUnique({ where: { code: wCode } });
+      if (!wh && wName) {
+        wh = await prisma.warehouse.findFirst({
+          where: { name: { equals: wName, mode: 'insensitive' } }
+        });
+      }
+      if (!wh) {
+        wh = await prisma.warehouse.create({
+          data: {
+            code: wCode || `WH-${Date.now().toString().slice(-4)}`,
+            name: wName || wCode,
+            status: 'ACTIVE'
+          }
+        });
+      }
+      return wh.id;
+    }
+
+    if (fallbackDefault) {
+      let defaultWh = await prisma.warehouse.findUnique({ where: { code: 'NK01' } });
+      if (!defaultWh) {
+        defaultWh = await prisma.warehouse.findFirst({ where: { status: 'ACTIVE' } });
+      }
+      if (!defaultWh) {
+        defaultWh = await prisma.warehouse.create({
+          data: {
+            code: 'NK01',
+            name: 'Kho số 1',
+            status: 'ACTIVE'
+          }
+        });
+      }
+      return defaultWh.id;
+    }
+
+    return null;
   }
 
   async createProduct(data: {
@@ -115,7 +260,7 @@ export class ProductsService {
       if (existingBarcode) throw new Error(`Mã vạch [${cleanBarcode}] đã được sử dụng`);
     }
 
-    // RÀNG BUỘC TỰ ĐỘNG C.5: Nếu có tên nhà cung cấp mà chưa có ID thì kiểm tra/tự động tạo mới
+    // Tự động kiểm tra/tạo Nhà cung cấp nếu có tên mới
     let finalSupplierId = data.supplierId && data.supplierId.trim() ? data.supplierId.trim() : null;
     if (!finalSupplierId && data.supplierName && data.supplierName.trim()) {
       const existingSupplier = await prisma.supplier.findFirst({
@@ -142,143 +287,33 @@ export class ProductsService {
       if (!sup) finalSupplierId = null;
     }
 
-    let finalWarehouseId = data.warehouseId && data.warehouseId.trim() ? data.warehouseId.trim() : null;
-    if (!finalWarehouseId && (data.warehouseCode || data.warehouseName)) {
-      const wCode = (data.warehouseCode || '').trim();
-      const wName = (data.warehouseName || '').trim();
-      let wh = null;
-      if (wCode) wh = await prisma.warehouse.findUnique({ where: { code: wCode } });
-      if (!wh && wName) wh = await prisma.warehouse.findFirst({ where: { name: { equals: wName, mode: 'insensitive' } } });
-      if (!wh && (wCode || wName)) {
-        wh = await prisma.warehouse.create({
-          data: {
-            code: wCode || `WH-${Date.now().toString().slice(-4)}`,
-            name: wName || wCode,
-            status: 'ACTIVE'
-          }
-        });
-      }
-      if (wh) finalWarehouseId = wh.id;
-    } else if (finalWarehouseId) {
-      const wh = await prisma.warehouse.findUnique({ where: { id: finalWarehouseId } });
-      if (!wh) finalWarehouseId = null;
-    }
+    // Kho lưu trữ (mặc định NK01 nếu bỏ trống)
+    const finalWarehouseId = await this.resolveOrCreateWarehouse(
+      data.warehouseId,
+      data.warehouseCode,
+      data.warehouseName,
+      true
+    );
 
-    // TỰ ĐỘNG ĐỒNG BỘ: DANH MỤC - LOẠI HÀNG - NHÓM HÀNG
-    let finalProductGroupId = data.productGroupId && data.productGroupId.trim() ? data.productGroupId.trim() : null;
-    let finalProductTypeId = data.productTypeId && data.productTypeId.trim() ? data.productTypeId.trim() : null;
-    let finalCategoryId = data.categoryId && data.categoryId.trim() ? data.categoryId.trim() : null;
-    let catName = data.category && data.category.trim() ? data.category.trim() : '';
-    let subTypeCode = data.subTypeCode && data.subTypeCode.trim() ? data.subTypeCode.trim() : (data.productGroupCode && data.productGroupCode.trim() ? data.productGroupCode.trim() : null);
-    let subTypeName = data.subTypeName && data.subTypeName.trim() ? data.subTypeName.trim() : (data.productGroupName && data.productGroupName.trim() ? data.productGroupName.trim() : null);
+    // Nhóm loại hàng hóa (cấp phân loại duy nhất theo file chuẩn)
+    const rawSubCode = data.subTypeCode || data.productGroupCode || null;
+    const rawSubName = data.subTypeName || data.productGroupName || null;
+    const resolvedGroup = await this.resolveOrCreateProductGroup(
+      data.productGroupId,
+      rawSubCode,
+      rawSubName,
+      data.productTypeId || null
+    );
 
-    // 1. Nếu có Nhóm hàng: tự động liên kết Loại hàng và Danh mục
-    if (finalProductGroupId) {
-      const pg = await prisma.productGroup.findUnique({
-        where: { id: finalProductGroupId },
-        include: { productType: { include: { category: true } } }
-      });
-      if (pg) {
-        if (!finalProductTypeId) finalProductTypeId = pg.productTypeId;
-        if (!subTypeCode) subTypeCode = pg.code;
-        if (!subTypeName) subTypeName = pg.name;
-        if (!finalCategoryId && pg.productType?.categoryId) finalCategoryId = pg.productType.categoryId;
-        if (!catName && pg.productType?.category?.name) catName = pg.productType.category.name;
-      } else {
-        finalProductGroupId = null;
-      }
-    }
+    const finalCategoryId = data.categoryId && data.categoryId.trim() ? data.categoryId.trim() : null;
+    const finalProductTypeId = data.productTypeId && data.productTypeId.trim() ? data.productTypeId.trim() : null;
+    const catName =
+      resolvedGroup.name ||
+      (data.categoryName && data.categoryName.trim()) ||
+      (data.category && data.category.trim()) ||
+      'Văn phòng phẩm';
 
-    // 2. Nếu có Loại hàng: tự động liên kết Danh mục
-    if (finalProductTypeId && !finalCategoryId) {
-      const pt = await prisma.productType.findUnique({
-        where: { id: finalProductTypeId },
-        include: { category: true }
-      });
-      if (pt) {
-        finalCategoryId = pt.categoryId;
-        if (!catName && pt.category?.name) catName = pt.category.name;
-      }
-    }
-
-    // 3. Xử lý tạo mới Danh mục nếu người dùng nhập mã/tên danh mục mới
-    if (!finalCategoryId && (data.categoryCode || data.categoryName)) {
-      const cCode = (data.categoryCode || '').trim();
-      const cName = (data.categoryName || '').trim();
-      let cat = null;
-      if (cCode) cat = await prisma.category.findUnique({ where: { code: cCode } });
-      if (!cat && cName) cat = await prisma.category.findFirst({ where: { name: { equals: cName, mode: 'insensitive' } } });
-      if (!cat && (cCode || cName)) {
-        cat = await prisma.category.create({
-          data: {
-            code: cCode || `DM-${Date.now().toString().slice(-4)}`,
-            name: cName || cCode,
-            warehouseId: finalWarehouseId,
-            status: 'ACTIVE'
-          }
-        });
-      }
-      if (cat) {
-        finalCategoryId = cat.id;
-        catName = cat.name;
-      }
-    } else if (finalCategoryId) {
-      const cat = await prisma.category.findUnique({ where: { id: finalCategoryId } });
-      if (cat) {
-        catName = cat.name;
-      } else {
-        finalCategoryId = null;
-      }
-    }
-    if (!catName) catName = 'Văn phòng phẩm';
-
-    // 4. Xử lý tạo mới Loại hàng nếu người dùng nhập mã/tên loại hàng mới
-    if (!finalProductTypeId && (data.productTypeCode || data.productTypeName) && finalCategoryId) {
-      const ptCode = (data.productTypeCode || '').trim();
-      const ptName = (data.productTypeName || '').trim();
-      let pt = null;
-      if (ptCode) pt = await prisma.productType.findUnique({ where: { code: ptCode } });
-      if (!pt && ptName) pt = await prisma.productType.findFirst({ where: { name: { equals: ptName, mode: 'insensitive' }, categoryId: finalCategoryId } });
-      if (!pt && (ptCode || ptName)) {
-        pt = await prisma.productType.create({
-          data: {
-            code: ptCode || `LH-${Date.now().toString().slice(-4)}`,
-            name: ptName || ptCode,
-            categoryId: finalCategoryId,
-            unit: data.unit ? data.unit.trim() : undefined,
-            status: 'ACTIVE'
-          }
-        });
-      }
-      if (pt) finalProductTypeId = pt.id;
-    } else if (finalProductTypeId) {
-      const pt = await prisma.productType.findUnique({ where: { id: finalProductTypeId } });
-      if (!pt) finalProductTypeId = null;
-    }
-
-    // 5. Xử lý tạo mới / tìm Nhóm hàng nếu có subTypeCode/subTypeName nhưng chưa có productGroupId
-    if (!finalProductGroupId && (subTypeCode || subTypeName) && finalProductTypeId) {
-      const codeG = (subTypeCode || '').trim().toUpperCase();
-      const nameG = (subTypeName || '').trim();
-      let pg = null;
-      if (codeG) pg = await prisma.productGroup.findUnique({ where: { code: codeG } });
-      if (!pg && nameG) pg = await prisma.productGroup.findFirst({ where: { name: { equals: nameG, mode: 'insensitive' }, productTypeId: finalProductTypeId } });
-      if (!pg && (codeG || nameG)) {
-        pg = await prisma.productGroup.create({
-          data: {
-            code: codeG || `NH-${Date.now().toString().slice(-4)}`,
-            name: nameG || codeG,
-            productTypeId: finalProductTypeId,
-            status: 'ACTIVE'
-          }
-        });
-      }
-      if (pg) {
-        finalProductGroupId = pg.id;
-        if (!subTypeCode) subTypeCode = pg.code;
-        if (!subTypeName) subTypeName = pg.name;
-      }
-    }
+    const cleanUnit = normalizeLabel(data.unit) || 'Chiếc';
 
     return prisma.product.create({
       data: {
@@ -288,21 +323,21 @@ export class ProductsService {
         category: catName,
         categoryId: finalCategoryId,
         productTypeId: finalProductTypeId,
-        productGroupId: finalProductGroupId,
+        productGroupId: resolvedGroup.id,
         warehouseId: finalWarehouseId,
         supplierId: finalSupplierId,
-        unit: data.unit.trim(),
+        unit: cleanUnit,
         costPrice: data.costPrice || 0,
         sellingPrice: data.sellingPrice || 0,
         vatRate: data.vatRate !== undefined ? Number(data.vatRate) : 8,
-        stockQuantity: data.stockQuantity !== undefined ? Number(data.stockQuantity) : 100,
-        minStockLevel: data.minStockLevel !== undefined ? Number(data.minStockLevel) : 20,
+        stockQuantity: data.stockQuantity !== undefined && data.stockQuantity !== null ? Number(data.stockQuantity) : 0,
+        minStockLevel: data.minStockLevel !== undefined ? Number(data.minStockLevel) : 0,
         maxStockLevel: data.maxStockLevel !== undefined ? Number(data.maxStockLevel) : 1000,
         brand: data.brand && data.brand.trim() ? data.brand.trim() : null,
         specification: data.specification && data.specification.trim() ? data.specification.trim() : null,
-        subTypeCode: subTypeCode || null,
-        subTypeName: subTypeName || null,
-        color: data.color && data.color.trim() ? data.color.trim() : null,
+        subTypeCode: resolvedGroup.code,
+        subTypeName: resolvedGroup.name,
+        color: data.color && data.color.trim() ? normalizeLabel(data.color) : null,
         imageUrl: data.imageUrl && data.imageUrl.trim() ? data.imageUrl.trim() : null,
         length: data.length !== undefined && data.length !== null && Number(data.length) !== 0 ? Number(data.length) : null,
         width: data.width !== undefined && data.width !== null && Number(data.width) !== 0 ? Number(data.width) : null,
@@ -330,14 +365,20 @@ export class ProductsService {
       if (existing) throw new Error(`Mã sản phẩm [${data.code}] đã tồn tại`);
     }
 
-    const cleanBarcode = data.barcode !== undefined ? (data.barcode && data.barcode.trim() ? data.barcode.trim() : null) : undefined;
+    const cleanBarcode =
+      data.barcode !== undefined ? (data.barcode && data.barcode.trim() ? data.barcode.trim() : null) : undefined;
     if (cleanBarcode && cleanBarcode !== product.barcode) {
       const existingBarcode = await prisma.product.findUnique({ where: { barcode: cleanBarcode } });
       if (existingBarcode) throw new Error(`Mã vạch [${cleanBarcode}] đã được sử dụng`);
     }
 
     // Tự động tạo NCC nếu tên mới chưa có
-    let finalSupplierId = data.supplierId !== undefined ? (data.supplierId && data.supplierId.trim() ? data.supplierId.trim() : null) : undefined;
+    let finalSupplierId =
+      data.supplierId !== undefined
+        ? data.supplierId && data.supplierId.trim()
+          ? data.supplierId.trim()
+          : null
+        : undefined;
     if (!finalSupplierId && data.supplierName && data.supplierName.trim()) {
       const existingSupplier = await prisma.supplier.findFirst({
         where: { name: { equals: data.supplierName.trim(), mode: 'insensitive' } }
@@ -367,117 +408,55 @@ export class ProductsService {
     if (data.code !== undefined) updatePayload.code = data.code.trim().toUpperCase();
     if (data.name !== undefined) updatePayload.name = data.name.trim();
     if (cleanBarcode !== undefined) updatePayload.barcode = cleanBarcode;
-    if (data.unit !== undefined) updatePayload.unit = data.unit.trim();
+    if (data.unit !== undefined) updatePayload.unit = normalizeLabel(data.unit) || data.unit.trim();
     if (data.costPrice !== undefined) updatePayload.costPrice = Number(data.costPrice) || 0;
     if (data.sellingPrice !== undefined) updatePayload.sellingPrice = Number(data.sellingPrice) || 0;
     if (data.vatRate !== undefined) updatePayload.vatRate = Number(data.vatRate) || 8;
     if (data.stockQuantity !== undefined) updatePayload.stockQuantity = Number(data.stockQuantity) || 0;
-    if (data.minStockLevel !== undefined) updatePayload.minStockLevel = Number(data.minStockLevel) || 20;
+    if (data.minStockLevel !== undefined) updatePayload.minStockLevel = Number(data.minStockLevel) || 0;
     if (finalSupplierId !== undefined) updatePayload.supplierId = finalSupplierId;
 
-    if (data.warehouseId !== undefined) {
-      const wid = data.warehouseId && data.warehouseId.trim() ? data.warehouseId.trim() : null;
-      if (wid) {
-        const wh = await prisma.warehouse.findUnique({ where: { id: wid } });
-        updatePayload.warehouseId = wh ? wid : null;
-      } else {
-        updatePayload.warehouseId = null;
+    if (data.warehouseId !== undefined || data.warehouseCode !== undefined || data.warehouseName !== undefined) {
+      const resolvedWhId = await this.resolveOrCreateWarehouse(
+        data.warehouseId,
+        data.warehouseCode,
+        data.warehouseName,
+        false
+      );
+      if (resolvedWhId) {
+        updatePayload.warehouseId = resolvedWhId;
       }
     }
 
-    // Xử lý tự động Danh mục - Loại hàng - Nhóm hàng khi cập nhật
-    if (data.productGroupId !== undefined) {
-      const gid = data.productGroupId && data.productGroupId.trim() ? data.productGroupId.trim() : null;
-      if (gid) {
-        const pg = await prisma.productGroup.findUnique({
-          where: { id: gid },
-          include: { productType: { include: { category: true } } }
-        });
-        if (pg) {
-          updatePayload.productGroupId = gid;
-          updatePayload.productTypeId = pg.productTypeId;
-          if (pg.productType?.categoryId) {
-            updatePayload.categoryId = pg.productType.categoryId;
-            if (pg.productType.category?.name) updatePayload.category = pg.productType.category.name;
-          }
-          if (data.subTypeCode === undefined) updatePayload.subTypeCode = pg.code;
-          if (data.subTypeName === undefined) updatePayload.subTypeName = pg.name;
-        } else {
-          updatePayload.productGroupId = null;
-        }
-      } else {
-        updatePayload.productGroupId = null;
+    // Xử lý Nhóm loại hàng hóa
+    if (
+      data.productGroupId !== undefined ||
+      data.subTypeName !== undefined ||
+      data.subTypeCode !== undefined ||
+      data.productGroupName !== undefined
+    ) {
+      const resolvedGroup = await this.resolveOrCreateProductGroup(
+        data.productGroupId,
+        data.subTypeCode !== undefined ? data.subTypeCode : product.subTypeCode,
+        data.subTypeName !== undefined ? data.subTypeName : data.productGroupName,
+        product.productTypeId
+      );
+      updatePayload.productGroupId = resolvedGroup.id;
+      updatePayload.subTypeCode = resolvedGroup.code;
+      updatePayload.subTypeName = resolvedGroup.name;
+      if (resolvedGroup.name) {
+        updatePayload.category = resolvedGroup.name;
       }
-    }
-
-    if (data.productTypeId !== undefined && updatePayload.productTypeId === undefined) {
-      const ptid = data.productTypeId && data.productTypeId.trim() ? data.productTypeId.trim() : null;
-      if (ptid) {
-        const pt = await prisma.productType.findUnique({ where: { id: ptid }, include: { category: true } });
-        if (pt) {
-          updatePayload.productTypeId = ptid;
-          if (pt.categoryId && updatePayload.categoryId === undefined) {
-            updatePayload.categoryId = pt.categoryId;
-            if (pt.category?.name && !data.category) updatePayload.category = pt.category.name;
-          }
-        } else {
-          updatePayload.productTypeId = null;
-        }
-      } else {
-        updatePayload.productTypeId = null;
-      }
-    }
-
-    if (data.categoryId !== undefined && updatePayload.categoryId === undefined) {
-      const cid = data.categoryId && data.categoryId.trim() ? data.categoryId.trim() : null;
-      if (cid) {
-        const cat = await prisma.category.findUnique({ where: { id: cid } });
-        if (cat) {
-          updatePayload.categoryId = cid;
-          updatePayload.category = cat.name;
-        } else {
-          updatePayload.categoryId = null;
-        }
-      } else {
-        updatePayload.categoryId = null;
-      }
-    }
-    if (data.category && !updatePayload.category) {
-      updatePayload.category = data.category.trim();
     }
 
     if (data.maxStockLevel !== undefined) updatePayload.maxStockLevel = Number(data.maxStockLevel) || 1000;
     if (data.brand !== undefined) updatePayload.brand = data.brand && data.brand.trim() ? data.brand.trim() : null;
-    if (data.specification !== undefined) updatePayload.specification = data.specification && data.specification.trim() ? data.specification.trim() : null;
-    if (data.subTypeCode !== undefined) updatePayload.subTypeCode = data.subTypeCode && data.subTypeCode.trim() ? data.subTypeCode.trim() : null;
-    if (data.subTypeName !== undefined) updatePayload.subTypeName = data.subTypeName && data.subTypeName.trim() ? data.subTypeName.trim() : null;
-
-    // Tự động tìm/tạo ProductGroup nếu có subTypeCode/subTypeName
-    const effectivePtId = updatePayload.productTypeId || product.productTypeId;
-    if (!updatePayload.productGroupId && (updatePayload.subTypeCode || updatePayload.subTypeName) && effectivePtId) {
-      const codeG = (updatePayload.subTypeCode || '').trim().toUpperCase();
-      const nameG = (updatePayload.subTypeName || '').trim();
-      let pg = null;
-      if (codeG) pg = await prisma.productGroup.findUnique({ where: { code: codeG } });
-      if (!pg && nameG) pg = await prisma.productGroup.findFirst({ where: { name: { equals: nameG, mode: 'insensitive' }, productTypeId: effectivePtId } });
-      if (!pg && (codeG || nameG)) {
-        pg = await prisma.productGroup.create({
-          data: {
-            code: codeG || `NH-${Date.now().toString().slice(-4)}`,
-            name: nameG || codeG,
-            productTypeId: effectivePtId,
-            status: 'ACTIVE'
-          }
-        });
-      }
-      if (pg) {
-        updatePayload.productGroupId = pg.id;
-        if (!updatePayload.subTypeCode) updatePayload.subTypeCode = pg.code;
-        if (!updatePayload.subTypeName) updatePayload.subTypeName = pg.name;
-      }
+    if (data.specification !== undefined) {
+      updatePayload.specification = data.specification && String(data.specification).trim() ? String(data.specification).trim() : null;
     }
-
-    if (data.color !== undefined) updatePayload.color = data.color && data.color.trim() ? data.color.trim() : null;
+    if (data.color !== undefined) {
+      updatePayload.color = data.color && data.color.trim() ? normalizeLabel(data.color) : null;
+    }
     if (data.length !== undefined) updatePayload.length = data.length !== '' && data.length !== null && Number(data.length) !== 0 ? Number(data.length) : null;
     if (data.width !== undefined) updatePayload.width = data.width !== '' && data.width !== null && Number(data.width) !== 0 ? Number(data.width) : null;
     if (data.height !== undefined) updatePayload.height = data.height !== '' && data.height !== null && Number(data.height) !== 0 ? Number(data.height) : null;

@@ -8,7 +8,9 @@ import {
   Trash2,
   AlertCircle,
   X,
-  Package
+  Package,
+  Filter,
+  Check
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Category, Warehouse } from '../../types';
@@ -29,6 +31,26 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({ headerSlot }) =>
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState('');
+
+  // Header filter states
+  const [openFilterCol, setOpenFilterCol] = useState<'warehouse' | 'name' | null>(null);
+  const [whSearchTerm, setWhSearchTerm] = useState('');
+  const [nameSearchInput, setNameSearchInput] = useState('');
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
+        setOpenFilterCol(null);
+      }
+    };
+    if (openFilterCol) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openFilterCol]);
 
   // Pagination (vừa vặn màn hình laptop, tự động tăng/giảm dòng khi zoom)
   const {
@@ -264,12 +286,201 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({ headerSlot }) =>
                   <span>Mã danh mục</span>
                   <div className="col-resizer" onMouseDown={(e) => startResize('code', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
-                <th className="py-1.5 px-2.5 select-none overflow-hidden" style={{ width: `${columnWidths.name || defaultCategoryWidths.name}px`, position: 'relative' }}>
-                  <span>Tên danh mục</span>
+                <th
+                  className={`py-1.5 px-2.5 select-none ${openFilterCol === 'name' ? 'overflow-visible z-40' : 'overflow-hidden'}`}
+                  style={{ width: `${columnWidths.name || defaultCategoryWidths.name}px`, position: 'relative' }}
+                >
+                  <div className="inline-flex items-center gap-1.5 w-full justify-between">
+                    <span className="truncate">Tên danh mục</span>
+                    <div className="relative inline-flex items-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNameSearchInput(search);
+                          setOpenFilterCol(openFilterCol === 'name' ? null : 'name');
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        title={search ? 'Đang lọc tìm kiếm (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo tên danh mục'}
+                        className={`p-1 rounded-md transition-colors cursor-pointer ${
+                          search
+                            ? 'text-[#E53935] bg-red-50 border border-red-200'
+                            : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <Filter size={11} className={search ? 'fill-[#E53935]' : ''} />
+                      </button>
+
+                      {openFilterCol === 'name' && (
+                        <div
+                          ref={filterMenuRef}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-200 p-2.5 z-50 text-left normal-case tracking-normal font-normal text-xs animate-in fade-in zoom-in-95"
+                          style={{ width: '220px' }}
+                        >
+                          <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-gray-100">
+                            <span className="font-bold text-gray-800 text-[11px] uppercase tracking-wider">
+                              Lọc theo tên / mã
+                            </span>
+                            {search && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSearch('');
+                                  setNameSearchInput('');
+                                  setOpenFilterCol(null);
+                                }}
+                                className="text-[11px] text-[#E53935] hover:underline font-semibold cursor-pointer"
+                              >
+                                Bỏ lọc
+                              </button>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              placeholder="Nhập từ khóa tìm..."
+                              value={nameSearchInput}
+                              onChange={(e) => setNameSearchInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  setSearch(nameSearchInput);
+                                  setOpenFilterCol(null);
+                                }
+                              }}
+                              autoFocus
+                              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-[#E53935]"
+                            />
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setOpenFilterCol(null)}
+                                className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-md"
+                              >
+                                Đóng
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSearch(nameSearchInput);
+                                  setOpenFilterCol(null);
+                                }}
+                                className="px-2.5 py-1 text-xs bg-[#E53935] text-white font-medium rounded-md hover:bg-red-700"
+                              >
+                                Áp dụng
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="col-resizer" onMouseDown={(e) => startResize('name', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
-                <th className="py-1.5 px-2.5 select-none overflow-hidden" style={{ width: `${columnWidths.warehouse || defaultCategoryWidths.warehouse}px`, position: 'relative' }}>
-                  <span>Kho vật lý lưu trữ</span>
+                <th
+                  className={`py-1.5 px-2.5 select-none ${openFilterCol === 'warehouse' ? 'overflow-visible z-40' : 'overflow-hidden'}`}
+                  style={{ width: `${columnWidths.warehouse || defaultCategoryWidths.warehouse}px`, position: 'relative' }}
+                >
+                  <div className="inline-flex items-center gap-1.5 w-full justify-between">
+                    <span className="truncate">Kho vật lý lưu trữ</span>
+                    <div className="relative inline-flex items-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenFilterCol(openFilterCol === 'warehouse' ? null : 'warehouse');
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        title={warehouseFilter ? 'Đang lọc kho lưu trữ (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo kho'}
+                        className={`p-1 rounded-md transition-colors cursor-pointer ${
+                          warehouseFilter
+                            ? 'text-[#E53935] bg-red-50 border border-red-200'
+                            : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <Filter size={11} className={warehouseFilter ? 'fill-[#E53935]' : ''} />
+                      </button>
+
+                      {openFilterCol === 'warehouse' && (
+                        <div
+                          ref={filterMenuRef}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-200 p-2 z-50 text-left normal-case tracking-normal font-normal text-xs animate-in fade-in zoom-in-95"
+                          style={{ width: '220px' }}
+                        >
+                          <div className="flex items-center justify-between px-1.5 py-1 mb-1.5 border-b border-gray-100">
+                            <span className="font-bold text-gray-800 text-[11px] uppercase tracking-wider">
+                              Lọc Kho lưu trữ
+                            </span>
+                            {warehouseFilter && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setWarehouseFilter('');
+                                  setOpenFilterCol(null);
+                                }}
+                                className="text-[11px] text-[#E53935] hover:underline font-semibold cursor-pointer"
+                              >
+                                Bỏ lọc
+                              </button>
+                            )}
+                          </div>
+
+                          {warehouses.length > 5 && (
+                            <div className="mb-1.5 px-0.5">
+                              <input
+                                type="text"
+                                placeholder="Tìm kho..."
+                                value={whSearchTerm}
+                                onChange={(e) => setWhSearchTerm(e.target.value)}
+                                className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-[#E53935]"
+                              />
+                            </div>
+                          )}
+
+                          <div className="max-h-52 overflow-y-auto space-y-0.5 custom-scrollbar">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setWarehouseFilter('');
+                                setOpenFilterCol(null);
+                              }}
+                              className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                warehouseFilter === ''
+                                  ? 'bg-red-50 text-[#E53935] font-semibold'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              <span>-- Tất cả kho lưu trữ --</span>
+                              {warehouseFilter === '' && <Check size={13} className="text-[#E53935]" />}
+                            </button>
+                            {warehouses
+                              .filter((w) => !whSearchTerm || w.name.toLowerCase().includes(whSearchTerm.toLowerCase()))
+                              .map((w) => (
+                                <button
+                                  key={w.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setWarehouseFilter(w.id);
+                                    setOpenFilterCol(null);
+                                  }}
+                                  className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                    warehouseFilter === w.id
+                                      ? 'bg-red-50 text-[#E53935] font-semibold'
+                                      : 'text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  <span className="truncate mr-2">{w.name}</span>
+                                  {warehouseFilter === w.id && <Check size={13} className="text-[#E53935] shrink-0" />}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="col-resizer" onMouseDown={(e) => startResize('warehouse', e)} onClick={(e) => e.stopPropagation()} title="Kéo để chỉnh độ rộng" />
                 </th>
                 <th className="py-1.5 px-2.5 text-center select-none overflow-hidden" style={{ width: `${columnWidths.types || defaultCategoryWidths.types}px`, position: 'relative' }}>

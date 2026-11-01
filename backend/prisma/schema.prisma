@@ -229,8 +229,8 @@ model ProductGroup {
   id            String       @id @default(uuid())
   code          String       @unique // NH01, NH02...
   name          String       // Bìa lá, Bìa còng, Bút bi gel...
-  productTypeId String       @map("product_type_id")
-  productType   ProductType  @relation(fields: [productTypeId], references: [id], onDelete: Cascade)
+  productTypeId String?      @map("product_type_id")
+  productType   ProductType? @relation(fields: [productTypeId], references: [id], onDelete: SetNull)
   description   String?      @db.Text
   status        String       @default("ACTIVE")
   createdAt     DateTime     @default(now()) @map("created_at")
@@ -273,7 +273,7 @@ model Product {
   costPrice     Decimal         @default(0) @map("cost_price") @db.Decimal(15, 2)
   sellingPrice  Decimal         @default(0) @map("selling_price") @db.Decimal(15, 2)
   vatRate       Int             @default(8) @map("vat_rate") // 8% hoặc 10%
-  stockQuantity Int             @default(100) @map("stock_quantity")
+  stockQuantity Float           @default(0) @map("stock_quantity")
   minStockLevel Int             @default(20) @map("min_stock_level") // Định mức tồn kho tối thiểu
   
   warehouseId    String?         @map("warehouse_id")

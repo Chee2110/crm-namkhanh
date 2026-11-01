@@ -135,7 +135,7 @@ export interface ProductGroup {
   id: string;
   code: string;
   name: string;
-  productTypeId: string;
+  productTypeId?: string | null;
   productType?: {
     id: string;
     code: string;

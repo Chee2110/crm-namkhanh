@@ -1,5 +1,17 @@
 import { prisma } from '../../config/db';
 
+export function slugifyGroupCode(name: string): string {
+  const cleaned = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned || `NH-${Date.now().toString().slice(-4)}`;
+}
+
 export class ProductGroupsService {
   async getProductGroups(params?: {
     categoryId?: string;
@@ -43,7 +55,7 @@ export class ProductGroupsService {
           select: { products: true }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { name: 'asc' }
     });
   }
 
@@ -60,67 +72,135 @@ export class ProductGroupsService {
       }
     });
 
-    if (!group) throw new Error('Không tìm thấy nhóm hàng hóa');
+    if (!group) throw new Error('Không tìm thấy nhóm loại hàng hóa');
     return group;
   }
 
   async createProductGroup(data: {
-    code: string;
+    code?: string;
     name: string;
-    productTypeId: string;
+    productTypeId?: string | null;
     description?: string;
   }) {
-    const code = data.code.trim().toUpperCase();
-    const existing = await prisma.productGroup.findUnique({ where: { code } });
-    if (existing) throw new Error(`Mã nhóm hàng '${code}' đã tồn tại`);
+    const cleanName = data.name.trim();
+    if (!cleanName) throw new Error('Vui lòng nhập tên nhóm loại hàng hóa');
 
-    const productType = await prisma.productType.findUnique({ where: { id: data.productTypeId } });
-    if (!productType) throw new Error('Loại hàng hóa cha không tồn tại');
+    const existingByName = await prisma.productGroup.findFirst({
+      where: { name: { equals: cleanName, mode: 'insensitive' } }
+    });
+    if (existingByName) {
+      throw new Error(`Nhóm loại hàng '${cleanName}' đã tồn tại (Mã: ${existingByName.code})`);
+    }
+
+    let finalCode = data.code && data.code.trim() ? data.code.trim().toUpperCase() : '';
+    if (finalCode) {
+      const existingByCode = await prisma.productGroup.findUnique({ where: { code: finalCode } });
+      if (existingByCode) throw new Error(`Mã nhóm loại '${finalCode}' đã tồn tại`);
+    } else {
+      const baseCode = slugifyGroupCode(cleanName);
+      finalCode = baseCode;
+      let counter = 2;
+      while (await prisma.productGroup.findUnique({ where: { code: finalCode } })) {
+        finalCode = `${baseCode}-${counter}`;
+        counter++;
+      }
+    }
+
+    let validProductTypeId: string | null = null;
+    if (data.productTypeId && data.productTypeId.trim()) {
+      const pt = await prisma.productType.findUnique({ where: { id: data.productTypeId.trim() } });
+      if (pt) validProductTypeId = pt.id;
+    }
 
     return prisma.productGroup.create({
       data: {
-        code,
-        name: data.name.trim(),
-        productTypeId: data.productTypeId,
+        code: finalCode,
+        name: cleanName,
+        productTypeId: validProductTypeId,
         description: data.description?.trim() || null,
         status: 'ACTIVE'
       },
       include: {
         productType: {
           include: { category: true }
+        },
+        _count: {
+          select: { products: true }
         }
       }
     });
   }
 
   async updateProductGroup(id: string, data: {
+    code?: string;
     name?: string;
-    productTypeId?: string;
+    productTypeId?: string | null;
     description?: string;
     status?: string;
   }) {
     const group = await prisma.productGroup.findUnique({ where: { id } });
-    if (!group) throw new Error('Không tìm thấy nhóm hàng hóa');
+    if (!group) throw new Error('Không tìm thấy nhóm loại hàng hóa');
 
-    if (data.productTypeId && data.productTypeId !== group.productTypeId) {
-      const pt = await prisma.productType.findUnique({ where: { id: data.productTypeId } });
-      if (!pt) throw new Error('Loại hàng hóa cha không tồn tại');
+    let newCode = group.code;
+    if (data.code && data.code.trim() && data.code.trim().toUpperCase() !== group.code) {
+      newCode = data.code.trim().toUpperCase();
+      const existingCode = await prisma.productGroup.findUnique({ where: { code: newCode } });
+      if (existingCode) throw new Error(`Mã nhóm loại '${newCode}' đã được sử dụng`);
     }
 
-    return prisma.productGroup.update({
+    const newName = data.name !== undefined ? data.name.trim() : group.name;
+    if (newName.toLowerCase() !== group.name.toLowerCase()) {
+      const existingName = await prisma.productGroup.findFirst({
+        where: {
+          name: { equals: newName, mode: 'insensitive' },
+          id: { not: id }
+        }
+      });
+      if (existingName) throw new Error(`Tên nhóm loại '${newName}' đã tồn tại`);
+    }
+
+    let validProductTypeId: string | null | undefined = undefined;
+    if (data.productTypeId !== undefined) {
+      if (data.productTypeId && data.productTypeId.trim()) {
+        const pt = await prisma.productType.findUnique({ where: { id: data.productTypeId.trim() } });
+        validProductTypeId = pt ? pt.id : null;
+      } else {
+        validProductTypeId = null;
+      }
+    }
+
+    const updated = await prisma.productGroup.update({
       where: { id },
       data: {
-        name: data.name !== undefined ? data.name.trim() : undefined,
-        productTypeId: data.productTypeId || group.productTypeId,
+        code: newCode,
+        name: newName,
+        ...(validProductTypeId !== undefined ? { productTypeId: validProductTypeId } : {}),
         description: data.description !== undefined ? data.description.trim() : undefined,
         status: data.status || group.status
       },
       include: {
         productType: {
           include: { category: true }
+        },
+        _count: {
+          select: { products: true }
         }
       }
     });
+
+    // Đồng bộ tên/mã nhóm loại trên các sản phẩm trực thuộc
+    if (newName !== group.name || newCode !== group.code) {
+      await prisma.product.updateMany({
+        where: { productGroupId: id },
+        data: {
+          subTypeCode: newCode,
+          subTypeName: newName,
+          category: newName
+        }
+      });
+    }
+
+    return updated;
   }
 
   async deleteProductGroup(id: string) {
@@ -131,13 +211,13 @@ export class ProductGroupsService {
       }
     });
 
-    if (!group) throw new Error('Không tìm thấy nhóm hàng hóa');
+    if (!group) throw new Error('Không tìm thấy nhóm loại hàng hóa');
     if (group.products.length > 0) {
-      throw new Error(`Không thể xóa nhóm hàng này vì đang có ${group.products.length} sản phẩm trực thuộc`);
+      throw new Error(`Không thể xóa nhóm loại này vì đang có ${group.products.length} sản phẩm trực thuộc`);
     }
 
     await prisma.productGroup.delete({ where: { id } });
-    return { success: true, message: 'Đã xóa nhóm hàng hóa thành công' };
+    return { success: true, message: 'Đã xóa nhóm loại hàng hóa thành công' };
   }
 }
 

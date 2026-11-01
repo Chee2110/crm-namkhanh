@@ -2,15 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Boxes,
   Plus,
-  Layers,
-  Package,
   Edit2,
   Trash2,
   AlertCircle,
-  X
+  X,
+  Filter
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { ProductGroup, ProductType, Category } from '../../types';
+import { ProductGroup } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTableResize } from '../../hooks/useTableResize';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
@@ -26,12 +25,27 @@ interface ProductGroupsPageProps {
 export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot }) => {
   const { hasPermission } = useAuth();
   const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
-  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [productTypeFilter, setProductTypeFilter] = useState('');
+
+  // Header filter states
+  const [openFilterCol, setOpenFilterCol] = useState<string | null>(null);
+  const [nameSearchInput, setNameSearchInput] = useState('');
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
+        setOpenFilterCol(null);
+      }
+    };
+    if (openFilterCol) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openFilterCol]);
 
   // Pagination
   const {
@@ -49,14 +63,13 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
     maxRows: 50,
   });
 
-  const defaultColOrder = ['stt', 'code', 'name', 'productType', 'category', 'skuCount', 'actions'];
+  const defaultColOrder = ['stt', 'code', 'name', 'description', 'skuCount', 'actions'];
 
   const columnLabels: Record<string, string> = {
     stt: 'STT',
-    code: 'Mã nhóm',
-    name: 'Tên nhóm hàng hóa',
-    productType: 'Thuộc loại hàng',
-    category: 'Thuộc danh mục',
+    code: 'Mã nhóm loại',
+    name: 'Tên nhóm loại',
+    description: 'Mô tả / Ghi chú',
     skuCount: 'Số hàng hóa',
     actions: 'Thao tác'
   };
@@ -65,15 +78,14 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
     stt: true,
     code: true,
     name: true,
-    productType: true,
-    category: true,
+    description: true,
     skuCount: true,
     actions: true
   };
 
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_product_groups_visible_cols');
+      const saved = localStorage.getItem('namkhanh_product_groups_visible_cols_v2');
       return saved ? JSON.parse(saved) : defaultVisibleCols;
     } catch {
       return defaultVisibleCols;
@@ -82,7 +94,7 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_product_groups_col_order');
+      const saved = localStorage.getItem('namkhanh_product_groups_col_order_v2');
       return saved ? withActionsLast(JSON.parse(saved), defaultColOrder) : defaultColOrder;
     } catch {
       return defaultColOrder;
@@ -91,24 +103,22 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
 
   const defaultGroupWidths: Record<string, number> = {
     stt: 60,
-    code: 140,
-    name: 240,
-    productType: 220,
-    category: 220,
-    skuCount: 130,
-    actions: 85
+    code: 160,
+    name: 280,
+    description: 280,
+    skuCount: 140,
+    actions: 90
   };
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'product_groups_v1',
+    tableKey: 'product_groups_v2',
     defaultWidths: defaultGroupWidths,
     minWidth: 60,
     minWidths: {
       stt: 50,
-      code: 100,
-      name: 160,
-      productType: 160,
-      category: 160,
+      code: 110,
+      name: 180,
+      description: 160,
       skuCount: 110,
       actions: 75
     }
@@ -118,7 +128,7 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
     const normalized = withActionsLast(newOrder, defaultColOrder);
     setColumnOrder(normalized);
     try {
-      localStorage.setItem('namkhanh_product_groups_col_order', JSON.stringify(normalized));
+      localStorage.setItem('namkhanh_product_groups_col_order_v2', JSON.stringify(normalized));
     } catch (e) {
       console.error(e);
     }
@@ -128,7 +138,7 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
     setVisibleColumns((prev) => {
       const updated = { ...prev, [key]: !prev[key] };
       try {
-        localStorage.setItem('namkhanh_product_groups_visible_cols', JSON.stringify(updated));
+        localStorage.setItem('namkhanh_product_groups_visible_cols_v2', JSON.stringify(updated));
       } catch (e) {
         console.error(e);
       }
@@ -141,8 +151,8 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
     setColumnOrder(defaultColOrder);
     resetWidths();
     try {
-      localStorage.removeItem('namkhanh_product_groups_visible_cols');
-      localStorage.removeItem('namkhanh_product_groups_col_order');
+      localStorage.removeItem('namkhanh_product_groups_visible_cols_v2');
+      localStorage.removeItem('namkhanh_product_groups_col_order_v2');
     } catch (e) {
       console.error(e);
     }
@@ -155,37 +165,20 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
   const [formData, setFormData] = useState({
     code: '',
     name: '',
-    categoryId: '',
-    productTypeId: '',
     description: '',
     status: 'ACTIVE'
   });
-
-  const loadCategoriesAndTypes = async () => {
-    try {
-      const [resCats, resTypes] = await Promise.all([
-        api.get<Category[]>('/categories'),
-        api.get<ProductType[]>('/product-types')
-      ]);
-      setCategories(resCats.data || []);
-      setProductTypes(resTypes.data || []);
-    } catch (err) {
-      console.error('Lỗi khi tải danh mục / loại hàng:', err);
-    }
-  };
 
   const loadProductGroups = async (silent: boolean = false) => {
     try {
       if (!silent) setLoading(true);
       const query = new URLSearchParams();
       if (search) query.append('search', search);
-      if (categoryFilter) query.append('categoryId', categoryFilter);
-      if (productTypeFilter) query.append('productTypeId', productTypeFilter);
 
       const resGroups = await api.get<ProductGroup[]>(`/product-groups?${query.toString()}`);
       setProductGroups(resGroups.data || []);
     } catch (err) {
-      console.error('Lỗi khi tải nhóm hàng hóa:', err);
+      console.error('Lỗi khi tải nhóm loại hàng hóa:', err);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -196,12 +189,11 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
     setCurrentPage(1);
     if (isFirstMount.current) {
       isFirstMount.current = false;
-      loadCategoriesAndTypes();
       loadProductGroups(false);
       return;
     }
     loadProductGroups(true);
-  }, [search, categoryFilter, productTypeFilter]);
+  }, [search]);
 
   const paginatedProductGroups = paginateProductGroups(productGroups);
 
@@ -212,15 +204,9 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
 
   const openAddModal = () => {
     setEditingGroup(null);
-    const initialCatId = categoryFilter || categories[0]?.id || '';
-    const filteredPts = initialCatId ? productTypes.filter((t) => t.categoryId === initialCatId) : productTypes;
-    const initialPtId = productTypeFilter || filteredPts[0]?.id || '';
-
     setFormData({
       code: '',
       name: '',
-      categoryId: initialCatId,
-      productTypeId: initialPtId,
       description: '',
       status: 'ACTIVE'
     });
@@ -230,12 +216,9 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
 
   const openEditModal = (g: ProductGroup) => {
     setEditingGroup(g);
-    const catId = g.productType?.categoryId || (g.productType?.category as any)?.id || '';
     setFormData({
       code: g.code,
       name: g.name,
-      categoryId: catId,
-      productTypeId: g.productTypeId,
       description: g.description || '',
       status: g.status || 'ACTIVE'
     });
@@ -247,20 +230,16 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
     e.preventDefault();
     setFormError(null);
 
-    if (!formData.name?.trim() || !formData.productTypeId) {
-      setFormError('Vui lòng điền tên nhóm hàng và chọn Loại hàng hóa cha');
-      return;
-    }
-    if (!editingGroup && !formData.code?.trim()) {
-      setFormError('Vui lòng nhập Mã nhóm hàng');
+    if (!formData.name?.trim()) {
+      setFormError('Vui lòng nhập Tên nhóm loại hàng hóa');
       return;
     }
 
     try {
       if (editingGroup) {
         await api.put(`/product-groups/${editingGroup.id}`, {
+          code: formData.code.trim().toUpperCase(),
           name: formData.name.trim(),
-          productTypeId: formData.productTypeId,
           description: formData.description,
           status: formData.status
         });
@@ -268,116 +247,63 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
         await api.post('/product-groups', {
           code: formData.code.trim().toUpperCase(),
           name: formData.name.trim(),
-          productTypeId: formData.productTypeId,
           description: formData.description
         });
       }
       setIsModalOpen(false);
       loadProductGroups(true);
     } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu nhóm hàng');
+      setFormError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu nhóm loại hàng');
     }
   };
 
   const handleDelete = async (g: ProductGroup) => {
-    if (!confirm(`Bạn có chắc muốn xóa nhóm hàng "${g.name}" (${g.code})?`)) return;
+    if (!confirm(`Bạn có chắc muốn xóa nhóm loại "${g.name}" (${g.code})?`)) return;
     try {
       await api.delete(`/product-groups/${g.id}`);
       loadProductGroups(true);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Không thể xóa nhóm hàng!');
+      alert(err.response?.data?.message || 'Không thể xóa nhóm loại hàng!');
     }
   };
 
-  // Lọc loại hàng trong modal theo danh mục đang chọn
-  const modalAvailableTypes = formData.categoryId
-    ? productTypes.filter((t) => t.categoryId === formData.categoryId)
-    : productTypes;
-
-  // Lọc loại hàng trên thanh filter theo categoryFilter
-  const filterAvailableTypes = categoryFilter
-    ? productTypes.filter((t) => t.categoryId === categoryFilter)
-    : productTypes;
-
-  const canCreate = hasPermission('C_PRODUCT_TYPES', 'create') || hasPermission('C_PRODUCTS', 'create');
-  const canUpdate = hasPermission('C_PRODUCT_TYPES', 'update') || hasPermission('C_PRODUCTS', 'update');
-  const canDelete = hasPermission('C_PRODUCT_TYPES', 'delete') || hasPermission('C_PRODUCTS', 'delete');
+  const canCreate = hasPermission('C_PRODUCT_TYPES', 'create') || hasPermission('C_PRODUCTS', 'create') || hasPermission('C_CATEGORIES', 'create');
+  const canUpdate = hasPermission('C_PRODUCT_TYPES', 'update') || hasPermission('C_PRODUCTS', 'update') || hasPermission('C_CATEGORIES', 'update');
+  const canDelete = hasPermission('C_PRODUCT_TYPES', 'delete') || hasPermission('C_PRODUCTS', 'delete') || hasPermission('C_CATEGORIES', 'delete');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', paddingBottom: '0.75rem' }}>
-      {headerSlot ? (
-        <div className="card p-3 sm:px-4 sm:py-2.5 rounded-2xl border border-slate-100/90 shadow-sm bg-white/95 backdrop-blur-md">
-          {headerSlot}
-        </div>
-      ) : (
-        <div className="card p-3 sm:px-4 sm:py-2.5 rounded-2xl border border-slate-100/90 shadow-sm bg-white/95 backdrop-blur-md">
+    <div className="flex flex-col justify-between min-h-[calc(100vh-82px)] min-h-[calc(100dvh-82px)] pb-1">
+      {/* KHỐI TẬP TRUNG: TIÊU ĐỀ, TABS & THANH CÔNG CỤ */}
+      <div className="card p-3 sm:px-4 sm:py-2.5 rounded-2xl border border-slate-100/90 shadow-sm bg-white/95 backdrop-blur-md space-y-2 shrink-0 mb-2.5">
+        {headerSlot ? (
+          headerSlot
+        ) : (
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-red-50 text-[#E53935] flex items-center justify-center border border-red-100 flex-shrink-0">
-              <Boxes className="w-5 h-5 text-[#E53935]" />
+            <div className="w-8 h-8 rounded-lg bg-red-50 text-[#E53935] flex items-center justify-center border border-red-100 flex-shrink-0">
+              <Boxes className="w-4 h-4 text-[#E53935]" />
             </div>
             <div>
-              <div className="text-[11px] font-medium text-slate-400 mb-0.5">Quản lý hàng hóa / Nhóm hàng hóa</div>
+              <div className="text-[11px] font-medium text-slate-400 mb-0.5">Quản lý hàng hóa / Nhóm loại</div>
               <h1 className="text-base font-bold text-gray-900 m-0 leading-tight">
-                Nhóm Hàng Hóa (Cấp 3)
+                Nhóm Loại Hàng Hóa
               </h1>
               <p className="text-xs text-gray-500 m-0 mt-0.5 font-normal">
-                Quản lý các nhóm hàng hóa trực thuộc Loại hàng hóa Cấp 2 và Danh mục Cấp 1
+                Quản lý danh sách nhóm loại sản phẩm (Bút bi, Băng dính, Bìa FILE, Sổ, Giấy in...)
               </p>
             </div>
           </div>
-        </div>
-      )}
+        )}
+        <div className="border-t border-slate-100" />
 
-      {/* THANH TÌM KIẾM & BỘ LỌC */}
-      <div className="card p-3 sm:px-4 sm:py-2.5 rounded-2xl border border-slate-100/90 shadow-sm bg-white/95 backdrop-blur-md">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-1 flex-wrap">
-            {/* Lọc theo Danh mục */}
-            <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50/80 px-2 py-1 rounded-lg border border-gray-200/80">
-              <Layers className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span className="font-semibold text-gray-700 whitespace-nowrap">Danh mục:</span>
-              <select
-                value={categoryFilter}
-                onChange={(e) => {
-                  setCategoryFilter(e.target.value);
-                  setProductTypeFilter(''); // Reset loại hàng khi đổi danh mục
-                }}
-                className="bg-transparent border-0 text-xs font-medium text-gray-900 focus:outline-none cursor-pointer pr-1"
-              >
-                <option value="">-- Tất cả danh mục --</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Lọc theo Loại hàng */}
-            <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50/80 px-2 py-1 rounded-lg border border-gray-200/80">
-              <Package className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span className="font-semibold text-gray-700 whitespace-nowrap">Loại hàng:</span>
-              <select
-                value={productTypeFilter}
-                onChange={(e) => setProductTypeFilter(e.target.value)}
-                className="bg-transparent border-0 text-xs font-medium text-gray-900 focus:outline-none cursor-pointer pr-1"
-              >
-                <option value="">-- Tất cả loại hàng --</option>
-                {filterAvailableTypes.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Ô tìm kiếm */}
-            <form onSubmit={handleSearch} className="flex-1 min-w-[200px] max-w-sm">
+        {/* THANH CÔNG CỤ: TÌM KIẾM & NÚT THAO TÁC */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 flex-1 flex-wrap">
+            <form onSubmit={handleSearch} className="flex-1 min-w-[220px] max-w-md">
               <SearchInput
                 value={search}
                 onChange={(val) => setSearch(val)}
                 onSearchImmediate={() => loadProductGroups(true)}
-                placeholder="Tìm mã, tên nhóm hàng..."
+                placeholder="Tìm theo mã hoặc tên nhóm loại..."
               />
             </form>
           </div>
@@ -390,7 +316,7 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
               onToggleColumn={toggleColumnVisibility}
               onReorderColumns={handleReorderColumns}
               onReset={resetColumns}
-              disabledKeys={['code', 'name']}
+              disabledKeys={['name']}
               buttonStyle={{ height: '32px' }}
             />
 
@@ -402,16 +328,16 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
                 style={{ padding: '0.35rem 0.75rem', fontSize: '12.5px', height: '32px' }}
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Thêm Nhóm Hàng</span>
+                <span>Thêm Nhóm Loại</span>
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* BẢNG DANH SÁCH NHÓM HÀNG */}
-      <div className="card rounded-2xl border border-slate-100/80 shadow-card overflow-hidden p-0 flex flex-col flex-1 min-h-0">
-        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0 custom-scrollbar">
+      {/* BẢNG DANH SÁCH NHÓM LOẠI HÀNG */}
+      <div className="card rounded-2xl border border-slate-100/80 shadow-card overflow-hidden p-0 flex flex-col flex-1 min-h-[380px]">
+        <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[340px] custom-scrollbar">
           <table
             className="w-full text-left text-sm border-collapse"
             style={{
@@ -427,19 +353,118 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
                   .map((colKey) => (
                     <th
                       key={colKey}
-                      className={`py-1.5 ${colKey === 'actions' ? 'px-1.5' : 'px-2.5'} select-none overflow-hidden ${
+                      className={`py-1.5 ${colKey === 'actions' ? 'px-1.5' : 'px-2.5'} select-none ${
+                        openFilterCol === colKey ? 'overflow-visible z-40' : 'overflow-hidden'
+                      } ${
                         colKey === 'actions'
                           ? 'sticky-action-th text-center'
-                          : colKey === 'stt' || colKey === 'skuCount'
+                          : colKey === 'stt' || colKey === 'skuCount' || colKey === 'code'
                           ? 'text-center'
                           : ''
                       }`}
                       style={{
                         width: `${columnWidths[colKey] || defaultGroupWidths[colKey]}px`,
-                        position: colKey === 'actions' ? 'sticky' : 'relative'
+                        position: colKey === 'actions' ? 'sticky' : 'relative',
+                        zIndex: openFilterCol === colKey ? 40 : undefined
                       }}
                     >
-                      <span>{columnLabels[colKey]}</span>
+                      <div
+                        className={`inline-flex items-center gap-1.5 w-full ${
+                          colKey === 'stt' || colKey === 'actions' || colKey === 'skuCount' || colKey === 'code'
+                            ? 'justify-center'
+                            : 'justify-between'
+                        }`}
+                      >
+                        <span className="truncate">{columnLabels[colKey]}</span>
+
+                        {/* Nút lọc cho Tên nhóm loại */}
+                        {colKey === 'name' && (
+                          <div className="relative inline-flex items-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNameSearchInput(search);
+                                setOpenFilterCol(openFilterCol === 'name' ? null : 'name');
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              title={search ? 'Đang lọc tìm kiếm (Nhấp để đổi hoặc bỏ lọc)' : 'Lọc theo tên nhóm loại'}
+                              className={`p-1 rounded-md transition-colors cursor-pointer ${
+                                search
+                                  ? 'text-[#E53935] bg-red-50 border border-red-200'
+                                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <Filter size={11} className={search ? 'fill-[#E53935]' : ''} />
+                            </button>
+
+                            {openFilterCol === 'name' && (
+                              <div
+                                ref={filterMenuRef}
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-200 p-2.5 z-50 text-left normal-case tracking-normal font-normal text-xs animate-in fade-in zoom-in-95"
+                                style={{ width: '220px' }}
+                              >
+                                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-gray-100">
+                                  <span className="font-bold text-gray-800 text-[11px] uppercase tracking-wider">
+                                    Lọc theo tên / mã
+                                  </span>
+                                  {search && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSearch('');
+                                        setNameSearchInput('');
+                                        setOpenFilterCol(null);
+                                      }}
+                                      className="text-[11px] text-[#E53935] hover:underline font-semibold cursor-pointer"
+                                    >
+                                      Bỏ lọc
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="space-y-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Nhập từ khóa tìm..."
+                                    value={nameSearchInput}
+                                    onChange={(e) => setNameSearchInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        setSearch(nameSearchInput);
+                                        setOpenFilterCol(null);
+                                      }
+                                    }}
+                                    autoFocus
+                                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-[#E53935]"
+                                  />
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setOpenFilterCol(null)}
+                                      className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-md"
+                                    >
+                                      Đóng
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSearch(nameSearchInput);
+                                        setOpenFilterCol(null);
+                                      }}
+                                      className="px-2.5 py-1 text-xs bg-[#E53935] text-white font-medium rounded-md hover:bg-red-700"
+                                    >
+                                      Áp dụng
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
                       {colKey !== 'actions' && (
                         <div
                           className="col-resizer"
@@ -455,141 +480,120 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 7} className="py-8 text-center text-gray-500">
+                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 6} className="py-8 text-center text-gray-500">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#E53935] mb-2"></div>
-                    <p>Đang tải danh mục nhóm hàng...</p>
+                    <p>Đang tải danh sách nhóm loại hàng...</p>
                   </td>
                 </tr>
               ) : productGroups.length === 0 ? (
                 <tr>
-                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 7} className="py-8 text-center text-gray-500">
-                    Chưa có nhóm hàng hóa nào
+                  <td colSpan={columnOrder.filter((k) => visibleColumns[k]).length || 6} className="py-8 text-center text-gray-500">
+                    Chưa có nhóm loại hàng hóa nào
                   </td>
                 </tr>
               ) : (
-                paginatedProductGroups.map((g, idx) => {
-                  const catName = g.productType?.category?.name || '—';
-                  const typeName = g.productType?.name || '—';
-
-                  return (
-                    <tr key={g.id} className="hover:bg-slate-50/80 transition-colors">
-                      {columnOrder
-                        .filter((k) => visibleColumns[k])
-                        .map((colKey) => {
-                          switch (colKey) {
-                            case 'stt':
-                              return (
-                                <td key={colKey} className="py-1 px-2.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
-                                  {startIndex + idx + 1}
-                                </td>
-                              );
-                            case 'code':
-                              return (
-                                <td key={colKey} className="py-1 px-2.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
-                                  {g.code}
-                                </td>
-                              );
-                            case 'name':
-                              return (
-                                <td key={colKey} className="py-1 px-2.5 overflow-hidden">
-                                  <div className="font-semibold text-gray-900 text-xs truncate leading-normal" title={g.name}>
-                                    {g.name}
-                                  </div>
-                                  {g.description && (
-                                    <div className="text-[11px] text-gray-400 truncate leading-tight mt-0.5" title={g.description}>
-                                      {g.description}
-                                    </div>
+                paginatedProductGroups.map((g, idx) => (
+                  <tr key={g.id} className="hover:bg-slate-50/80 transition-colors">
+                    {columnOrder
+                      .filter((k) => visibleColumns[k])
+                      .map((colKey) => {
+                        switch (colKey) {
+                          case 'stt':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 text-center text-gray-500 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                                {startIndex + idx + 1}
+                              </td>
+                            );
+                          case 'code':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 font-mono font-bold text-[#E53935] text-xs whitespace-nowrap overflow-hidden text-center">
+                                {g.code}
+                              </td>
+                            );
+                          case 'name':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 overflow-hidden">
+                                <div className="font-semibold text-gray-900 text-xs truncate leading-normal" title={g.name}>
+                                  {g.name}
+                                </div>
+                              </td>
+                            );
+                          case 'description':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 text-xs text-gray-500 truncate overflow-hidden" title={g.description || ''}>
+                                {g.description || '—'}
+                              </td>
+                            );
+                          case 'skuCount':
+                            return (
+                              <td key={colKey} className="py-1 px-2.5 text-center whitespace-nowrap overflow-hidden">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700">
+                                  {g._count?.products || 0} Hàng hóa
+                                </span>
+                              </td>
+                            );
+                          case 'actions':
+                            return (
+                              <td key={colKey} className="py-1 px-1.5 text-center sticky-action-td whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1 w-full">
+                                  {canUpdate && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openEditModal(g)}
+                                      className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                                      title="Chỉnh sửa nhóm loại"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
                                   )}
-                                </td>
-                              );
-                            case 'productType':
-                              return (
-                                <td key={colKey} className="py-1 px-2.5 text-xs font-medium text-gray-700">
-                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 font-semibold text-blue-800" title={typeName}>
-                                    <Package className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                    <span className="whitespace-normal break-words leading-tight">{typeName}</span>
-                                  </span>
-                                </td>
-                              );
-                            case 'category':
-                              return (
-                                <td key={colKey} className="py-1 px-2.5 text-xs font-medium text-gray-700">
-                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-100 font-semibold text-gray-800" title={catName}>
-                                    <Layers className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                                    <span className="whitespace-normal break-words leading-tight">{catName}</span>
-                                  </span>
-                                </td>
-                              );
-                            case 'skuCount':
-                              return (
-                                <td key={colKey} className="py-1 px-2.5 text-center whitespace-nowrap overflow-hidden">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700">
-                                    {g._count?.products || 0} Hàng hóa
-                                  </span>
-                                </td>
-                              );
-                            case 'actions':
-                              return (
-                                <td key={colKey} className="py-1 px-1.5 text-center sticky-action-td whitespace-nowrap">
-                                  <div className="flex items-center justify-center gap-1 w-full">
-                                    {canUpdate && (
-                                      <button
-                                        type="button"
-                                        onClick={() => openEditModal(g)}
-                                        className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                                        title="Chỉnh sửa nhóm hàng"
-                                      >
-                                        <Edit2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                    {canDelete && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDelete(g)}
-                                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
-                                        title="Xóa nhóm hàng"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                              );
-                            default:
-                              return null;
-                          }
-                        })}
-                    </tr>
-                  );
-                })
+                                  {canDelete && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDelete(g)}
+                                      className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                      title="Xóa nhóm loại"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          default:
+                            return null;
+                        }
+                      })}
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
 
         {/* PHÂN TRANG */}
-        <div className="flex-shrink-0 bg-white">
+        <div className="shrink-0">
           <TablePagination
             currentPage={currentPage}
             pageSize={pageSize}
             totalItems={productGroups.length}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
+            itemLabel="nhóm loại"
           />
         </div>
       </div>
 
-      {/* MODAL THÊM / SỬA NHÓM HÀNG */}
+      {/* MODAL THÊM / SỬA NHÓM LOẠI */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-gray-100 flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md border border-gray-100 flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-red-50 text-[#E53935] flex items-center justify-center border border-red-100">
                   <Boxes className="w-4 h-4 text-[#E53935]" />
                 </div>
                 <h3 className="font-bold text-gray-900 text-sm">
-                  {editingGroup ? 'Chỉnh Sửa Nhóm Hàng Hóa' : 'Thêm Nhóm Hàng Hóa Mới'}
+                  {editingGroup ? 'Chỉnh Sửa Nhóm Loại Hàng' : 'Thêm Nhóm Loại Hàng Mới'}
                 </h3>
               </div>
               <button
@@ -609,101 +613,32 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
                 </div>
               )}
 
-              {/* CHỌN DANH MỤC & LOẠI HÀNG TỰ ĐỘNG ĐI VỚI NHAU */}
-              <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-3">
-                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-emerald-600" />
-                  Phân Cấp: Danh Mục & Loại Hàng
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Danh mục cha (Cấp 1)
-                    </label>
-                    <select
-                      value={formData.categoryId}
-                      onChange={(e) => {
-                        const newCatId = e.target.value;
-                        const matchingPts = newCatId
-                          ? productTypes.filter((t) => t.categoryId === newCatId)
-                          : productTypes;
-                        setFormData({
-                          ...formData,
-                          categoryId: newCatId,
-                          productTypeId: matchingPts[0]?.id || ''
-                        });
-                      }}
-                      className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                    >
-                      <option value="">-- Chọn danh mục --</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Loại hàng hóa (Cấp 2) <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      required
-                      value={formData.productTypeId}
-                      onChange={(e) => {
-                        const ptId = e.target.value;
-                        const pt = productTypes.find((t) => t.id === ptId);
-                        setFormData({
-                          ...formData,
-                          productTypeId: ptId,
-                          categoryId: pt?.categoryId || formData.categoryId
-                        });
-                      }}
-                      className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                    >
-                      <option value="">-- Chọn loại hàng --</option>
-                      {modalAvailableTypes.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name} ({t.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Tên nhóm loại <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="VD: Bút bi, Băng dính, Bìa FILE, Sổ, Giấy in..."
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                />
               </div>
 
-              {/* MÃ & TÊN NHÓM */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Mã nhóm hàng <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    disabled={!!editingGroup}
-                    placeholder="VD: NH01, BIA-LA, BUT-GEL..."
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935] disabled:bg-gray-100 disabled:text-gray-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Tên nhóm hàng hóa <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="VD: Bìa lá, Bìa còng, Bút gel..."
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Mã nhóm loại <span className="text-gray-400 font-normal">(Để trống sẽ tự động tạo mã)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="VD: BUT-BI, BANG-DINH, BIA-FILE..."
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                  className="w-full px-3 py-2 text-xs font-mono font-bold border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
+                />
               </div>
 
               <div>
@@ -712,7 +647,7 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Ghi chú về quy cách nhóm hàng..."
+                  placeholder="Ghi chú thêm về nhóm loại hàng hóa..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#E53935]"
@@ -731,7 +666,7 @@ export const ProductGroupsPage: React.FC<ProductGroupsPageProps> = ({ headerSlot
                   type="submit"
                   className="px-4 py-1.5 bg-[#E53935] hover:bg-[#D32F2F] text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
                 >
-                  {editingGroup ? 'Lưu thay đổi' : 'Tạo nhóm hàng'}
+                  {editingGroup ? 'Lưu thay đổi' : 'Tạo nhóm loại'}
                 </button>
               </div>
             </form>
