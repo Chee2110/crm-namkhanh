@@ -1,5 +1,5 @@
 import { prisma } from '../../config/db';
-import { generateOrderCode } from '../orders/orders.service';
+import { generateOrderCode, findProduct } from '../orders/orders.service';
 
 export class QuotationsService {
   async getQuotations(params: {
@@ -249,6 +249,28 @@ export class QuotationsService {
     const orderCode = await generateOrderCode();
 
     return prisma.$transaction(async (tx: any) => {
+      // Chuẩn hóa productId cho các mặt hàng từ báo giá
+      const resolvedItems = await Promise.all(
+        quotation.items.map(async (it: any) => {
+          let pid = it.productId;
+          if (!pid) {
+            const prod = await findProduct(tx, null, it.productCode);
+            if (prod) pid = prod.id;
+          }
+          return {
+            productId: pid || null,
+            productCode: it.productCode,
+            productName: it.productName,
+            unit: it.unit,
+            quantity: Number(it.quantity) || 1,
+            unitPrice: it.unitPrice,
+            amount: it.amount,
+            vatRate: it.vatRate,
+            total: it.total
+          };
+        })
+      );
+
       const order = await tx.order.create({
         data: {
           code: orderCode,
@@ -270,17 +292,7 @@ export class QuotationsService {
           remainingAmount: quotation.totalAmount, // Tự tính: remaining = total - paid
           notes: `Đơn hàng tự động khởi tạo từ Báo giá ${quotation.code}`,
           items: {
-            create: quotation.items.map((it: any) => ({
-              productId: it.productId,
-              productCode: it.productCode,
-              productName: it.productName,
-              unit: it.unit,
-              quantity: it.quantity,
-              unitPrice: it.unitPrice,
-              amount: it.amount,
-              vatRate: it.vatRate,
-              total: it.total
-            }))
+            create: resolvedItems
           }
         },
         include: {
@@ -288,6 +300,21 @@ export class QuotationsService {
           items: true
         }
       });
+
+      // Tự động trừ tồn kho cho tất cả mặt hàng khi chuyển từ Báo giá thành Đơn hàng
+      for (const item of resolvedItems) {
+        const product = await findProduct(tx, item.productId, item.productCode);
+        if (product) {
+          await tx.product.update({
+            where: { id: product.id },
+            data: {
+              stockQuantity: {
+                decrement: Number(item.quantity) || 0
+              }
+            }
+          });
+        }
+      }
 
       // Cập nhật trạng thái Báo giá sang ORDERED ("Đã lên đơn") để khóa chuyển đổi tiếp
       await tx.quotation.update({

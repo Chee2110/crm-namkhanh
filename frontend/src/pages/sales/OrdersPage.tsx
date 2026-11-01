@@ -957,6 +957,7 @@ export const OrdersPage: React.FC = () => {
       setIsPaymentModalOpen(false);
       setSelectedOrder(null);
       setToastMessage(`Đã cập nhật thanh toán đơn hàng ${selectedOrder.code}!`);
+      loadData(true);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Cập nhật đơn hàng thất bại');
     } finally {
