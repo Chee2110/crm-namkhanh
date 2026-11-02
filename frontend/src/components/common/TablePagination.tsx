@@ -79,7 +79,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
                 onPageSizeChange(Number(e.target.value));
                 onPageChange(1);
               }}
-              className="border border-slate-200 rounded-md px-1.5 py-0.5 text-xs text-slate-700 bg-white focus:outline-none focus:border-[#E53935]"
+              className="border border-slate-200 rounded-md px-1.5 py-0.5 text-xs text-slate-700 bg-white focus:outline-none focus:border-[#0284C7]"
             >
               {optionsToRender.map((opt) => (
                 <option key={opt} value={opt}>
@@ -116,7 +116,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
                   onClick={() => onPageChange(Number(pNum))}
                   className={`min-w-[26px] h-6 px-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                     currentPage === pNum
-                      ? 'bg-[#E53935] text-white shadow-xs'
+                      ? 'bg-[#0284C7] text-white shadow-xs'
                       : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >

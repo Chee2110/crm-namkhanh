@@ -16,6 +16,7 @@ import {
 import { api } from '../../services/api';
 import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
 import { TablePagination } from '../../components/common/TablePagination';
+import { getLowToHighColor, getValueRatio } from '../../utils/chartColors';
 
 export const SalesReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'revenue' | 'debts'>('revenue');
@@ -411,17 +412,33 @@ export const SalesReportsPage: React.FC = () => {
                           {formatVND(Number(row.revenue))}
                         </td>
                         <td className="py-3 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                              <div
-                                style={{ width: `${Math.min(100, Number(row.percentage))}%` }}
-                                className="h-full bg-[#E53935] rounded-full"
-                              ></div>
-                            </div>
-                            <span className="text-xs font-bold text-gray-700 w-12 text-right">
-                              {row.percentage}%
-                            </span>
-                          </div>
+                          {(() => {
+                            const allRevs = revenueData.items.map((r) => Number(r.revenue) || 0);
+                            const minR = allRevs.length ? Math.min(...allRevs) : 0;
+                            const maxR = allRevs.length ? Math.max(...allRevs) : 0;
+                            const barColor = getLowToHighColor(
+                              getValueRatio(Number(row.revenue) || 0, minR, maxR)
+                            );
+                            return (
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                  <div
+                                    style={{
+                                      width: `${Math.max(Math.min(100, Number(row.percentage)), 3)}%`,
+                                      backgroundColor: barColor
+                                    }}
+                                    className="h-full rounded-full transition-all duration-500"
+                                  ></div>
+                                </div>
+                                <span
+                                  className="text-xs font-bold w-12 text-right"
+                                  style={{ color: barColor }}
+                                >
+                                  {row.percentage}%
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))

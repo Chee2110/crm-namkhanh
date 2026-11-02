@@ -20,6 +20,7 @@ import { InventoryReportItem, Warehouse, Category } from '../../types';
 import { SearchInput } from '../../components/common/SearchInput';
 import { useAutoTablePagination } from '../../hooks/useAutoTablePagination';
 import { TablePagination } from '../../components/common/TablePagination';
+import { getLowToHighColor, getValueRatio } from '../../utils/chartColors';
 
 export const InventoryReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'category' | 'type' | 'product'>('category');
@@ -465,17 +466,33 @@ export const InventoryReportsPage: React.FC = () => {
                           {formatCurrency(item.value)}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <div className="w-16 bg-gray-200 rounded-full h-2 overflow-hidden hidden sm:block">
-                              <div
-                                className="bg-[#E53935] h-2 rounded-full"
-                                style={{ width: `${Math.min(100, Number(item.percentage))}%` }}
-                              />
-                            </div>
-                            <span className="font-semibold text-gray-700 w-10 text-right">
-                              {item.percentage}%
-                            </span>
-                          </div>
+                          {(() => {
+                            const vals = reportData.items.map((i) => Number(i.value) || 0);
+                            const minV = vals.length ? Math.min(...vals) : 0;
+                            const maxV = vals.length ? Math.max(...vals) : 0;
+                            const barColor = getLowToHighColor(
+                              getValueRatio(Number(item.value) || 0, minV, maxV)
+                            );
+                            return (
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="w-16 bg-gray-200 rounded-full h-2 overflow-hidden hidden sm:block">
+                                  <div
+                                    className="h-2 rounded-full transition-all duration-500"
+                                    style={{
+                                      width: `${Math.max(Math.min(100, Number(item.percentage)), 3)}%`,
+                                      backgroundColor: barColor
+                                    }}
+                                  />
+                                </div>
+                                <span
+                                  className="font-semibold w-10 text-right"
+                                  style={{ color: barColor }}
+                                >
+                                  {item.percentage}%
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))}
@@ -530,17 +547,33 @@ export const InventoryReportsPage: React.FC = () => {
                           {formatCurrency(item.value)}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <div className="w-16 bg-gray-200 rounded-full h-2 overflow-hidden hidden sm:block">
-                              <div
-                                className="bg-[#E53935] h-2 rounded-full"
-                                style={{ width: `${Math.min(100, Number(item.percentage))}%` }}
-                              />
-                            </div>
-                            <span className="font-semibold text-gray-700 w-10 text-right">
-                              {item.percentage}%
-                            </span>
-                          </div>
+                          {(() => {
+                            const vals = reportData.items.map((i) => Number(i.value) || 0);
+                            const minV = vals.length ? Math.min(...vals) : 0;
+                            const maxV = vals.length ? Math.max(...vals) : 0;
+                            const barColor = getLowToHighColor(
+                              getValueRatio(Number(item.value) || 0, minV, maxV)
+                            );
+                            return (
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="w-16 bg-gray-200 rounded-full h-2 overflow-hidden hidden sm:block">
+                                  <div
+                                    className="h-2 rounded-full transition-all duration-500"
+                                    style={{
+                                      width: `${Math.max(Math.min(100, Number(item.percentage)), 3)}%`,
+                                      backgroundColor: barColor
+                                    }}
+                                  />
+                                </div>
+                                <span
+                                  className="font-semibold w-10 text-right"
+                                  style={{ color: barColor }}
+                                >
+                                  {item.percentage}%
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))}

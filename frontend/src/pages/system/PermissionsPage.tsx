@@ -262,7 +262,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
             </span>
             <select
               className="input"
-              style={{ width: '250px', fontWeight: '600', color: '#E53935' }}
+              style={{ width: '250px', fontWeight: '600', color: '#0284C7' }}
               value={selectedRoleId}
               onChange={(e) => setSelectedRoleId(e.target.value)}
             >
@@ -545,7 +545,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
                         <td className="table-td" style={{ textAlign: 'center' }}>
                           <input
                             type="checkbox"
-                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#0284C7' }}
                             checked={item.canRead}
                             onChange={() => handleToggle(item.moduleCode, 'canRead')}
                             title={`Quyền Xem: ${item.moduleName}`}
@@ -556,7 +556,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
                         <td className="table-td" style={{ textAlign: 'center' }}>
                           <input
                             type="checkbox"
-                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#0284C7' }}
                             checked={item.canCreate}
                             onChange={() => handleToggle(item.moduleCode, 'canCreate')}
                             title={`Quyền Thêm: ${item.moduleName}`}
@@ -567,7 +567,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
                         <td className="table-td" style={{ textAlign: 'center' }}>
                           <input
                             type="checkbox"
-                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#0284C7' }}
                             checked={item.canUpdate}
                             onChange={() => handleToggle(item.moduleCode, 'canUpdate')}
                             title={`Quyền Sửa: ${item.moduleName}`}
@@ -578,7 +578,7 @@ export const PermissionsPage: React.FC<PermissionsPageProps> = ({ initialRoleId 
                         <td className="table-td" style={{ textAlign: 'center' }}>
                           <input
                             type="checkbox"
-                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#E53935' }}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#0284C7' }}
                             checked={item.canDelete}
                             onChange={() => handleToggle(item.moduleCode, 'canDelete')}
                             title={`Quyền Xóa: ${item.moduleName}`}

@@ -39,15 +39,24 @@ interface SidebarProps {
   onToggleSidebar?: () => void;
 }
 
+interface ItemColorTheme {
+  accent: string;     // Màu chủ đạo riêng biệt của trang
+  bgSoft: string;     // Nền pastel dịu nhẹ
+  borderSoft: string; // Viền pastel
+  glow: string;       // Đổ bóng phát sáng nhẹ theo màu trang
+}
+
 interface MenuItem {
   id: string;
   label: string;
   icon: LucideIcon;
   badge?: string;
+  theme: ItemColorTheme;
 }
 
 interface MenuGroup {
   group: string;
+  groupColor: string;
   items: MenuItem[];
 }
 
@@ -69,6 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     groupName: string;
     label: string;
     badge?: string;
+    accent?: string;
     top: number;
   } | null>(null);
 
@@ -109,65 +119,248 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, [user, currentTab]);
 
-  // NGUỒN DỮ LIỆU DUY NHẤT: ĐẦY ĐỦ 5 PHÂN HỆ & 20 TRANG NGHIỆP VỤ
+  // NGUỒN DỮ LIỆU DUY NHẤT: ĐẦY ĐỦ 5 PHÂN HỆ & MỖI TRANG MỘT MÀU SẮC NHẬN DIỆN RIÊNG BIỆT
   const menuGroups: MenuGroup[] = [
     {
       group: 'TỔNG QUAN & ĐIỀU HÀNH',
+      groupColor: '#0284C7',
       items: [
-        { id: 'dashboard', label: 'Dashboard điều hành', icon: LayoutDashboard }
+        {
+          id: 'dashboard',
+          label: 'Dashboard điều hành',
+          icon: LayoutDashboard,
+          theme: {
+            accent: '#0284C7',     // 1. Ocean Blue (Xanh Đại Dương)
+            bgSoft: '#E0F2FE',
+            borderSoft: '#7DD3FC',
+            glow: 'rgba(2, 132, 199, 0.35)'
+          }
+        }
       ]
     },
     {
       group: 'KINH DOANH & BÁN HÀNG',
+      groupColor: '#0D9488',
       items: [
-        { id: 'customers', label: 'Khách hàng', icon: Contact },
-        { id: 'quotations', label: 'Quản lý Báo giá', icon: FileSpreadsheet },
+        {
+          id: 'customers',
+          label: 'Khách hàng',
+          icon: Contact,
+          theme: {
+            accent: '#0D9488',     // 2. Teal (Xanh Ngọc Lam)
+            bgSoft: '#CCFBF1',
+            borderSoft: '#5EEAD4',
+            glow: 'rgba(13, 148, 136, 0.35)'
+          }
+        },
+        {
+          id: 'quotations',
+          label: 'Quản lý Báo giá',
+          icon: FileSpreadsheet,
+          theme: {
+            accent: '#7C3AED',     // 3. Violet (Tím Oải Hương)
+            bgSoft: '#EDE9FE',
+            borderSoft: '#C4B5FD',
+            glow: 'rgba(124, 58, 237, 0.35)'
+          }
+        },
         {
           id: 'orders',
           label: 'Quản lý Đơn hàng',
           icon: ShoppingCart,
-          badge: pendingOrdersCount && pendingOrdersCount > 0 ? `${pendingOrdersCount} đơn chờ` : undefined
+          badge: pendingOrdersCount && pendingOrdersCount > 0 ? `${pendingOrdersCount} đơn chờ` : undefined,
+          theme: {
+            accent: '#D97706',     // 4. Amber (Cam Vàng Hổ Phách)
+            bgSoft: '#FEF3C7',
+            borderSoft: '#FCD34D',
+            glow: 'rgba(217, 119, 6, 0.35)'
+          }
         },
-        { id: 'sales-overview', label: 'Doanh thu & Sản lượng', icon: TrendingUp },
-        { id: 'sales-reports', label: 'Báo cáo Doanh thu & Nợ', icon: BarChart3 },
-        { id: 'sales-plans', label: 'Kế hoạch Kinh doanh', icon: Target }
+        {
+          id: 'sales-overview',
+          label: 'Doanh thu & Sản lượng',
+          icon: TrendingUp,
+          theme: {
+            accent: '#059669',     // 5. Emerald (Xanh Ngọc Lục Bảo)
+            bgSoft: '#D1FAE5',
+            borderSoft: '#6EE7B7',
+            glow: 'rgba(5, 150, 105, 0.35)'
+          }
+        },
+        {
+          id: 'sales-reports',
+          label: 'Báo cáo Doanh thu & Nợ',
+          icon: BarChart3,
+          theme: {
+            accent: '#E11D48',     // 6. Rose Coral (Đỏ Hồng San Hô)
+            bgSoft: '#FFE4E6',
+            borderSoft: '#FDA4AF',
+            glow: 'rgba(225, 29, 72, 0.35)'
+          }
+        },
+        {
+          id: 'sales-plans',
+          label: 'Kế hoạch Kinh doanh',
+          icon: Target,
+          theme: {
+            accent: '#4F46E5',     // 7. Indigo (Xanh Chàm)
+            bgSoft: '#E0E7FF',
+            borderSoft: '#A5B4FC',
+            glow: 'rgba(79, 70, 229, 0.35)'
+          }
+        }
       ]
     },
     {
       group: 'KHO & HÀNG HÓA',
+      groupColor: '#0891B2',
       items: [
-        { id: 'inventory-overview', label: 'Tổng quan kho', icon: Boxes },
+        {
+          id: 'inventory-overview',
+          label: 'Tổng quan kho',
+          icon: Boxes,
+          theme: {
+            accent: '#0891B2',     // 8. Cyan (Xanh Băng)
+            bgSoft: '#CFFAFE',
+            borderSoft: '#67E8F9',
+            glow: 'rgba(8, 145, 178, 0.35)'
+          }
+        },
         {
           id: 'inbound-receipts',
           label: 'Quản lý Nhập kho',
           icon: PackagePlus,
-          badge: pendingInboundCount && pendingInboundCount > 0 ? `${pendingInboundCount} chờ duyệt` : undefined
+          badge: pendingInboundCount && pendingInboundCount > 0 ? `${pendingInboundCount} chờ duyệt` : undefined,
+          theme: {
+            accent: '#16A34A',     // 9. Fresh Green (Xanh Lá Tươi)
+            bgSoft: '#DCFCE7',
+            borderSoft: '#86EFAC',
+            glow: 'rgba(22, 163, 74, 0.35)'
+          }
         },
-        { id: 'warehouses', label: 'Quản lý kho vật lý', icon: Warehouse },
+        {
+          id: 'warehouses',
+          label: 'Quản lý kho vật lý',
+          icon: Warehouse,
+          theme: {
+            accent: '#2563EB',     // 10. Royal Blue (Xanh Dương Đậm)
+            bgSoft: '#DBEAFE',
+            borderSoft: '#93C5FD',
+            glow: 'rgba(37, 99, 235, 0.35)'
+          }
+        },
         {
           id: 'products',
           label: 'Quản lý hàng hóa',
           icon: Package,
-          badge: lowStockCount && lowStockCount > 0 ? `${lowStockCount} sắp hết` : undefined
+          badge: lowStockCount && lowStockCount > 0 ? `${lowStockCount} sắp hết` : undefined,
+          theme: {
+            accent: '#EA580C',     // 11. Tangerine Orange (Cam Quýt)
+            bgSoft: '#FFEDD5',
+            borderSoft: '#FDBA74',
+            glow: 'rgba(234, 88, 12, 0.35)'
+          }
         },
-        { id: 'suppliers', label: 'Nhà cung cấp', icon: Truck },
-        { id: 'inventory-reports', label: 'Báo cáo tồn kho', icon: FileSpreadsheet }
+        {
+          id: 'suppliers',
+          label: 'Nhà cung cấp',
+          icon: Truck,
+          theme: {
+            accent: '#9333EA',     // 12. Purple (Tím Hoàng Gia)
+            bgSoft: '#F3E8FF',
+            borderSoft: '#D8B4FE',
+            glow: 'rgba(147, 51, 234, 0.35)'
+          }
+        },
+        {
+          id: 'inventory-reports',
+          label: 'Báo cáo tồn kho',
+          icon: FileSpreadsheet,
+          theme: {
+            accent: '#C026D3',     // 13. Fuchsia (Hồng Tím)
+            bgSoft: '#FAE8FF',
+            borderSoft: '#F0ABFC',
+            glow: 'rgba(192, 38, 211, 0.35)'
+          }
+        }
       ]
     },
     {
       group: 'QUẢN TRỊ NỀN TẢNG',
+      groupColor: '#6366F1',
       items: [
-        { id: 'departments', label: 'Cơ cấu tổ chức', icon: Building2 },
-        { id: 'users', label: 'Quản lý người dùng', icon: Users },
-        { id: 'roles', label: 'Danh mục vai trò', icon: ShieldAlert },
-        { id: 'permissions', label: 'Ma trận phân quyền', icon: KeyRound },
-        { id: 'documents', label: 'Hồ sơ giấy tờ & CO-CQ', icon: FileText }
+        {
+          id: 'departments',
+          label: 'Cơ cấu tổ chức',
+          icon: Building2,
+          theme: {
+            accent: '#0369A1',     // 14. Deep Sky (Xanh Lam Đậm)
+            bgSoft: '#E0F2FE',
+            borderSoft: '#7DD3FC',
+            glow: 'rgba(3, 105, 161, 0.35)'
+          }
+        },
+        {
+          id: 'users',
+          label: 'Quản lý người dùng',
+          icon: Users,
+          theme: {
+            accent: '#DB2777',     // 15. Pink (Hồng Cánh Sen)
+            bgSoft: '#FCE7F3',
+            borderSoft: '#F9A8D4',
+            glow: 'rgba(219, 39, 119, 0.35)'
+          }
+        },
+        {
+          id: 'roles',
+          label: 'Danh mục vai trò',
+          icon: ShieldAlert,
+          theme: {
+            accent: '#DC2626',     // 16. Crimson Red (Đỏ Ngọc)
+            bgSoft: '#FEE2E2',
+            borderSoft: '#FCA5A5',
+            glow: 'rgba(220, 38, 38, 0.35)'
+          }
+        },
+        {
+          id: 'permissions',
+          label: 'Ma trận phân quyền',
+          icon: KeyRound,
+          theme: {
+            accent: '#CA8A04',     // 17. Gold Yellow (Vàng Kim)
+            bgSoft: '#FEF9C3',
+            borderSoft: '#FDE047',
+            glow: 'rgba(202, 138, 4, 0.35)'
+          }
+        },
+        {
+          id: 'documents',
+          label: 'Hồ sơ giấy tờ & CO-CQ',
+          icon: FileText,
+          theme: {
+            accent: '#65A30D',     // 18. Lime Green (Xanh Cốm)
+            bgSoft: '#ECFCCB',
+            borderSoft: '#BEF264',
+            glow: 'rgba(101, 163, 13, 0.35)'
+          }
+        }
       ]
     },
     {
       group: 'TÀI CHÍNH & THU CHI',
+      groupColor: '#10B981',
       items: [
-        { id: 'finances', label: 'Quản lý Thu - Chi & Dòng tiền', icon: Receipt }
+        {
+          id: 'finances',
+          label: 'Quản lý Thu - Chi & Dòng tiền',
+          icon: Receipt,
+          theme: {
+            accent: '#10B981',     // 19. Mint Emerald (Xanh Tài Chính)
+            bgSoft: '#D1FAE5',
+            borderSoft: '#6EE7B7',
+            glow: 'rgba(16, 185, 129, 0.35)'
+          }
+        }
       ]
     }
   ];
@@ -302,7 +495,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div style={{ fontWeight: '800', fontSize: '14px', color: '#0F172A', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
                 NK NAM KHÁNH
               </div>
-              <div style={{ fontSize: '10.5px', color: '#EA332A', fontWeight: '600', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '10.5px', color: '#0284C7', fontWeight: '600', whiteSpace: 'nowrap' }}>
                 Văn phòng phẩm & Thiết bị VP
               </div>
             </div>
@@ -375,15 +568,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   transition: 'max-height 0.32s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.22s ease',
                   fontSize: '10.5px',
                   fontWeight: '700',
-                  color: '#94A3B8',
+                  color: '#64748B',
                   textTransform: 'uppercase',
                   letterSpacing: '0.06em',
                   padding: isExpanded ? '0.2rem 0.6rem 0.35rem 0.6rem' : '0 0.6rem',
                   whiteSpace: 'nowrap',
-                  pointerEvents: 'none'
+                  pointerEvents: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
                 }}
               >
-                {group.group}
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '9999px',
+                    backgroundColor: group.groupColor,
+                    flexShrink: 0
+                  }}
+                />
+                <span>{group.group}</span>
               </div>
 
               {/* Danh sách các mục trong nhóm */}
@@ -392,12 +597,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: isExpanded ? 'stretch' : 'center',
-                  gap: isExpanded ? '3px' : '6px',
+                  gap: isExpanded ? '4px' : '6px',
                   width: '100%'
                 }}
               >
                 {group.items.map((item) => {
                   const Icon = item.icon;
+                  const { accent, bgSoft, borderSoft, glow } = item.theme;
                   const isActive =
                     currentTab === item.id ||
                     (item.id === 'products' && (currentTab === 'categories' || currentTab === 'product-types' || currentTab === 'product-groups' || currentTab === 'products' || currentTab === 'goods-management'));
@@ -423,6 +629,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           groupName: group.group,
                           label: item.label,
                           badge: item.badge,
+                          accent,
                           top: rect.top + rect.height / 2
                         });
                       } : undefined}
@@ -432,36 +639,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: isExpanded ? 'space-between' : 'center',
-                        width: isExpanded ? '100%' : '42px',
-                        height: '42px',
-                        padding: isExpanded ? '0.55rem 0.75rem' : '0',
-                        borderRadius: isExpanded ? '0.75rem' : '9999px',
+                        width: isExpanded ? '100%' : '40px',
+                        height: isExpanded ? '42px' : '40px',
+                        padding: isExpanded ? '0.45rem 0.65rem' : '0',
+                        borderRadius: isExpanded ? '0.8rem' : '9999px',
                         textDecoration: 'none',
                         cursor: 'pointer',
-                        fontSize: '13.5px',
-                        fontWeight: isActive ? '600' : '450',
-                        // Nền khi active:
-                        // Collapsed: hình tròn đặc màu đỏ #EA332A, icon trắng
-                        // Expanded: thẻ nền đỏ nhạt #FEF2F2, chữ đỏ #EA332A, viền #FECACA
+                        fontSize: '13.2px',
+                        fontWeight: isActive ? '700' : '500',
+                        // Mỗi trang mang màu nhận diện riêng biệt:
+                        // - Khi đóng: nền pastel (chưa chọn) hoặc nền màu đặc (đang chọn)
+                        // - Khi mở: nền pastel của trang khi đang chọn, icon luôn nằm trong khung màu riêng
                         backgroundColor: isActive
-                          ? (isExpanded ? '#FEF2F2' : '#EA332A')
-                          : 'transparent',
+                          ? (isExpanded ? bgSoft : accent)
+                          : (isExpanded ? 'transparent' : bgSoft),
                         color: isActive
-                          ? (isExpanded ? '#EA332A' : '#FFFFFF')
-                          : '#64748B',
+                          ? (isExpanded ? accent : '#FFFFFF')
+                          : '#334155',
                         boxShadow: isActive
-                          ? (isExpanded ? '0 2px 6px 0 rgba(234, 51, 42, 0.08)' : '0 4px 14px 0 rgba(234, 51, 42, 0.42)')
+                          ? (isExpanded ? `0 3px 10px -2px ${glow}` : `0 4px 14px 0 ${glow}`)
                           : 'none',
                         border: isActive
-                          ? (isExpanded ? '1px solid #FECACA' : '1px solid transparent')
-                          : '1px solid transparent',
-                        transition: 'width 0.32s cubic-bezier(0.25, 1, 0.5, 1), border-radius 0.32s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.25s ease, color 0.25s ease, padding 0.32s cubic-bezier(0.25, 1, 0.5, 1)',
+                          ? (isExpanded ? `1px solid ${borderSoft}` : '2px solid #FFFFFF')
+                          : (isExpanded ? '1px solid transparent' : `1px solid ${borderSoft}`),
+                        transition: 'all 0.25s cubic-bezier(0.25, 1, 0.5, 1)',
                         position: 'relative',
                         overflow: 'hidden',
                         flexShrink: 0
                       }}
-                      className={!isActive ? (isExpanded ? 'hover:bg-slate-100/70 hover:text-slate-900' : 'hover:bg-slate-100 hover:text-slate-900') : ''}
+                      className={!isActive ? (isExpanded ? 'hover:bg-slate-100/80 hover:text-slate-900' : 'hover:scale-105') : ''}
                     >
+                      {/* Thanh vạch chỉ báo bên trái khi đang chọn ở chế độ mở rộng */}
+                      {isActive && isExpanded && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            left: '0px',
+                            top: '8px',
+                            bottom: '8px',
+                            width: '3.5px',
+                            borderRadius: '0 4px 4px 0',
+                            backgroundColor: accent
+                          }}
+                        />
+                      )}
+
                       <div
                         style={{
                           display: 'flex',
@@ -473,11 +695,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           justifyContent: isExpanded ? 'flex-start' : 'center'
                         }}
                       >
-                        <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {/* Khung chứa Icon mang màu sắc định danh riêng của từng trang */}
+                        <div
+                          style={{
+                            width: isExpanded ? '28px' : '22px',
+                            height: isExpanded ? '28px' : '22px',
+                            borderRadius: isExpanded ? '8px' : '9999px',
+                            backgroundColor: isExpanded
+                              ? (isActive ? accent : bgSoft)
+                              : 'transparent',
+                            border: isExpanded && !isActive ? `1px solid ${borderSoft}` : 'none',
+                            boxShadow: isExpanded && isActive ? `0 2px 6px ${glow}` : 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            transition: 'all 0.22s ease'
+                          }}
+                        >
                           <Icon
-                            size={isExpanded ? 17 : 19}
-                            strokeWidth={isActive ? 2.3 : 1.8}
-                            color={isActive ? (isExpanded ? '#EA332A' : '#FFFFFF') : undefined}
+                            size={isExpanded ? 15.5 : 18}
+                            strokeWidth={isActive ? 2.4 : 2.0}
+                            color={isActive ? '#FFFFFF' : accent}
                             style={{ transition: 'all 0.2s ease' }}
                           />
                         </div>
@@ -486,7 +725,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <span
                           style={{
                             opacity: isExpanded ? 1 : 0,
-                            maxWidth: isExpanded ? '150px' : '0px',
+                            maxWidth: isExpanded ? '148px' : '0px',
                             transform: isExpanded ? 'translateX(0)' : 'translateX(-6px)',
                             overflow: 'hidden',
                             whiteSpace: 'nowrap',
@@ -514,13 +753,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {item.badge && (
                           <span
                             style={{
-                              fontSize: '11px',
-                              fontWeight: '600',
+                              fontSize: '10.5px',
+                              fontWeight: '700',
                               padding: '0.12rem 0.5rem',
                               borderRadius: '9999px',
-                              backgroundColor: item.id === 'orders' ? '#FEF3C7' : item.id === 'products' ? '#FEF2F2' : '#F1F5F9',
-                              color: item.id === 'orders' ? '#B45309' : item.id === 'products' ? '#EA332A' : '#64748B',
-                              border: `1px solid ${item.id === 'orders' ? '#FDE68A' : item.id === 'products' ? '#FECACA' : '#E2E8F0'}`,
+                              backgroundColor: bgSoft,
+                              color: accent,
+                              border: `1px solid ${borderSoft}`,
                               whiteSpace: 'nowrap'
                             }}
                           >
@@ -529,17 +768,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                       </div>
 
-                      {/* Dấu chấm badge khi đóng: Red dot góc phải icon */}
+                      {/* Dấu chấm badge khi đóng: Chấm tròn màu trang góc phải icon */}
                       {item.badge && !isActive && !isExpanded && (
                         <span
                           style={{
                             position: 'absolute',
-                            top: '5px',
-                            right: '5px',
+                            top: '3px',
+                            right: '3px',
                             width: '8px',
                             height: '8px',
                             borderRadius: '9999px',
-                            backgroundColor: '#EA332A',
+                            backgroundColor: accent,
                             border: '2px solid #FFFFFF'
                           }}
                         />
@@ -601,9 +840,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   width: '42px',
                   height: '42px',
                   borderRadius: '9999px',
-                  backgroundColor: currentTab === 'settings' ? '#EA332A' : 'transparent',
+                  backgroundColor: currentTab === 'settings' ? '#0284C7' : 'transparent',
                   color: currentTab === 'settings' ? '#FFFFFF' : '#64748B',
-                  boxShadow: currentTab === 'settings' ? '0 4px 14px 0 rgba(234, 51, 42, 0.42)' : 'none',
+                  boxShadow: currentTab === 'settings' ? '0 4px 14px 0 rgba(2, 132, 199, 0.36)' : 'none',
                   textDecoration: 'none'
                 }}
               >
@@ -648,11 +887,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   width: '38px',
                   height: '38px',
                   borderRadius: '9999px',
-                  background: 'linear-gradient(135deg, #EA332A 0%, #D32F2F 100%)',
+                  background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
                   color: '#FFFFFF',
                   fontWeight: '700',
                   fontSize: '14px',
-                  boxShadow: '0 2px 8px rgba(234, 51, 42, 0.28)'
+                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.28)'
                 }}
               >
                 {user?.fullName?.charAt(0) || 'U'}
@@ -687,14 +926,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       width: '36px',
                       height: '36px',
                       borderRadius: '9999px',
-                      background: 'linear-gradient(135deg, #EA332A 0%, #D32F2F 100%)',
+                      background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
                       color: '#FFFFFF',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontWeight: '700',
                       fontSize: '14px',
-                      boxShadow: '0 2px 8px rgba(234, 51, 42, 0.28)',
+                      boxShadow: '0 2px 8px rgba(2, 132, 199, 0.28)',
                       flexShrink: 0
                     }}
                   >
@@ -732,7 +971,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <a
                     href="#/settings"
                     onClick={(e) => {
-                      if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                      if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.button) {
                         e.preventDefault();
                         onSelectTab('settings');
                         if (isOpenMobile) onCloseMobile();
@@ -740,10 +979,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }}
                     title="Cài đặt hệ thống"
                     style={{
-                      background: currentTab === 'settings' ? '#FEF2F2' : 'none',
+                      background: currentTab === 'settings' ? '#F0F9FF' : 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      color: currentTab === 'settings' ? '#EA332A' : '#64748B',
+                      color: currentTab === 'settings' ? '#0284C7' : '#64748B',
                       padding: '0.4rem',
                       borderRadius: '0.625rem',
                       display: 'flex',
@@ -793,30 +1032,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </aside>
 
       {/* TOOLTIP BAY TỰ DO (FLOATING PORTAL TOOLTIP) - Khi ở chế độ đóng */}
-      {hoveredTooltip && !isExpanded && (
-        <div
-          style={{
-            position: 'fixed',
-            left: '92px',
-            top: hoveredTooltip.top,
-            transform: 'translateY(-50%)',
-            zIndex: 9999,
-            pointerEvents: 'none',
-            boxShadow: '0 12px 28px -4px rgba(15, 23, 42, 0.35)'
-          }}
-          className="px-3.5 py-1.5 bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold rounded-xl whitespace-nowrap flex items-center gap-2 border border-white/15 animate-in fade-in zoom-in-95 duration-150"
-        >
-          <span className="text-[10px] text-slate-400 font-normal uppercase tracking-wider">
-            {hoveredTooltip.groupName} •
-          </span>
-          <span className="font-semibold text-white">{hoveredTooltip.label}</span>
-          {hoveredTooltip.badge && (
-            <span className="text-[10px] bg-[#EA332A] text-white font-bold px-1.5 py-0.5 rounded-full">
-              {hoveredTooltip.badge}
+        {hoveredTooltip && !isExpanded && (
+          <div
+            style={{
+              position: 'fixed',
+              left: '92px',
+              top: hoveredTooltip.top,
+              transform: 'translateY(-50%)',
+              zIndex: 9999,
+              pointerEvents: 'none',
+              boxShadow: '0 12px 28px -4px rgba(15, 23, 42, 0.35)'
+            }}
+            className="px-3.5 py-1.5 bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold rounded-xl whitespace-nowrap flex items-center gap-2 border border-white/15 animate-in fade-in zoom-in-95 duration-150"
+          >
+            {hoveredTooltip.accent && (
+              <span
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '9999px',
+                  backgroundColor: hoveredTooltip.accent,
+                  flexShrink: 0
+                }}
+              />
+            )}
+            <span className="text-[10px] text-slate-400 font-normal uppercase tracking-wider">
+              {hoveredTooltip.groupName} •
             </span>
-          )}
-        </div>
-      )}
+            <span className="font-semibold text-white">{hoveredTooltip.label}</span>
+            {hoveredTooltip.badge && (
+              <span
+                style={{ backgroundColor: hoveredTooltip.accent || '#0284C7' }}
+                className="text-[10px] text-white font-bold px-1.5 py-0.5 rounded-full"
+              >
+                {hoveredTooltip.badge}
+              </span>
+            )}
+          </div>
+        )}
     </>
   );
 };

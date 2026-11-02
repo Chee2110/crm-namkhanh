@@ -61,7 +61,7 @@ export const GoodsManagementPage: React.FC<GoodsManagementPageProps> = ({
   const masterHeader = (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#EA332A] to-[#F87171] text-white flex items-center justify-center font-bold shadow-sm shadow-red-500/20 flex-shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#0284C7] to-[#38BDF8] text-white flex items-center justify-center font-bold shadow-sm shadow-sky-500/20 flex-shrink-0">
           <Boxes className="w-4 h-4" />
         </div>
         <div>

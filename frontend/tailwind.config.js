@@ -11,22 +11,22 @@ export default {
       },
       colors: {
         namkhanh: {
-          50: '#FEF2F2',
-          100: '#FEE2E2',
-          200: '#FECACA',
-          300: '#FCA5A5',
-          400: '#F87171',
-          500: '#EA332A', // Đỏ chuẩn nhận diện Logo Nam Khánh (Top petal)
-          600: '#DC2626',
-          700: '#B91C1C',
-          800: '#991B1B',
-          900: '#7F1D1D',
+          50: '#F0F9FF',
+          100: '#E0F2FE',
+          200: '#BAE6FD',
+          300: '#7DD3FC',
+          400: '#38BDF8',
+          500: '#0284C7', // Xanh Ocean Breeze chủ đạo (Tươi mát & Thanh khiết)
+          600: '#0369A1',
+          700: '#075985',
+          800: '#0C4A6E',
+          900: '#082F49',
         },
         brand: {
           red: '#EA332A',    // Cánh hoa đỉnh (Đỏ)
-          blue: '#1A7FED',   // Cánh hoa phải (Xanh dương)
-          green: '#22BB4E',  // Cánh hoa đáy (Xanh lá)
-          yellow: '#F9BB12', // Cánh hoa trái (Vàng nghệ)
+          blue: '#0284C7',   // Cánh hoa phải (Xanh dương Ocean chủ đạo)
+          green: '#10B981',  // Cánh hoa đáy (Xanh lá ngọc)
+          yellow: '#F59E0B', // Cánh hoa trái (Vàng nắng dịu)
         }
       },
       borderRadius: {
@@ -35,11 +35,11 @@ export default {
         '4xl': '2.25rem',
       },
       boxShadow: {
-        'card': '0 10px 30px -5px rgba(0, 0, 0, 0.03), 0 4px 12px -2px rgba(0, 0, 0, 0.02)',
-        'card-hover': '0 16px 36px -4px rgba(0, 0, 0, 0.06), 0 6px 16px -2px rgba(0, 0, 0, 0.03)',
-        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.06), 0 10px 20px -2px rgba(0, 0, 0, 0.03)',
-        'pill': '0 2px 8px 0 rgba(0, 0, 0, 0.04)',
-        'glow': '0 4px 16px 0 rgba(234, 51, 42, 0.28)',
+        'card': '0 10px 30px -5px rgba(15, 23, 42, 0.03), 0 4px 12px -2px rgba(15, 23, 42, 0.02)',
+        'card-hover': '0 16px 36px -4px rgba(2, 132, 199, 0.07), 0 6px 16px -2px rgba(15, 23, 42, 0.03)',
+        'soft': '0 2px 15px -3px rgba(15, 23, 42, 0.05), 0 10px 20px -2px rgba(15, 23, 42, 0.02)',
+        'pill': '0 2px 8px 0 rgba(15, 23, 42, 0.04)',
+        'glow': '0 4px 16px 0 rgba(2, 132, 199, 0.26)',
       },
       fontSize: {
         xs: ['0.825rem', { lineHeight: '1.1rem' }],       /* 12px -> 13.2px */

@@ -19,6 +19,7 @@ import { api } from '../../services/api';
 import { SalesPlan, SalesPlanItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { Toast } from '../../components/common/Toast';
+import { getLowToHighColor } from '../../utils/chartColors';
 
 export const SalesPlansPage: React.FC = () => {
   const { hasPermission } = useAuth();
@@ -242,24 +243,30 @@ export const SalesPlansPage: React.FC = () => {
                       <span className="font-bold text-emerald-600">{formatVND(totalActual)}</span>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-[11px] font-bold">
-                        <span className="text-slate-600">Tiến độ đạt được:</span>
-                        <span className={completionRate >= 100 ? 'text-emerald-600' : 'text-namkhanh-600'}>
-                          {completionRate}%
-                        </span>
-                      </div>
-                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          style={{ width: `${Math.min(completionRate, 100)}%` }}
-                          className={`h-full rounded-full transition-all duration-500 ${completionRate >= 100
-                              ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                              : 'bg-gradient-to-r from-namkhanh-600 to-rose-400'
-                            }`}
-                        ></div>
-                      </div>
-                    </div>
+                    {/* Progress Bar (Thấp -> Cao: Đỏ -> Vàng -> Xanh lá) */}
+                    {(() => {
+                      const progressRatio = Math.min(Math.max(completionRate / 100, 0), 1);
+                      const progressColor = getLowToHighColor(progressRatio);
+                      return (
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[11px] font-bold">
+                            <span className="text-slate-600">Tiến độ đạt được:</span>
+                            <span style={{ color: progressColor }}>
+                              {completionRate}%
+                            </span>
+                          </div>
+                          <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              style={{
+                                width: `${Math.max(Math.min(completionRate, 100), 3)}%`,
+                                backgroundColor: progressColor
+                              }}
+                              className="h-full rounded-full transition-all duration-500"
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 

@@ -28,19 +28,21 @@ import {
   DashboardRevenueVolume,
   DashboardProfit
 } from '../../types';
+import { RevenueTrendChart } from '../../components/common/RevenueTrendChart';
+import { getLowToHighColor, getValueRatio } from '../../utils/chartColors';
 
-// Bảng màu nhận diện chuẩn Nam Khánh theo Logo (Đỏ - Xanh dương - Xanh lá - Vàng nắng)
+// Bảng màu tươi mát Ocean Breeze & Nam Khánh Pastel
 const CHART_PALETTE = [
-  '#EA332A', // 1. Đỏ Nam Khánh
-  '#1A7FED', // 2. Xanh dương
-  '#22BB4E', // 3. Xanh lá
-  '#F9BB12', // 4. Vàng nắng
-  '#8B5CF6', // 5. Tím phụ trợ
-  '#06B6D4', // 6. Xanh ngọc Cyan
-  '#EC4899', // 7. Hồng cánh sen
-  '#F97316', // 8. Cam tươi
-  '#14B8A6', // 9. Xanh Teal
-  '#6366F1'  // 10. Chàm Indigo
+  '#0284C7', // 1. Xanh Ocean chủ đạo
+  '#10B981', // 2. Xanh Ngọc Emerald
+  '#0EA5E9', // 3. Xanh Sky thanh khiết
+  '#F59E0B', // 4. Vàng nắng dịu
+  '#6366F1', // 5. Chàm Indigo
+  '#14B8A6', // 6. Xanh Teal bạc hà
+  '#8B5CF6', // 7. Tím Lavender
+  '#F43F5E', // 8. Đỏ San hô Coral
+  '#06B6D4', // 9. Xanh ngọc Cyan
+  '#3B82F6'  // 10. Xanh dương Blue
 ];
 
 interface DashboardPageProps {
@@ -273,33 +275,46 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
   return (
     <div className="space-y-6 pb-12">
       {/* ================= HEADER ĐIỀU HÀNH ================= */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3 relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#EA332A] animate-pulse"></span>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#EA332A] bg-red-50 px-2.5 py-0.5 rounded-full border border-red-100">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span
+                className="text-[11px] font-extrabold uppercase tracking-wider px-3 py-0.5 rounded-full border border-sky-200/80 shadow-2xs"
+                style={{
+                  background: 'linear-gradient(90deg, #E0F2FE 0%, #FCE7F3 55%, #D1FAE5 100%)',
+                  color: '#0369A1'
+                }}
+              >
                 Executive Real-Time Dashboard
               </span>
             </div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 mt-1">
+            <h1
+              className="text-xl md:text-2xl font-black mt-1"
+              style={{
+                background: 'linear-gradient(135deg, #0F172A 0%, #0284C7 52%, #0D9488 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
               Dashboard Điều Hành Doanh Nghiệp Nam Khánh
             </h1>
-            <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 mt-0.5 whitespace-nowrap truncate">
               Tổng hợp dữ liệu kinh doanh, doanh số bán lẻ/đại lý, lợi nhuận gộp và dòng tiền thời gian thực
             </p>
           </div>
 
-          {/* Bộ lọc kỳ nhanh và nút thao tác */}
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <div className="inline-flex flex-wrap bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium">
+          {/* Bộ lọc kỳ nhanh đa sắc thái và nút thao tác */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
+            <div className="inline-flex flex-wrap bg-white/80 p-1 rounded-xl border border-slate-200/80 text-xs font-medium shadow-2xs">
               <button
                 id="period-btn-all"
                 type="button"
                 onClick={() => handleSelectPreset('all')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'all'
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-violet-50 text-violet-700 border border-violet-200 font-bold shadow-2xs'
+                    : 'text-slate-600 hover:text-violet-700'
                   }`}
               >
                 Lũy kế toàn bộ
@@ -309,8 +324,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                 type="button"
                 onClick={() => handleSelectPreset('year')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'year'
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-sky-50 text-[#0284C7] border border-sky-200 font-bold shadow-2xs'
+                    : 'text-slate-600 hover:text-[#0284C7]'
                   }`}
               >
                 Năm nay ({currentYearNum})
@@ -320,8 +335,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                 type="button"
                 onClick={() => handleSelectPreset('quarter')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'quarter'
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold shadow-2xs'
+                    : 'text-slate-600 hover:text-emerald-700'
                   }`}
               >
                 Quý này
@@ -331,8 +346,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                 type="button"
                 onClick={() => handleSelectPreset('month')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'month'
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200 font-bold shadow-2xs'
+                    : 'text-slate-600 hover:text-amber-700'
                   }`}
               >
                 Tháng này
@@ -342,23 +357,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                 type="button"
                 onClick={() => handleSelectPreset('today')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'today'
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200 font-bold shadow-2xs'
+                    : 'text-slate-600 hover:text-rose-700'
                   }`}
               >
                 Hôm nay
               </button>
             </div>
-
-            <button
-              onClick={() => loadDashboard(true)}
-              disabled={refreshing}
-              className="btn btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 text-slate-700 hover:text-slate-900"
-              title="Làm mới dữ liệu từ CSDL"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#EA332A]' : ''}`} />
-              <span className="hidden sm:inline">Làm mới</span>
-            </button>
 
             <button
               onClick={() => window.print()}
@@ -444,7 +449,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
               <button
                 type="button"
                 onClick={() => handleSelectPreset('year')}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-[#EA332A] bg-slate-100 hover:bg-red-50 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-[#0284C7] bg-slate-100 hover:bg-sky-50 transition-colors cursor-pointer"
                 title="Đặt lại về Năm nay"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -452,28 +457,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
               </button>
             )}
           </div>
-
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-slate-500">Kỳ báo cáo đang xem:</span>
-            <span className="font-bold text-[#EA332A] bg-red-50 border border-red-100 px-2.5 py-1 rounded-full">
-              {getPeriodText()}
-            </span>
-          </div>
         </div>
       </div>
 
-      {/* ================= 5 EXECUTIVE STAT CARDS ================= */}
+      {/* ================= 5 EXECUTIVE STAT CARDS (NỀN TRẮNG TINH KHIẾT + ĐIỂM NHẤN ĐA SẮC) ================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         {/* 1. Doanh thu */}
         <div
           onClick={() => onNavigateTab?.('sales-overview')}
-          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-red-200 transition-all cursor-pointer"
+          className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs relative overflow-hidden group hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Doanh thu">
+            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate" title="Doanh thu">
               Doanh thu
             </span>
-            <div className="w-8 h-8 rounded-xl bg-red-50 text-[#EA332A] flex items-center justify-center shrink-0">
+            <div
+              className="w-9 h-9 rounded-xl text-white flex items-center justify-center shrink-0 shadow-xs"
+              style={{ background: 'linear-gradient(135deg, #38BDF8 0%, #0284C7 100%)' }}
+            >
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
@@ -481,107 +482,134 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
             <div className="text-lg xl:text-xl font-black text-emerald-600 truncate" title={formatVND(totalRevenue)}>
               {formatVND(totalRevenue)}
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-emerald-600 mt-1 font-semibold">
+            <div className="flex items-center gap-1.5 text-xs text-sky-700 mt-1 font-semibold">
               <span>{overview?.kpis.orderCount || 0}</span> đơn hàng
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#EA332A]"></div>
+          <div
+            className="absolute bottom-0 left-0 right-0 h-1.5"
+            style={{ background: 'linear-gradient(90deg, #0284C7 0%, #10B981 100%)' }}
+          />
         </div>
 
         {/* 2. Giá vốn */}
         <div
           onClick={() => onNavigateTab?.('inventory-overview')}
-          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-amber-200 transition-all cursor-pointer"
+          className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs relative overflow-hidden group hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Giá vốn">
+            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate" title="Giá vốn">
               Giá vốn
             </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <div
+              className="w-9 h-9 rounded-xl text-white flex items-center justify-center shrink-0 shadow-xs"
+              style={{ background: 'linear-gradient(135deg, #FBBF24 0%, #D97706 100%)' }}
+            >
               <ShoppingBag className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-lg xl:text-xl font-black text-slate-900 truncate" title={formatVND(totalCogs)}>
+            <div className="text-lg xl:text-xl font-black text-amber-700 truncate" title={formatVND(totalCogs)}>
               {formatVND(totalCogs)}
             </div>
             <div className="flex items-center gap-1 text-xs text-amber-600 mt-1 font-semibold truncate">
               SL: {new Intl.NumberFormat('vi-VN').format(overview?.kpis.totalVolume || 0)} SP
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500"></div>
+          <div
+            className="absolute bottom-0 left-0 right-0 h-1.5"
+            style={{ background: 'linear-gradient(90deg, #F59E0B 0%, #EA580C 100%)' }}
+          />
         </div>
 
         {/* 3. LN trước VAT */}
         <div
           onClick={() => setActiveSubTab('profit')}
-          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-blue-200 transition-all cursor-pointer"
+          className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs relative overflow-hidden group hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="LN trước VAT">
+            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate" title="LN trước VAT">
               LN trước VAT
             </span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <div
+              className="w-9 h-9 rounded-xl text-white flex items-center justify-center shrink-0 shadow-xs"
+              style={{ background: 'linear-gradient(135deg, #14B8A6 0%, #2563EB 100%)' }}
+            >
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className={`text-lg xl:text-xl font-black truncate ${profitBeforeTax >= 0 ? 'text-blue-600' : 'text-red-500'}`} title={formatVND(profitBeforeTax)}>
+            <div className={`text-lg xl:text-xl font-black truncate ${profitBeforeTax >= 0 ? 'text-teal-700' : 'text-red-500'}`} title={formatVND(profitBeforeTax)}>
               {formatVND(profitBeforeTax)}
             </div>
-            <div className="flex items-center gap-1 text-xs text-blue-600 mt-1 font-semibold">
+            <div className="flex items-center gap-1 text-xs text-teal-600 mt-1 font-semibold">
               Biên lãi: {marginBeforeTax}%
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500"></div>
+          <div
+            className="absolute bottom-0 left-0 right-0 h-1.5"
+            style={{ background: 'linear-gradient(90deg, #14B8A6 0%, #3B82F6 100%)' }}
+          />
         </div>
 
         {/* 4. Tổng thuế VAT */}
         <div
           onClick={() => onNavigateTab?.('finances')}
-          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-orange-200 transition-all cursor-pointer"
+          className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs relative overflow-hidden group hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Tổng thuế VAT">
+            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate" title="Tổng thuế VAT">
               Tổng thuế VAT
             </span>
-            <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+            <div
+              className="w-9 h-9 rounded-xl text-white flex items-center justify-center shrink-0 shadow-xs"
+              style={{ background: 'linear-gradient(135deg, #FB7185 0%, #E11D48 100%)' }}
+            >
               <Receipt className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-lg xl:text-xl font-black text-orange-600 truncate" title={formatVND(totalVat)}>
+            <div className="text-lg xl:text-xl font-black text-rose-600 truncate" title={formatVND(totalVat)}>
               {formatVND(totalVat)}
             </div>
-            <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+            <div className="flex items-center gap-1 text-xs text-rose-500 mt-1 font-medium">
               Thuế GTGT đơn hàng
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-500"></div>
+          <div
+            className="absolute bottom-0 left-0 right-0 h-1.5"
+            style={{ background: 'linear-gradient(90deg, #F43F5E 0%, #DB2777 100%)' }}
+          />
         </div>
 
         {/* 5. Tổng công nợ */}
         <div
           onClick={() => onNavigateTab?.('customers')}
-          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-purple-200 transition-all cursor-pointer"
+          className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs relative overflow-hidden group hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Tổng công nợ">
+            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate" title="Tổng công nợ">
               Tổng công nợ
             </span>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <div
+              className="w-9 h-9 rounded-xl text-white flex items-center justify-center shrink-0 shadow-xs"
+              style={{ background: 'linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)' }}
+            >
               <CreditCard className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-lg xl:text-xl font-black text-purple-700 truncate" title={formatVND(totalDebt)}>
+            <div className="text-lg xl:text-xl font-black text-violet-700 truncate" title={formatVND(totalDebt)}>
               {formatVND(totalDebt)}
             </div>
-            <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+            <div className="flex items-center gap-1 text-xs text-violet-500 mt-1 font-medium">
               Chưa thanh toán hết
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-purple-500"></div>
+          <div
+            className="absolute bottom-0 left-0 right-0 h-1.5"
+            style={{ background: 'linear-gradient(90deg, #8B5CF6 0%, #C026D3 100%)' }}
+          />
         </div>
       </div>
 
@@ -622,86 +650,81 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
             <div className="space-y-8">
               {/* Biểu đồ biến động 12 tháng & Cơ cấu danh mục */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Cột 1 & 2: Biểu đồ doanh thu 12 tháng */}
+                {/* Cột 1 & 2: Biểu đồ đường (Line Chart) biến động doanh thu 12 tháng */}
                 <div className="lg:col-span-2 bg-slate-50/70 p-5 rounded-xl border border-slate-200">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">Biến động Doanh số 12 Tháng (Năm {currentYearNum})</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">Biểu đồ cột thể hiện doanh thu bán hàng thực tế theo từng tháng</p>
                     </div>
-                    <span className="text-xs font-semibold text-[#EA332A] bg-red-50 border border-red-100 px-2.5 py-1 rounded-full">
-                      Cao nhất: {formatVND(maxMonthlyRevenue)}
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                      Đỉnh: {formatVND(maxMonthlyRevenue)}
                     </span>
                   </div>
 
-                  {/* Thanh biểu đồ tùy biến với CSS thuần */}
-                  <div className="h-48 flex items-end gap-2 pt-6 pb-2 px-1">
-                    {all12Months.map((m, idx) => {
-                      const isPeak = m.revenue === maxMonthlyRevenue && m.revenue > 0;
-                      const heightPercent = maxMonthlyRevenue > 0 ? (m.revenue / maxMonthlyRevenue) * 100 : 0;
-                      return (
-                        <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative">
-                          {/* Tooltip khi hover */}
-                          <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[10px] py-1 px-2 rounded-lg pointer-events-none whitespace-nowrap z-20 shadow-lg">
-                            <div>{m.fullLabel}: {formatVND(m.revenue)}</div>
-                            <div className="text-slate-400">{m.orderCount} đơn hàng</div>
-                          </div>
-
-                          <div className="w-full bg-slate-200 rounded-t h-32 flex items-end overflow-hidden">
-                            <div
-                              style={{ height: `${Math.max(heightPercent, m.revenue > 0 ? 8 : 2)}%` }}
-                              className={`w-full transition-all rounded-t cursor-pointer ${isPeak ? 'bg-[#EA332A] hover:bg-[#D32F2F]' : m.revenue > 0 ? 'bg-[#EA332A]/80 hover:bg-[#EA332A]' : 'bg-slate-200'
-                                }`}
-                            ></div>
-                          </div>
-                          <span className={`text-[11px] font-semibold mt-1 ${isPeak ? 'text-[#EA332A]' : 'text-slate-500'}`}>
-                            {m.label}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <RevenueTrendChart
+                    data={all12Months}
+                    height={195}
+                    defaultMode="line"
+                    formatVND={formatVND}
+                  />
                 </div>
 
-                {/* Cột 3: Tỷ trọng cơ cấu Danh mục */}
+                {/* Cột 3: Tỷ trọng cơ cấu Danh mục (Thấp: Đỏ -> Cao: Xanh lá) */}
                 <div className="bg-slate-50/70 p-5 rounded-xl border border-slate-200 flex flex-col justify-between">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900 mb-1">Cơ cấu Doanh thu theo Danh mục</h3>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <h3 className="text-sm font-bold text-slate-900">Cơ cấu Doanh thu theo Danh mục</h3>
+                    </div>
                     <p className="text-xs text-slate-500 mb-4">Tỷ lệ đóng góp doanh số ({getPeriodText()})</p>
 
                     <div className="space-y-3 max-h-[190px] overflow-y-auto pr-1">
-                      {revenueVolume?.categoryBreakdown.map((cat, idx) => {
-                        const color = CHART_PALETTE[idx % CHART_PALETTE.length];
-                        return (
-                          <div key={cat.id} className="space-y-1">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="font-semibold text-slate-700 flex items-center gap-1.5 truncate">
-                                <span
-                                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: color }}
+                      {(() => {
+                        const list = revenueVolume?.categoryBreakdown || [];
+                        const pcts = list.map((c) => Number(c.percentage) || 0);
+                        const maxPct = Math.max(...pcts, 0);
+                        const minPct = Math.min(...pcts, 0);
+                        return list.map((cat) => {
+                          const pct = Number(cat.percentage) || 0;
+                          const ratio =
+                            list.length > 1 && maxPct > minPct
+                              ? getValueRatio(pct, minPct, maxPct)
+                              : pct > 0
+                              ? 1
+                              : 0;
+                          const color = getLowToHighColor(ratio);
+                          return (
+                            <div key={cat.id} className="space-y-1">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="font-semibold text-slate-700 flex items-center gap-1.5 truncate">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                  <span className="truncate">{cat.name}</span>
+                                </span>
+                                <span className="font-bold ml-2" style={{ color }}>
+                                  {cat.percentage}%
+                                </span>
+                              </div>
+                              <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-500"
+                                  style={{
+                                    width: `${Math.max(cat.percentage, cat.volume > 0 ? 3 : 0)}%`,
+                                    backgroundColor: color
+                                  }}
                                 />
-                                <span className="truncate">{cat.name}</span>
-                              </span>
-                              <span className="font-bold text-slate-800 ml-2">{cat.percentage}%</span>
+                              </div>
                             </div>
-                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all"
-                                style={{
-                                  width: `${Math.max(cat.percentage, cat.volume > 0 ? 3 : 0)}%`,
-                                  backgroundColor: color
-                                }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
 
                   <div className="pt-3 border-t border-slate-200 mt-4 flex items-center justify-between text-xs font-bold text-slate-700">
                     <span>Tổng Doanh Số:</span>
-                    <span className="text-[#EA332A] font-extrabold">{formatVND(revenueVolume?.totals.revenue || 0)}</span>
+                    <span className="text-emerald-600 font-extrabold">{formatVND(revenueVolume?.totals.revenue || 0)}</span>
                   </div>
                 </div>
               </div>

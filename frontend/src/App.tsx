@@ -201,7 +201,7 @@ const AppContent: React.FC = () => {
             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
         </div>
-        <div style={{ color: '#E53935', fontSize: '16.5px', fontWeight: '600' }}>
+        <div style={{ color: '#0284C7', fontSize: '16.5px', fontWeight: '600' }}>
           Đang khởi động CRM Công ty TNHH NK Nam Khánh...
         </div>
       </div>

@@ -256,22 +256,62 @@ export const Header: React.FC<HeaderProps> = ({
         ? notifications.filter((n) => n.read)
         : notifications;
 
-  // Danh sách các Tab điều hướng nhanh ở trung tâm Navbar (Tương tự ảnh mẫu Quixotic)
+  // Danh sách các Tab điều hướng nhanh ở trung tâm Navbar với màu sắc nhận diện đa dạng, tươi mới
   const navTabs = [
-    { id: 'dashboard', label: 'Dashboard', match: ['dashboard'] },
-    { id: 'orders', label: 'Đơn hàng', match: ['orders'] },
-    { id: 'customers', label: 'Khách hàng', match: ['customers', 'quotations'] },
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      match: ['dashboard'],
+      accent: '#0284C7',
+      bgSoft: '#E0F2FE',
+      borderSoft: '#7DD3FC',
+      glow: 'rgba(2, 132, 199, 0.18)'
+    },
+    {
+      id: 'orders',
+      label: 'Đơn hàng',
+      match: ['orders'],
+      accent: '#D97706',
+      bgSoft: '#FEF3C7',
+      borderSoft: '#FCD34D',
+      glow: 'rgba(217, 119, 6, 0.18)'
+    },
+    {
+      id: 'customers',
+      label: 'Khách hàng',
+      match: ['customers', 'quotations'],
+      accent: '#0D9488',
+      bgSoft: '#CCFBF1',
+      borderSoft: '#5EEAD4',
+      glow: 'rgba(13, 148, 136, 0.18)'
+    },
     {
       id: 'inventory-overview',
       label: 'Kho & SKU',
-      match: ['inventory-overview', 'products', 'warehouses', 'categories', 'suppliers', 'product-types', 'product-groups']
+      match: ['inventory-overview', 'products', 'warehouses', 'categories', 'suppliers', 'product-types', 'product-groups'],
+      accent: '#7C3AED',
+      bgSoft: '#EDE9FE',
+      borderSoft: '#C4B5FD',
+      glow: 'rgba(124, 58, 237, 0.18)'
     },
     {
       id: 'sales-reports',
       label: 'Báo cáo',
-      match: ['sales-reports', 'sales-overview', 'sales-plans', 'inventory-reports']
+      match: ['sales-reports', 'sales-overview', 'sales-plans', 'inventory-reports'],
+      accent: '#E11D48',
+      bgSoft: '#FFE4E6',
+      borderSoft: '#FDA4AF',
+      glow: 'rgba(225, 29, 72, 0.18)'
     },
-    { id: 'finances', label: 'Thu - Chi', match: ['finances'] }
+    {
+      id: 'finances',
+      label: 'Thu - Chi',
+      match: ['finances'],
+      accent: '#059669',
+      bgSoft: '#D1FAE5',
+      borderSoft: '#6EE7B7',
+      glow: 'rgba(5, 150, 105, 0.18)'
+    }
   ];
 
   return (
@@ -291,11 +331,11 @@ export const Header: React.FC<HeaderProps> = ({
               width: '36px',
               height: '36px',
               borderRadius: '9999px',
-              background: 'linear-gradient(135deg, #EA332A 0%, #D32F2F 100%)',
+              background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
               color: '#FFFFFF',
               border: 'none',
               cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(234, 51, 42, 0.28)'
+              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.28)'
             }}
             className="hamburger-mobile"
             title="Mở menu điều hướng"
@@ -314,11 +354,11 @@ export const Header: React.FC<HeaderProps> = ({
                 justifyContent: 'center',
                 width: '34px',
                 height: '34px',
-                backgroundColor: isSidebarOpen ? '#FFFFFF' : '#FEF2F2',
-                borderColor: isSidebarOpen ? '#E2E8F0' : '#FECACA'
+                backgroundColor: isSidebarOpen ? '#FFFFFF' : '#F0F9FF',
+                borderColor: isSidebarOpen ? '#E2E8F0' : '#BAE6FD'
               }}
             >
-              {isSidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} color="#EA332A" />}
+              {isSidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} color="#0284C7" />}
             </button>
           )}
 
@@ -355,7 +395,7 @@ export const Header: React.FC<HeaderProps> = ({
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
             </div>
-            <span className="font-extrabold text-[14.5px] text-slate-900 tracking-tight whitespace-nowrap group-hover:text-rose-600 transition-colors">
+            <span className="font-extrabold text-[14.5px] text-slate-900 tracking-tight whitespace-nowrap group-hover:text-sky-600 transition-colors">
               NK Nam Khánh
             </span>
           </a>
@@ -367,7 +407,7 @@ export const Header: React.FC<HeaderProps> = ({
          ========================================== */}
         <nav
           aria-label="Điều hướng nhanh"
-          className="hidden md:flex items-center gap-1 bg-slate-100/60 p-1 rounded-full border border-slate-200/50"
+          className="hidden md:flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-full border border-slate-200/60"
         >
           {navTabs.map((tab) => {
             const isActive = tab.match.includes(currentTab);
@@ -376,19 +416,27 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 key={tab.id}
                 onClick={() => onNavigateTab?.(tab.id)}
-                className="text-xs transition-all duration-200 cursor-pointer"
+                className="text-xs transition-all duration-200 cursor-pointer flex items-center gap-1.5"
                 style={{
                   padding: '0.35rem 0.85rem',
                   borderRadius: '9999px',
-                  border: isActive ? '1px solid rgba(226, 232, 240, 0.9)' : '1px solid transparent',
-                  // Nút Active: Trắng tinh nổi khối bo tròn như nút Dashboard trong ảnh mẫu
-                  backgroundColor: isActive ? '#FFFFFF' : 'transparent',
-                  color: isActive ? '#0F172A' : '#64748B',
-                  fontWeight: isActive ? '700' : '500',
-                  boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.07)' : 'none'
+                  border: isActive ? `1px solid ${tab.borderSoft}` : '1px solid transparent',
+                  backgroundColor: isActive ? tab.bgSoft : 'transparent',
+                  color: isActive ? tab.accent : '#475569',
+                  fontWeight: isActive ? '700' : '600',
+                  boxShadow: isActive ? `0 3px 10px -2px ${tab.glow}` : 'none'
                 }}
               >
-                {tab.label}
+                <span
+                  style={{
+                    width: '6.5px',
+                    height: '6.5px',
+                    borderRadius: '9999px',
+                    backgroundColor: tab.accent,
+                    boxShadow: isActive ? `0 0 6px ${tab.accent}` : 'none'
+                  }}
+                />
+                <span>{tab.label}</span>
               </button>
             );
           })}
@@ -486,12 +534,12 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setIsOpenNotifications(!isOpenNotifications)}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-slate-600 hover:text-[#EA332A] hover:bg-red-50/70 transition-all cursor-pointer relative border border-transparent hover:border-red-100"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-slate-600 hover:text-[#0284C7] hover:bg-sky-50/70 transition-all cursor-pointer relative border border-transparent hover:border-sky-100"
               title="Trung tâm thông báo điều hành"
             >
               <Bell size={17} />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 flex items-center justify-center min-w-[15px] h-[15px] px-0.5 text-[9.5px] font-bold text-white bg-[#EA332A] rounded-full border-2 border-white shadow-xs">
+                <span className="absolute top-1 right-1 flex items-center justify-center min-w-[15px] h-[15px] px-0.5 text-[9.5px] font-bold text-white bg-[#0284C7] rounded-full border-2 border-white shadow-xs">
                   {unreadCount}
                 </span>
               )}
@@ -502,14 +550,14 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="absolute right-0 mt-3 w-96 bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/80 py-3.5 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="flex items-center justify-between px-4 pb-2 border-b border-gray-100">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#EA332A] animate-pulse" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#0284C7] animate-pulse" />
                     <span className="font-bold text-slate-800 text-sm">Thông báo vận hành</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {unreadCount > 0 && (
                       <button
                         onClick={handleMarkAllRead}
-                        className="text-xs text-[#EA332A] hover:text-[#D32F2F] font-semibold flex items-center gap-1 cursor-pointer"
+                        className="text-xs text-[#0284C7] hover:text-[#0369A1] font-semibold flex items-center gap-1 cursor-pointer"
                         title="Đánh dấu tất cả thông báo là đã đọc"
                       >
                         <CheckCheck size={14} />
@@ -532,7 +580,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <button
                       onClick={() => setNotificationFilter('all')}
                       className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${notificationFilter === 'all'
-                          ? 'bg-[#EA332A] text-white shadow-xs'
+                          ? 'bg-[#0284C7] text-white shadow-xs'
                           : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
                         }`}
                     >
@@ -541,7 +589,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <button
                       onClick={() => setNotificationFilter('unread')}
                       className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${notificationFilter === 'unread'
-                          ? 'bg-[#EA332A] text-white shadow-xs'
+                          ? 'bg-[#0284C7] text-white shadow-xs'
                           : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
                         }`}
                     >
@@ -550,7 +598,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <button
                       onClick={() => setNotificationFilter('read')}
                       className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${notificationFilter === 'read'
-                          ? 'bg-[#EA332A] text-white shadow-xs'
+                          ? 'bg-[#0284C7] text-white shadow-xs'
                           : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
                         }`}
                     >
@@ -616,7 +664,7 @@ export const Header: React.FC<HeaderProps> = ({
                               {n.title}
                             </p>
                             {!n.read && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#EA332A] shrink-0" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#0284C7] shrink-0" />
                             )}
                           </div>
                           <p className="text-[11.5px] text-gray-500 line-clamp-2 leading-relaxed">
@@ -628,7 +676,7 @@ export const Header: React.FC<HeaderProps> = ({
                               {n.time}
                             </span>
                             {n.targetTab && (
-                              <span className="text-[10px] text-[#EA332A] font-medium flex items-center gap-0.5 group-hover:underline">
+                              <span className="text-[10px] text-[#0284C7] font-medium flex items-center gap-0.5 group-hover:underline">
                                 Xem ngay <ExternalLink size={9} />
                               </span>
                             )}
@@ -686,14 +734,14 @@ export const Header: React.FC<HeaderProps> = ({
                   width: '32px',
                   height: '32px',
                   borderRadius: '9999px',
-                  background: 'linear-gradient(135deg, #EA332A 0%, #D32F2F 100%)',
+                  background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
                   color: '#FFFFFF',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontWeight: '700',
                   fontSize: '13px',
-                  boxShadow: '0 2px 6px rgba(234, 51, 42, 0.28)'
+                  boxShadow: '0 2px 6px rgba(2, 132, 199, 0.28)'
                 }}
               >
                 {user?.fullName?.charAt(0) || 'U'}
@@ -715,9 +763,9 @@ export const Header: React.FC<HeaderProps> = ({
                     <span
                       style={{
                         fontSize: '10px',
-                        color: '#EA332A',
-                        backgroundColor: '#FEF2F2',
-                        border: '1px solid #FECACA',
+                        color: '#0284C7',
+                        backgroundColor: '#F0F9FF',
+                        border: '1px solid #BAE6FD',
                         padding: '0.1rem 0.45rem',
                         borderRadius: '9999px',
                         fontWeight: '600'

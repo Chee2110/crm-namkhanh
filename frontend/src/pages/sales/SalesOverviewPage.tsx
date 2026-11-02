@@ -15,24 +15,26 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { SalesOverview } from '../../types';
+import { RevenueTrendChart } from '../../components/common/RevenueTrendChart';
+import { getLowToHighColor, getValueRatio } from '../../utils/chartColors';
 
-// Bảng màu nhận diện thương hiệu cho các danh mục hàng hóa
+// Bảng màu tươi mát Ocean Breeze cho các danh mục hàng hóa
 const CATEGORY_COLORS = [
-  '#EA332A', // 1. Đỏ Nam Khánh
-  '#1A7FED', // 2. Xanh dương
-  '#22BB4E', // 3. Xanh lá
-  '#F9BB12', // 4. Vàng nắng
-  '#8B5CF6', // 5. Tím phụ trợ
-  '#06B6D4', // 6. Xanh ngọc Cyan
-  '#EC4899', // 7. Hồng cánh sen
-  '#F97316', // 8. Cam tươi
-  '#14B8A6', // 9. Xanh Teal
-  '#6366F1', // 10. Chàm Indigo
+  '#0284C7', // 1. Xanh Ocean chủ đạo
+  '#10B981', // 2. Xanh Ngọc Emerald
+  '#0EA5E9', // 3. Xanh Sky thanh khiết
+  '#F59E0B', // 4. Vàng nắng dịu
+  '#6366F1', // 5. Chàm Indigo
+  '#14B8A6', // 6. Xanh Teal
+  '#8B5CF6', // 7. Tím Lavender
+  '#F43F5E', // 8. Đỏ Coral dịu
+  '#06B6D4', // 9. Xanh ngọc Cyan
+  '#3B82F6', // 10. Xanh Blue
   '#84CC16', // 11. Xanh cốm Lime
   '#EAB308', // 12. Vàng Amber
   '#D946EF', // 13. Tím Fuchsia
-  '#0EA5E9', // 14. Xanh Sky
-  '#F43F5E', // 15. Đỏ Rose
+  '#EC4899', // 14. Hồng cánh sen
+  '#F97316', // 15. Cam tươi
   '#64748B'  // 16. Xám Slate
 ];
 
@@ -53,19 +55,24 @@ export const SalesOverviewPage: React.FC = () => {
 
   const chartSlices = useMemo(() => {
     if (!data?.categoryBreakdown || categoryTotalRevenue <= 0) {
-      return (data?.categoryBreakdown || []).map((cat, idx) => ({
+      return (data?.categoryBreakdown || []).map((cat) => ({
         name: cat.name,
         revenue: cat.revenue,
         quantity: cat.quantity,
         percentage: '0.0',
-        color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+        color: '#EF4444',
         length: 0,
         offset: 0
       }));
     }
+    const revenues = data.categoryBreakdown.map((c) => c.revenue || 0);
+    const minRev = Math.min(...revenues);
+    const maxRev = Math.max(...revenues);
+
     let accumulatedOffset = 0;
-    return data.categoryBreakdown.map((cat, idx) => {
+    return data.categoryBreakdown.map((cat) => {
       const ratio = cat.revenue / categoryTotalRevenue;
+      const valueRatio = getValueRatio(cat.revenue || 0, minRev, maxRev);
       const strokeLength = ratio * circumference;
       const gap = data.categoryBreakdown.length > 1 && ratio > 0.02 ? 2.5 : 0;
       const slice = {
@@ -73,7 +80,7 @@ export const SalesOverviewPage: React.FC = () => {
         revenue: cat.revenue,
         quantity: cat.quantity,
         percentage: (ratio * 100).toFixed(1),
-        color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+        color: getLowToHighColor(valueRatio),
         length: Math.max(0, strokeLength - gap),
         offset: -accumulatedOffset
       };
@@ -174,7 +181,7 @@ export const SalesOverviewPage: React.FC = () => {
                     {formatVND(data?.kpis.totalRevenue || 0)}
                   </p>
                 </div>
-                <div className="w-11 h-11 rounded-2xl bg-red-50 flex items-center justify-center text-[#EA332A] shadow-xs">
+                <div className="w-11 h-11 rounded-2xl bg-sky-50 flex items-center justify-center text-[#0284C7] shadow-xs">
                   <DollarSign className="w-5 h-5" />
                 </div>
               </div>
@@ -266,7 +273,7 @@ export const SalesOverviewPage: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-2xl bg-red-50 text-[#EA332A] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-2xl bg-sky-50 text-[#0284C7] flex items-center justify-center">
                       <TrendingUp className="w-4 h-4" />
                     </div>
                     <h3 className="font-extrabold text-slate-900 text-base">
@@ -278,47 +285,22 @@ export const SalesOverviewPage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Thanh biểu đồ Capsule */}
-                <div className="h-64 flex items-end justify-between gap-2 pt-8 pb-2 px-2 border-b border-slate-100">
-                  {data?.monthlyRevenue.map((item, idx) => {
-                    const heightPercent =
-                      maxMonthlyRevenue > 0 ? (item.revenue / maxMonthlyRevenue) * 100 : 0;
-                    const isPeak = item.revenue === maxMonthlyRevenue && item.revenue > 0;
-                    return (
-                      <div key={idx} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                        {/* Tooltip khi hover */}
-                        <div className="absolute -top-11 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[11px] rounded-xl px-2.5 py-1 pointer-events-none whitespace-nowrap z-20 shadow-xl">
-                          {item.month}: {formatVND(item.revenue)}
-                        </div>
-
-                        {/* Cột hiển thị Capsule */}
-                        <div
-                          style={{ height: `${Math.max(heightPercent, 6)}%` }}
-                          className={`w-full max-w-[24px] capsule-bar transition-all duration-300 ${isPeak
-                              ? 'bg-[#EA332A] shadow-md shadow-red-200'
-                              : item.revenue > 0
-                                ? 'bg-red-400/80 hover:bg-red-500'
-                                : 'bg-slate-100'
-                            }`}
-                        ></div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Nhãn 12 tháng */}
-                <div className="flex justify-between text-[11px] text-slate-400 mt-2 px-2">
-                  {data?.monthlyRevenue.map((item, idx) => (
-                    <span key={idx} className="flex-1 text-center font-bold">
-                      {item.month.replace('Thg ', 'T')}
-                    </span>
-                  ))}
-                </div>
+                {/* Biểu đồ Đường (Line Chart) & Cột chuyển màu Thấp (Đỏ) -> Cao (Xanh lá) */}
+                <RevenueTrendChart
+                  data={(data?.monthlyRevenue || []).map((item) => ({
+                    label: item.month.replace('Thg ', 'T'),
+                    fullLabel: item.month,
+                    revenue: item.revenue
+                  }))}
+                  formatVND={formatVND}
+                  defaultMode="line"
+                  height={235}
+                />
               </div>
 
               <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                 <span>Doanh thu tháng cao điểm nhất:</span>
-                <span className="font-extrabold text-[#EA332A] text-sm">{formatVND(maxMonthlyRevenue)}</span>
+                <span className="font-extrabold text-emerald-600 text-sm">{formatVND(maxMonthlyRevenue)}</span>
               </div>
             </div>
 
@@ -327,7 +309,7 @@ export const SalesOverviewPage: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-2xl bg-red-50 text-[#EA332A] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-2xl bg-sky-50 text-[#0284C7] flex items-center justify-center">
                       <PieChart className="w-4 h-4" />
                     </div>
                     <div>
@@ -554,7 +536,7 @@ export const SalesOverviewPage: React.FC = () => {
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-card">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-2xl bg-red-50 text-[#EA332A] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-2xl bg-sky-50 text-[#0284C7] flex items-center justify-center">
                     <ShoppingBag className="w-4 h-4" />
                   </div>
                   <h3 className="font-extrabold text-slate-900 text-base">Đơn Hàng Mới Nhất</h3>

@@ -45,14 +45,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentTab, onSelectTa
 
   return (
     <div
-      className="relative min-h-[100dvh] flex flex-col selection:bg-[#EA332A] selection:text-white"
+      className="relative min-h-[100dvh] flex flex-col selection:bg-[#0284C7] selection:text-white"
       style={{
         backgroundColor: 'transparent',
         minHeight: '100%',
         flex: 1
       }}
     >
-      {/* Dynamic Ambient Red Blobs - Loang chéo góc trên bên trái và góc dưới bên phải */}
+      {/* Dynamic Ambient Ocean Breeze Blobs - Loang chéo góc trên bên trái và góc dưới bên phải */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
@@ -68,11 +68,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentTab, onSelectTa
         }}
         aria-hidden="true"
       >
-        {/* Góc trên bên trái: Loang màu hồng nhẹ nhàng, kích thước bằng ~65% hiện tại */}
-        <div className="absolute -top-20 -left-20 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-rose-400/12 via-pink-300/08 to-transparent blur-[75px]" />
+        {/* 1. Góc trên bên trái: Loang màu xanh Sky/Ocean thanh khiết */}
+        <div className="absolute -top-20 -left-20 w-[440px] h-[440px] rounded-full bg-gradient-to-br from-sky-400/16 via-cyan-300/10 to-transparent blur-[80px]" />
 
-        {/* Góc dưới bên phải: Loang màu hồng nhẹ nhàng, kích thước bằng ~65% hiện tại */}
-        <div className="absolute -bottom-20 -right-20 w-[400px] h-[400px] rounded-full bg-gradient-to-tl from-rose-400/12 via-pink-300/08 to-transparent blur-[75px]" />
+        {/* 2. Góc trên bên phải: Loang màu hồng đào Rose-Peach nhẹ nhàng */}
+        <div className="absolute -top-16 -right-16 w-[400px] h-[400px] rounded-full bg-gradient-to-bl from-rose-300/15 via-pink-200/10 to-transparent blur-[80px]" />
+
+        {/* 3. Trung tâm phải: Loang tím Lavender thanh thoát */}
+        <div className="absolute top-[38%] right-[12%] w-[360px] h-[360px] rounded-full bg-gradient-to-tl from-violet-300/12 via-indigo-200/08 to-transparent blur-[85px]" />
+
+        {/* 4. Góc dưới bên trái: Loang vàng nắng Amber dịu ấm */}
+        <div className="absolute -bottom-16 left-[10%] w-[380px] h-[380px] rounded-full bg-gradient-to-tr from-amber-300/12 via-yellow-200/08 to-transparent blur-[80px]" />
+
+        {/* 5. Góc dưới bên phải: Loang màu xanh Ngọc Mint/Emerald tươi mới */}
+        <div className="absolute -bottom-20 -right-20 w-[440px] h-[440px] rounded-full bg-gradient-to-tl from-emerald-300/16 via-teal-300/10 to-transparent blur-[80px]" />
       </div>
 
       <Sidebar

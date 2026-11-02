@@ -63,7 +63,7 @@ export const GlobalLoadingIndicator: React.FC = () => {
           style={{ opacity: progress === 100 ? 0 : 1 }}
         >
           <div
-            className="h-[3px] bg-gradient-to-r from-[#E53935] via-amber-500 to-[#E53935] shadow-[0_0_12px_rgba(229,57,53,0.85)] transition-all ease-out duration-250"
+            className="h-[3px] bg-gradient-to-r from-[#0EA5E9] via-[#0284C7] to-[#10B981] shadow-[0_0_12px_rgba(2,132,199,0.75)] transition-all ease-out duration-250"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -101,7 +101,7 @@ export const GlobalLoadingIndicator: React.FC = () => {
           {/* Trường hợp 2: Đang thực hiện tác vụ thay đổi dữ liệu (POST, PUT, DELETE) */}
           {isMutating && !slowRequestDetected && (
             <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-gray-900/90 text-white rounded-xl shadow-2xl border border-gray-700/80 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
-              <Loader2 className="w-4 h-4 text-[#E53935] animate-spin shrink-0" />
+              <Loader2 className="w-4 h-4 text-[#38BDF8] animate-spin shrink-0" />
               <div className="text-xs">
                 <div className="font-semibold text-gray-100">Đang lưu và đồng bộ dữ liệu...</div>
                 <div className="text-[10.5px] text-gray-400">Vui lòng đợi trong giây lát</div>

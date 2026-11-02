@@ -208,7 +208,7 @@ export const ColumnCustomizerDropdown: React.FC<ColumnCustomizerProps> = ({
                   className={`flex items-center gap-2.5 px-2 py-1.5 rounded-lg transition-all ${
                     isDragging ? 'opacity-40 bg-gray-100' : 'hover:bg-gray-50'
                   } ${
-                    isOver ? 'border-t-2 border-[#E53935] bg-red-50/40' : ''
+                    isOver ? 'border-t-2 border-[#0284C7] bg-sky-50/40' : ''
                   }`}
                   style={{ cursor: onReorderColumns ? 'grab' : 'default' }}
                 >
@@ -217,7 +217,7 @@ export const ColumnCustomizerDropdown: React.FC<ColumnCustomizerProps> = ({
                     <GripVertical className="w-3.5 h-3.5 text-gray-300 hover:text-gray-500" />
                   </span>
 
-                  {/* Red Square Checkbox with White Checkmark */}
+                  {/* Ocean Square Checkbox with White Checkmark */}
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
@@ -225,7 +225,7 @@ export const ColumnCustomizerDropdown: React.FC<ColumnCustomizerProps> = ({
                     }}
                     className={`w-4 h-4 rounded-[4px] flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
                       isVisible
-                        ? 'bg-[#E53935] border border-[#E53935] text-white'
+                        ? 'bg-[#0284C7] border border-[#0284C7] text-white'
                         : 'bg-white border border-gray-300 hover:border-gray-400'
                     } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title={isDisabled ? 'Cột cố định' : isVisible ? 'Ẩn cột' : 'Hiện cột'}

@@ -10,11 +10,11 @@
    ============================================================ */
 
 :root {
-  --color-primary: #EA332A;
-  --color-primary-hover: #D32F2F;
-  --color-primary-light: rgba(254, 242, 242, 0.85);
-  --color-primary-border: rgba(254, 202, 202, 0.85);
-  --color-bg-app: #FFFFFF;
+  --color-primary: #0284C7;
+  --color-primary-hover: #0369A1;
+  --color-primary-light: rgba(240, 249, 255, 0.9);
+  --color-primary-border: rgba(186, 230, 253, 0.9);
+  --color-bg-app: #F8FAFC;
   --color-card: #FFFFFF;
   --color-border: #E2E8F0;
   --color-border-light: #F1F5F9;
@@ -25,35 +25,35 @@
   /* Hệ 4 màu biểu trưng Logo Nam Khánh */
   --brand-red: #EA332A;
   /* Đỏ cánh hoa đỉnh */
-  --brand-yellow: #F9BB12;
+  --brand-yellow: #F59E0B;
   /* Vàng cánh hoa trái */
-  --brand-green: #22BB4E;
+  --brand-green: #10B981;
   /* Xanh lá cánh hoa đáy */
-  --brand-blue: #1A7FED;
-  /* Xanh dương cánh hoa phải */
+  --brand-blue: #0284C7;
+  /* Xanh dương cánh hoa phải (Màu chủ đạo Ocean Breeze) */
 
-  --color-success: #22BB4E;
-  --color-success-bg: rgba(240, 253, 244, 0.85);
+  --color-success: #10B981;
+  --color-success-bg: rgba(236, 253, 245, 0.9);
   --color-warning: #F59E0B;
   --color-warning-bg: rgba(254, 243, 199, 0.85);
-  --color-danger: #EA332A;
+  --color-danger: #EF4444;
   --color-danger-bg: rgba(254, 242, 242, 0.85);
-  --color-info: #1A7FED;
-  --color-info-bg: rgba(239, 246, 255, 0.85);
+  --color-info: #0284C7;
+  --color-info-bg: rgba(240, 249, 255, 0.9);
   --color-purple: #8B5CF6;
   --color-purple-bg: rgba(245, 243, 255, 0.85);
 
   /* Glassmorphism System Tokens */
-  --glass-bg: rgba(255, 255, 255, 0.76);
-  --glass-bg-hover: rgba(255, 255, 255, 0.88);
-  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-bg: rgba(255, 255, 255, 0.80);
+  --glass-bg-hover: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(255, 255, 255, 0.90);
   --glass-border-subtle: rgba(226, 232, 240, 0.65);
   --glass-blur: blur(20px) saturate(190%);
-  --glass-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.04), inset 0 1px 2px 0 rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 20px 40px -15px rgba(2, 132, 199, 0.05), inset 0 1px 2px 0 rgba(255, 255, 255, 0.9);
 
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: var(--color-text-main);
-  background-color: #FFFFFF;
+  background-color: #F8FAFC;
 }
 
 html {
@@ -63,12 +63,18 @@ html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: #FFFFFF;
+  background-color: #F8FAFC;
   background-image:
-    /* Loang hồng nhạt góc trên bên trái (kích thước ~65%, màu êm dịu thanh thoát) */
-    radial-gradient(circle 520px at 0% 0%, rgba(251, 113, 133, 0.13) 0%, rgba(244, 114, 182, 0.07) 35%, rgba(253, 164, 175, 0.02) 65%, transparent 85%),
-    /* Loang hồng nhạt góc dưới bên phải (kích thước ~65%, màu êm dịu thanh thoát) */
-    radial-gradient(circle 520px at 100% 100%, rgba(251, 113, 133, 0.13) 0%, rgba(244, 114, 182, 0.07) 35%, rgba(253, 164, 175, 0.02) 65%, transparent 85%);
+    /* 1. Loang xanh Ocean & Sky thanh khiết góc trên bên trái */
+    radial-gradient(circle 620px at 5% 8%, rgba(56, 189, 248, 0.17) 0%, rgba(186, 230, 253, 0.06) 52%, transparent 82%),
+    /* 2. Loang hồng đào Rose-Peach dịu nhẹ góc trên bên phải */
+    radial-gradient(circle 580px at 92% 12%, rgba(251, 113, 133, 0.13) 0%, rgba(254, 205, 211, 0.05) 52%, transparent 82%),
+    /* 3. Loang tím Lavender nhẹ nhàng ở trung tâm phải */
+    radial-gradient(circle 540px at 82% 52%, rgba(167, 139, 250, 0.11) 0%, rgba(221, 214, 254, 0.04) 55%, transparent 82%),
+    /* 4. Loang vàng nắng Amber ấm áp góc dưới bên trái */
+    radial-gradient(circle 560px at 14% 88%, rgba(251, 191, 36, 0.11) 0%, rgba(254, 243, 199, 0.05) 52%, transparent 82%),
+    /* 5. Loang xanh Ngọc Mint-Emerald tươi mát góc dưới bên phải */
+    radial-gradient(circle 640px at 90% 92%, rgba(16, 185, 129, 0.15) 0%, rgba(167, 243, 208, 0.06) 52%, transparent 85%);
   background-attachment: fixed !important;
   background-size: cover !important;
   background-repeat: no-repeat !important;
@@ -167,17 +173,17 @@ textarea {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, rgba(234, 51, 42, 0.95) 0%, rgba(211, 47, 47, 0.95) 100%) !important;
+  background: linear-gradient(135deg, #0284C7 0%, #0EA5E9 48%, #10B981 100%) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
   color: #FFFFFF !important;
-  border: 1px solid rgba(255, 255, 255, 0.25) !important;
-  box-shadow: 0 8px 24px -4px rgba(234, 51, 42, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  box-shadow: 0 8px 22px -4px rgba(2, 132, 199, 0.30), 0 4px 12px -2px rgba(16, 185, 129, 0.20), inset 0 1px 1px 0 rgba(255, 255, 255, 0.48) !important;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(240, 68, 56, 0.98) 0%, rgba(234, 51, 42, 0.98) 100%) !important;
-  box-shadow: 0 10px 28px -4px rgba(234, 51, 42, 0.45), inset 0 1px 1px 0 rgba(255, 255, 255, 0.5) !important;
+  background: linear-gradient(135deg, #0369A1 0%, #0284C7 48%, #059669 100%) !important;
+  box-shadow: 0 10px 26px -4px rgba(2, 132, 199, 0.38), 0 6px 14px -2px rgba(16, 185, 129, 0.25), inset 0 1px 1px 0 rgba(255, 255, 255, 0.55) !important;
   transform: translateY(-1.5px);
 }
 
@@ -246,7 +252,7 @@ select.input:focus,
 .select:focus {
   border-color: var(--color-primary);
   background: #FFFFFF !important;
-  box-shadow: 0 0 0 3px rgba(234, 51, 42, 0.14), 0 2px 4px 0 rgba(15, 23, 42, 0.04);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14), 0 2px 4px 0 rgba(15, 23, 42, 0.04);
 }
 
 .input:disabled,
@@ -475,12 +481,12 @@ tr:hover>td.sticky-action-td {
 /* Hỗ trợ dòng được chọn (Selected Row) đồng bộ màu cột cố định */
 tr.is-selected td,
 tr[data-selected="true"] td {
-  background-color: #FEF2F2 !important;
+  background-color: #F0F9FF !important;
 }
 
 tr.is-selected .sticky-action-td,
 tr[data-selected="true"] .sticky-action-td {
-  background-color: #FEF2F2 !important;
+  background-color: #F0F9FF !important;
 }
 
 /* ==========================================================================
@@ -579,7 +585,7 @@ tr[data-selected="true"] .sticky-action-td {
 .col-resizer:active {
   opacity: 1;
   border-right: 2px solid var(--color-primary);
-  background-color: rgba(234, 51, 42, 0.08);
+  background-color: rgba(2, 132, 199, 0.08);
 }
 
 /* HUY HIỆU TRẠNG THÁI (BADGES) */
@@ -684,16 +690,16 @@ tr[data-selected="true"] .sticky-action-td {
 
 .pill-tab-item.active,
 .pill-tab-item-active {
-  background-color: #EA332A !important;
+  background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%) !important;
   color: #FFFFFF !important;
   font-weight: 600 !important;
-  box-shadow: 0 4px 14px 0 rgba(234, 51, 42, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 4px 14px 0 rgba(2, 132, 199, 0.30), inset 0 1px 1px 0 rgba(255, 255, 255, 0.4) !important;
   border: 1px solid rgba(255, 255, 255, 0.3) !important;
 }
 
-/* THẺ ĐIỀU HÀNH VISA NAM KHÁNH ĐẶC QUYỀN (EXECUTIVE CARD) */
+/* THẺ ĐIỀU HÀNH VISA NAM KHÁNH ĐẶC QUYỀN (EXECUTIVE CARD - OCEAN BREEZE) */
 .executive-card {
-  background: linear-gradient(135deg, rgba(234, 51, 42, 0.96) 0%, rgba(220, 38, 38, 0.96) 50%, rgba(185, 28, 28, 0.96) 100%);
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.96) 0%, rgba(3, 105, 161, 0.96) 52%, rgba(30, 64, 175, 0.96) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.35);
@@ -702,13 +708,13 @@ tr[data-selected="true"] .sticky-action-td {
   color: #FFFFFF;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 14px 34px -4px rgba(234, 51, 42, 0.38), inset 0 1px 2px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 14px 34px -4px rgba(2, 132, 199, 0.32), inset 0 1px 2px 0 rgba(255, 255, 255, 0.4);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 .executive-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 18px 40px -4px rgba(234, 51, 42, 0.45), inset 0 1px 2px 0 rgba(255, 255, 255, 0.5);
+  box-shadow: 0 18px 40px -4px rgba(2, 132, 199, 0.38), inset 0 1px 2px 0 rgba(255, 255, 255, 0.5);
 }
 
 .executive-card::before {
@@ -719,7 +725,7 @@ tr[data-selected="true"] .sticky-action-td {
   width: 260px;
   height: 260px;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(249, 187, 18, 0.35) 0%, rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.38) 0%, rgba(255, 255, 255, 0) 70%);
   pointer-events: none;
 }
 
@@ -929,8 +935,8 @@ tr[data-selected="true"] .sticky-action-td {
 }
 
 .customer-modal-container .customer-modal-input:focus {
-  border-color: #EA332A;
-  box-shadow: 0 0 0 3px rgba(234, 51, 42, 0.12);
+  border-color: #0284C7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
 }
 
 .customer-modal-container .customer-modal-input[readonly] {
@@ -1365,3 +1371,170 @@ tr[data-selected="true"] .sticky-action-td {
 .col-customizer-trigger {
   border-radius: 9999px !important;
 }
+
+/* ============================================================
+   ĐỒNG BỘ HỆ MÀU OCEAN BREEZE (XANH DƯƠNG THANH KHIẾT)
+   Tự động chuyển đổi các lớp arbitrary màu chủ đạo cũ (#E53935 / #EA332A)
+   trên giao diện sang sắc Xanh Ocean (#0284C7 / #0EA5E9), trừ vùng mẫu in A4.
+   ============================================================ */
+:not(.a4-page):not(.a4-page *) > .bg-\[\#E53935\],
+:not(.a4-page):not(.a4-page *) > .bg-\[\#EA332A\],
+.bg-\[\#E53935\]:not(.a4-page *),
+.bg-\[\#EA332A\]:not(.a4-page *) {
+  background-color: #0284C7 !important;
+}
+
+.bg-\[\#EA332A\]\/80:not(.a4-page *) {
+  background-color: rgba(14, 165, 233, 0.82) !important;
+}
+
+.hover\:bg-\[\#D32F2F\]:hover:not(.a4-page *),
+.hover\:bg-\[\#EA332A\]:hover:not(.a4-page *),
+.hover\:bg-\[\#d62820\]:hover:not(.a4-page *) {
+  background-color: #0369A1 !important;
+}
+
+.text-\[\#E53935\]:not(.a4-page *):not(.p-3.bg-red-50),
+.text-\[\#EA332A\]:not(.a4-page *):not(.p-3.bg-red-50) {
+  color: #0284C7 !important;
+}
+
+/* Đồng bộ nền nhạt và viền đi kèm với mã màu chủ đạo cũ sang tông Sky/Ocean */
+.bg-red-50.text-\[\#E53935\]:not(.p-3),
+.bg-red-50.text-\[\#EA332A\]:not(.p-3),
+.bg-red-50\/80.text-\[\#E53935\],
+.bg-red-50:has(> .text-\[\#E53935\]):not(.p-3),
+.bg-red-50:has(> .text-\[\#EA332A\]):not(.p-3) {
+  background-color: #F0F9FF !important;
+}
+
+.bg-red-100.text-\[\#E53935\],
+.bg-red-100.text-\[\#EA332A\],
+.bg-red-100:has(> .text-\[\#E53935\]) {
+  background-color: #E0F2FE !important;
+}
+
+.border-red-100.text-\[\#E53935\]:not(.p-3),
+.border-red-100.text-\[\#EA332A\]:not(.p-3),
+.border-red-100:has(> .text-\[\#E53935\]):not(.p-3),
+.border-red-200.text-\[\#E53935\]:not(.p-3),
+.border-red-200.text-\[\#EA332A\]:not(.p-3) {
+  border-color: #BAE6FD !important;
+}
+
+.hover\:bg-red-50:hover.hover\:text-\[\#E53935\],
+.hover\:bg-red-50:hover.hover\:text-\[\#EA332A\],
+.hover\:bg-red-50:hover.text-\[\#EA332A\],
+.hover\:bg-red-100:hover.text-\[\#EA332A\],
+.hover\:bg-red-50\/20:hover.hover\:border-\[\#E53935\] {
+  background-color: #F0F9FF !important;
+}
+
+.hover\:bg-red-700:hover.bg-\[\#E53935\] {
+  background-color: #0369A1 !important;
+}
+
+.hover\:text-\[\#E53935\]:hover:not(.a4-page *),
+.hover\:text-\[\#EA332A\]:hover:not(.a4-page *),
+.hover\:text-\[\#D32F2F\]:hover:not(.a4-page *),
+.hover\:text-\[\#C62828\]:hover:not(.a4-page *) {
+  color: #0369A1 !important;
+}
+
+.border-\[\#E53935\]:not(.a4-page *),
+.border-\[\#EA332A\]:not(.a4-page *) {
+  border-color: #0284C7 !important;
+}
+
+.focus\:border-\[\#E53935\]:focus:not(.a4-page *),
+.focus\:border-\[\#EA332A\]:focus:not(.a4-page *) {
+  border-color: #0284C7 !important;
+}
+
+.focus\:ring-\[\#E53935\]:focus:not(.a4-page *),
+.focus\:ring-\[\#E53935\]\/20:focus:not(.a4-page *) {
+  --tw-ring-color: rgba(2, 132, 199, 0.22) !important;
+}
+
+.fill-\[\#E53935\]:not(.a4-page *) {
+  fill: #0284C7 !important;
+}
+
+/* Đồng bộ icon SVG và inline style dùng mã màu chủ đạo cũ sang Ocean Breeze */
+svg[color="#E53935"]:not(.a4-page *),
+svg[color="#EA332A"]:not(.a4-page *) {
+  color: #0284C7 !important;
+  stroke: #0284C7 !important;
+}
+
+[style*="color: rgb(229, 57, 53)"]:not(.a4-page *),
+[style*="color: rgb(234, 51, 42)"]:not(.a4-page *) {
+  color: #0284C7 !important;
+}
+
+[style*="background-color: rgb(229, 57, 53)"]:not(.a4-page *),
+[style*="background-color: rgb(234, 51, 42)"]:not(.a4-page *),
+[style*="background: rgb(234, 51, 42)"]:not(.a4-page *) {
+  background-color: #0284C7 !important;
+  background: #0284C7 !important;
+}
+
+[style*="background-color: rgb(254, 242, 242)"]:not(.a4-page *) {
+  background-color: #F0F9FF !important;
+}
+
+[style*="border-bottom: 2px solid rgb(229, 57, 53)"]:not(.a4-page *) {
+  border-bottom-color: #0284C7 !important;
+}
+
+[style*="border-left: 4px solid rgb(229, 57, 53)"]:not(.a4-page *),
+[style*="border-left: 4px solid rgb(234, 51, 42)"]:not(.a4-page *) {
+  border-left-color: #0284C7 !important;
+}
+
+[style*="accent-color: rgb(229, 57, 53)"]:not(.a4-page *) {
+  accent-color: #0284C7 !important;
+}
+
+/* ============================================================================
+   PASTEL AURORA MULTI-COLOR HARMONY SYSTEM (TƯƠI MỚI, NĂNG ĐỘNG & NHẸ NHÀNG)
+   Đa dạng hóa sắc thái Pastel trên toàn bộ 20 trang nghiệp vụ
+   ============================================================================ */
+
+/* 1. Khung Header đầu mỗi trang: Nền trắng tinh khiết */
+main > div > div:first-child.bg-white.rounded-3xl,
+main > div > div:first-child.bg-white.rounded-2xl {
+  background: #FFFFFF !important;
+}
+
+/* 2. Cụm 4 Thẻ KPI trên các trang: Giữ nền trắng tinh khiết, viền màu nhẹ nhàng */
+main div.grid.lg\:grid-cols-4 > div.bg-white:nth-child(1),
+main div.grid.md\:grid-cols-4 > div.bg-white:nth-child(1),
+main div.grid.lg\:grid-cols-4 > div.bg-white:nth-child(2),
+main div.grid.md\:grid-cols-4 > div.bg-white:nth-child(2),
+main div.grid.lg\:grid-cols-4 > div.bg-white:nth-child(3),
+main div.grid.md\:grid-cols-4 > div.bg-white:nth-child(3),
+main div.grid.lg\:grid-cols-4 > div.bg-white:nth-child(4),
+main div.grid.md\:grid-cols-4 > div.bg-white:nth-child(4) {
+  background: #FFFFFF !important;
+}
+
+/* 3. Tiêu đề bảng dữ liệu (Table Header): Chuyển sắc Pastel Sky -> Mint -> Lavender dịu mắt */
+main table:not(.a4-page *) thead tr {
+  background: linear-gradient(
+    90deg,
+    rgba(224, 242, 254, 0.55) 0%,
+    rgba(236, 253, 245, 0.50) 50%,
+    rgba(243, 232, 255, 0.48) 100%
+  ) !important;
+}
+
+/* 4. Dòng bảng khi rê chuột (Table Row Hover): Ánh xanh ngọc - dương nhẹ nhàng */
+main table:not(.a4-page *) tbody tr:hover {
+  background: linear-gradient(
+    90deg,
+    rgba(240, 249, 255, 0.72) 0%,
+    rgba(236, 253, 245, 0.55) 100%
+  ) !important;
+}
+

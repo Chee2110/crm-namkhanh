@@ -18,6 +18,7 @@ import {
 import { api } from '../../services/api';
 import { InventoryOverview } from '../../types';
 import { TablePagination } from '../../components/common/TablePagination';
+import { getLowToHighColor, getValueRatio } from '../../utils/chartColors';
 
 export const InventoryOverviewPage: React.FC = () => {
   const [data, setData] = useState<InventoryOverview | null>(null);
@@ -91,13 +92,13 @@ export const InventoryOverviewPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 text-xs font-bold bg-red-50 text-[#EA332A] px-3.5 py-1.5 rounded-full border border-red-100">
+          <div className="flex items-center gap-2 text-xs font-bold bg-sky-50 text-[#0284C7] px-3.5 py-1.5 rounded-full border border-sky-100">
             <WarehouseIcon className="w-4 h-4" />
             <span>Hệ thống {data?.kpis.totalWarehouses || 2} Tổng kho Nam Khánh</span>
           </div>
           <a
             href="#/inbound-receipts"
-            className="flex items-center gap-1.5 text-xs font-bold bg-[#E53935] hover:bg-[#D32F2F] text-white px-3.5 py-1.5 rounded-full transition-colors shadow-sm"
+            className="flex items-center gap-1.5 text-xs font-bold bg-[#0284C7] hover:bg-[#0369A1] text-white px-3.5 py-1.5 rounded-full transition-colors shadow-sm"
           >
             <PackagePlus className="w-4 h-4" />
             <span>Quản lý Nhập kho</span>
@@ -147,7 +148,7 @@ export const InventoryOverviewPage: React.FC = () => {
                     {formatVND(data?.kpis.totalInventoryValue || 0)}
                   </p>
                 </div>
-                <div className="w-11 h-11 rounded-2xl bg-red-50 flex items-center justify-center text-[#EA332A] shadow-xs">
+                <div className="w-11 h-11 rounded-2xl bg-sky-50 flex items-center justify-center text-[#0284C7] shadow-xs">
                   <DollarSign className="w-5 h-5" />
                 </div>
               </div>
@@ -211,7 +212,7 @@ export const InventoryOverviewPage: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-2xl bg-red-50 text-[#EA332A] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-2xl bg-sky-50 text-[#0284C7] flex items-center justify-center">
                       <BarChart3 className="w-4 h-4" />
                     </div>
                     <h3 className="font-extrabold text-slate-900 text-base">
@@ -224,44 +225,52 @@ export const InventoryOverviewPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  {paginatedCategories.map((cat, idx) => {
-                    const colors = [
-                      'bg-rose-500',
-                      'bg-blue-500',
-                      'bg-emerald-500',
-                      'bg-amber-500',
-                      'bg-purple-500'
-                    ];
-                    const globalIdx = (catPage - 1) * catPageSize + idx;
-                    const color = colors[globalIdx % colors.length];
+                  {(() => {
+                    const values = sortedCategories.map((c) => Number(c.value) || 0);
+                    const minVal = values.length ? Math.min(...values) : 0;
+                    const maxVal = values.length ? Math.max(...values) : 0;
 
-                    return (
-                      <div key={cat.code || idx} className="space-y-1">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                            <span className="font-mono text-slate-400">[{cat.code}]</span>
-                            {cat.name}
-                          </span>
-                          <span className="font-extrabold text-slate-900">
-                            {formatVND(cat.value)}{' '}
-                            <span className="text-slate-400 font-normal">({cat.percentage}%)</span>
-                          </span>
+                    return paginatedCategories.map((cat, idx) => {
+                      const ratio = getValueRatio(Number(cat.value) || 0, minVal, maxVal);
+                      const barColor = getLowToHighColor(ratio);
+
+                      return (
+                        <div key={cat.code || idx} className="space-y-1">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full inline-block shrink-0"
+                                style={{ backgroundColor: barColor }}
+                              />
+                              <span className="font-mono text-slate-400">[{cat.code}]</span>
+                              {cat.name}
+                            </span>
+                            <span className="font-extrabold text-slate-900">
+                              {formatVND(cat.value)}{' '}
+                              <span className="font-semibold" style={{ color: barColor }}>
+                                ({cat.percentage}%)
+                              </span>
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              style={{
+                                width: `${Math.max(Math.min(cat.percentage, 100), 3)}%`,
+                                backgroundColor: barColor
+                              }}
+                              className="h-full rounded-full transition-all duration-700"
+                            ></div>
+                          </div>
+                          <div className="flex justify-between text-[11px] text-slate-400">
+                            <span>Số lượng tồn kho:</span>
+                            <span className="font-semibold text-slate-600">
+                              {cat.quantity.toLocaleString('vi-VN')} đơn vị
+                            </span>
+                          </div>
                         </div>
-                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            style={{ width: `${Math.min(cat.percentage, 100)}%` }}
-                            className={`h-full rounded-full ${color} transition-all duration-700`}
-                          ></div>
-                        </div>
-                        <div className="flex justify-between text-[11px] text-slate-400">
-                          <span>Số lượng tồn kho:</span>
-                          <span className="font-semibold text-slate-600">
-                            {cat.quantity.toLocaleString('vi-VN')} đơn vị
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               </div>
 
@@ -285,7 +294,7 @@ export const InventoryOverviewPage: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-2xl bg-red-50 text-[#EA332A] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-2xl bg-sky-50 text-[#0284C7] flex items-center justify-center">
                       <WarehouseIcon className="w-4 h-4" />
                     </div>
                     <h3 className="font-extrabold text-slate-900 text-base">Quy Mô Kho Vật Lý</h3>
@@ -414,7 +423,7 @@ export const InventoryOverviewPage: React.FC = () => {
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-card">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-2xl bg-red-50 text-[#EA332A] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-2xl bg-sky-50 text-[#0284C7] flex items-center justify-center">
                     <TrendingUp className="w-4 h-4" />
                   </div>
                   <h3 className="font-extrabold text-slate-900 text-base">Top 5 Hàng Tồn Giá Trị Cao Nhất</h3>
@@ -429,7 +438,7 @@ export const InventoryOverviewPage: React.FC = () => {
                       <span
                         className={`w-7 h-7 rounded-2xl flex items-center justify-center text-xs font-black shadow-xs ${
                           idx === 0
-                            ? 'bg-red-100 text-[#EA332A]'
+                            ? 'bg-sky-100 text-[#0284C7]'
                             : idx === 1
                             ? 'bg-slate-200 text-slate-700'
                             : 'bg-slate-100 text-slate-600'

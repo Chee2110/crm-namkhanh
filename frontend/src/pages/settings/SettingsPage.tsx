@@ -279,15 +279,15 @@ export const SettingsPage: React.FC = () => {
           <div className="space-y-4 max-w-xl">
             <div className="flex items-center justify-between p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
               <div>
-                <div className="text-sm font-bold text-slate-900">Màu thương hiệu chủ đạo (Hệ 4 màu Logo)</div>
-                <div className="text-xs text-slate-500 mt-0.5">Màu đỏ Nam Khánh (#EA332A) kết hợp Vàng (#F9BB12), Xanh lá (#22BB4E), Xanh dương (#1A7FED)</div>
+                <div className="text-sm font-bold text-slate-900">Phong cách giao diện: Ocean Breeze (Xanh Dương Thanh Khiết)</div>
+                <div className="text-xs text-slate-500 mt-0.5">Xanh Ocean chủ đạo (#0284C7) kết hợp hệ 4 màu Logo Nam Khánh dịu mắt</div>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-[#EA332A] border-2 border-white shadow-xs inline-block" title="Đỏ Nam Khánh" />
-                <span className="w-5 h-5 rounded-full bg-[#F9BB12] border-2 border-white shadow-xs inline-block" title="Vàng Nam Khánh" />
-                <span className="w-5 h-5 rounded-full bg-[#22BB4E] border-2 border-white shadow-xs inline-block" title="Xanh lá Nam Khánh" />
-                <span className="w-5 h-5 rounded-full bg-[#1A7FED] border-2 border-white shadow-xs inline-block" title="Xanh dương Nam Khánh" />
-                <span className="text-xs font-mono font-bold text-slate-700 ml-1">#EA332A</span>
+                <span className="w-5 h-5 rounded-full bg-[#0284C7] border-2 border-white shadow-xs inline-block" title="Xanh Ocean chủ đạo" />
+                <span className="w-5 h-5 rounded-full bg-[#10B981] border-2 border-white shadow-xs inline-block" title="Xanh lá Ngọc" />
+                <span className="w-5 h-5 rounded-full bg-[#F59E0B] border-2 border-white shadow-xs inline-block" title="Vàng nắng dịu" />
+                <span className="w-5 h-5 rounded-full bg-[#EA332A] border-2 border-white shadow-xs inline-block" title="Đỏ Logo Nam Khánh" />
+                <span className="text-xs font-mono font-bold text-[#0284C7] ml-1">#0284C7</span>
               </div>
             </div>
 
