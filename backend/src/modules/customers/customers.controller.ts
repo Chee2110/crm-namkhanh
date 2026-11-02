@@ -43,8 +43,8 @@ export class CustomersController {
       const user = (req as any).user;
       const { name, phone, taxCode, address, deliveryAddress, customerType, source, contactPerson, contactPhone, email, notes, managerId, code, status, creditLimit, maxDebtDays } = req.body;
 
-      if (!name || !phone) {
-        return errorResponse(res, 'Tên khách hàng và Số điện thoại là bắt buộc', 400);
+      if (!name || !String(name).trim()) {
+        return errorResponse(res, 'Tên khách hàng là bắt buộc', 400);
       }
 
       const result = await customersService.createCustomer(

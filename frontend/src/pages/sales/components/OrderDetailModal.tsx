@@ -27,6 +27,7 @@ interface OrderDetailModalProps {
   hasPermission?: (resource: string, action: any) => boolean;
   onExportExcel?: (order: Order) => void;
   onExportDeliveryNote?: (order: Order) => void;
+  initialSheet?: 'ORDER' | 'DELIVERY';
 }
 
 function formatVietnameseDate(dateInput: string | Date | undefined | null): string {
@@ -47,9 +48,10 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   onReturn,
   hasPermission = () => true,
   onExportExcel,
-  onExportDeliveryNote
+  onExportDeliveryNote,
+  initialSheet = 'ORDER'
 }) => {
-  const [activeSheet, setActiveSheet] = useState<'ORDER' | 'DELIVERY'>('ORDER');
+  const [activeSheet, setActiveSheet] = useState<'ORDER' | 'DELIVERY'>(initialSheet);
 
   if (!isOpen || !order) return null;
 
@@ -81,7 +83,20 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   const contactPerson = order.contactPerson || order.customer?.contactPerson || '';
   const phone = order.phone || order.customer?.phone || '';
   const address = order.deliveryAddress || order.customer?.deliveryAddress || order.customer?.address || '';
-  const managerName = order.manager?.fullName || 'Nguyễn Nam Khánh';
+  const repName = order.manager?.fullName || (order as any)?.createdBy?.fullName || 'Nguyễn Thị Hằng';
+  const bbghContact = order.contactPerson || order.customer?.contactPerson || order.phone || order.customer?.phone || '';
+
+  const formatExcelNumber = (val: number | string | undefined | null) => {
+    const num = Number(val) || 0;
+    return new Intl.NumberFormat('vi-VN').format(Math.round(num));
+  };
+
+  const formatExcelQty = (val: number | string | undefined | null) => {
+    const num = Number(val) || 0;
+    return Number.isInteger(num)
+      ? new Intl.NumberFormat('vi-VN').format(num)
+      : new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(num);
+  };
 
   const dInput = order.deliveryDate || order.orderDate;
   const dObj = dInput ? new Date(dInput) : new Date();
@@ -90,7 +105,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   const monthStr = dValid ? (dObj.getMonth() + 1).toString().padStart(2, '0') : '.......';
   const yearStr = dValid ? dObj.getFullYear() : new Date().getFullYear();
 
-  const remaining = Math.max(0, Number(order.totalAmount || 0) - Number(order.paidAmount || 0));
+  const validItems = (order.items || []).filter((item) => Number(item.quantity) > 0);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-1 sm:p-1.5 overflow-hidden">
@@ -217,283 +232,565 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
           </span>
         </div>
 
-        {/* ================= KHUNG HIỂN THỊ DẠNG FORM EXCEL CHUẨN ================= */}
+        {/* ================= KHUNG HIỂN THỊ DẠNG FORM EXCEL CHUẨN (GỌN TRÊN 1 TỜ A4) ================= */}
         <div className="a4-preview bg-slate-200">
           {activeSheet === 'ORDER' ? (
-            /* ================= SHEET 1: ĐƠN HÀNG ================= */
+            /* ================= SHEET 1: ĐƠN HÀNG (GIỐNG HỆT EXCEL - GỌN 1 TRANG A4) ================= */
             <div
               className="excel-sheet"
               id="printable-order"
-              style={{ fontFamily: "'Times New Roman', Times, 'Liberation Serif', serif" }}
+              style={{
+                fontFamily: "'Times New Roman', Times, 'Liberation Serif', serif",
+                color: '#000',
+                padding: '6mm 10mm 6mm'
+              }}
             >
-              {/* Header thông tin công ty Nam Khánh chuẩn y hệt file Excel */}
-              <div className="flex items-center gap-3 pb-1">
-                <div className="w-[110px] flex-shrink-0 flex items-center justify-center">
+              {/* Dòng 1 - 4: Logo (Cột B-C) & Thông tin công ty (Cột B-H / D-H) */}
+              <div style={{ position: 'relative', minHeight: '72px', marginBottom: '2px' }}>
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: '8px',
+                    top: '1px',
+                    width: '68px',
+                    height: '68px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
                   <img
                     src={`data:image/png;base64,${NK_LOGO_BASE64}`}
                     alt="Nam Khánh Logo"
-                    className="w-[105px] h-[78px] object-contain"
+                    style={{ width: '68px', height: '68px', objectFit: 'contain' }}
                   />
                 </div>
-                <div className="flex-1 pr-2">
-                  <h1 className="text-[17px] font-bold text-black uppercase leading-tight tracking-normal text-center mb-1">
-                    CÔNG TY TNHH NK NAM KHÁNH
-                  </h1>
-                  <p className="text-[13px] text-black leading-snug">
-                    Địa chỉ ( Address): Khu X1, Thôn Nguyên Khê - Xã Phúc Thịnh - TP.Hà Nội
-                  </p>
-                  <p className="text-[13px] text-black leading-snug">
-                    Mã số thuế : 0108910572
-                  </p>
-                  <p className="text-[13px] text-black leading-snug">
-                    Số điện thoại : 0766.088.886 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Gmail : phankhanhfj@gmail.com
-                  </p>
+
+                {/* Dòng 1: Merge B1:H1 căn giữa toàn bảng */}
+                <div
+                  style={{
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '12.5pt',
+                    lineHeight: '19pt',
+                    color: '#000'
+                  }}
+                >
+                  CÔNG TY TNHH NK NAM KHÁNH
+                </div>
+
+                {/* Dòng 2 - 4: Cột D trở đi (cách lề trái 19% tương ứng cột B + C) */}
+                <div style={{ paddingLeft: '19%', fontSize: '10.5pt', lineHeight: '14.5pt', color: '#000' }}>
+                  <div>Địa chỉ ( Address): &nbsp;Khu X1, Thôn Nguyên Khê &nbsp;- Xã Phúc Thịnh - TP.Hà Nội</div>
+                  <div>Mã số thuế : 0108910572</div>
+                  <div>Số điện thoại : 0766.088.886 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Gmail : phankhanhfj@gmail.com</div>
                 </div>
               </div>
 
-              {/* Tiêu đề ĐƠN HÀNG */}
-              <div className="text-center mt-2.5 mb-1">
-                <h2 className="text-[19px] font-bold text-black uppercase tracking-wide">
-                  ĐƠN HÀNG
-                </h2>
+              {/* Dòng 5: Tiêu đề ĐƠN HÀNG (Merge D5:G5 căn giữa) */}
+              <div
+                style={{
+                  textAlign: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '13pt',
+                  lineHeight: '17pt',
+                  marginTop: '1px',
+                  color: '#000'
+                }}
+              >
+                ĐƠN HÀNG
               </div>
 
-              {/* Dòng Ngày tháng năm */}
-              <div className="text-center text-[13px] text-black border-b-[1.5px] border-black pb-1 mb-2.5">
+              {/* Dòng 6: Ngày tháng năm (Merge B6:H6, viền gạch dưới medium chuẩn mẫu Excel) */}
+              <div
+                style={{
+                  textAlign: 'center',
+                  fontSize: '10.5pt',
+                  lineHeight: '16pt',
+                  borderBottom: '1.5px solid #000',
+                  marginBottom: '3px',
+                  color: '#000'
+                }}
+              >
                 {formatVietnameseDate(order.orderDate)}
               </div>
 
-              {/* Khối Thông tin khách hàng & Lời mở đầu chuẩn các dòng Excel */}
-              <div className="text-[13px] text-black space-y-1 mb-2.5">
-                <div className="flex items-baseline">
-                  <span className="w-[115px] flex-shrink-0">Kính gửi</span>
-                  <span className="font-bold">: {customerName}</span>
+              {/* Dòng 7 - 12: Thông tin khách hàng & lời mở đầu */}
+              <div style={{ fontSize: '10.5pt', lineHeight: '15pt', color: '#000' }}>
+                {/* Dòng 7: B7:C7 = Kính gửi (19%) | D7:H7 = Tên KH in đậm */}
+                <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                  <span style={{ width: '19%', flexShrink: 0 }}>Kính gửi</span>
+                  <span style={{ fontSize: '10.5pt', fontWeight: 'bold' }}>{customerName}</span>
                 </div>
-                <div className="flex items-baseline">
-                  <span className="w-[115px] flex-shrink-0">Người đại diện</span>
-                  <span>: {contactPerson || '................................'}</span>
-                </div>
-                <div className="flex items-baseline">
-                  <span className="w-[115px] flex-shrink-0">Số điện thoại</span>
-                  <span>: {phone || '................................'}</span>
-                </div>
-                <div className="flex items-baseline">
-                  <span className="w-[115px] flex-shrink-0">Địa chỉ</span>
-                  <span>: {address || '................................'}</span>
-                </div>
-                <div className="flex items-baseline justify-between pt-0.5">
-                  <span>Công ty TNHH NK Nam Khánh xin gửi tới quý Công ty bảng đơn hàng sau</span>
-                  <span className="font-normal italic">Loại tiền: Vnđ</span>
+                {/* Dòng 8: Người đại diện */}
+                <div>Người đại diện : {contactPerson}</div>
+                {/* Dòng 9: Số điện thoại */}
+                <div>Số điện thoại : {phone}</div>
+                {/* Dòng 10: Địa chỉ */}
+                <div>Địa chỉ : {address}</div>
+                {/* Dòng 11: Lời mở đầu */}
+                <div>Công ty TNHH NK Nam Khánh xin gửi tới quý Công ty bảng đơn hàng sau</div>
+                {/* Dòng 12: Loại tiền: Vnđ ở G12:H12 */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1px' }}>
+                  <span style={{ fontSize: '10.5pt', textAlign: 'right', paddingRight: '2px' }}>
+                    Loại tiền: &nbsp;Vnđ
+                  </span>
                 </div>
               </div>
 
-              {/* BẢNG SẢN PHẨM DẠNG EXCEL GRID TABLE */}
-              <table className="excel-table">
+              {/* Dòng 13+: BẢNG HÀNG HÓA CHUẨN EXCEL */}
+              <table
+                className="excel-table"
+                style={{
+                  width: '100%',
+                  tableLayout: 'fixed',
+                  borderCollapse: 'collapse',
+                  fontFamily: "'Times New Roman', Times, serif",
+                  color: '#000'
+                }}
+              >
+                <colgroup>
+                  <col style={{ width: '4.5%' }} />
+                  <col style={{ width: '14.5%' }} />
+                  <col style={{ width: '40.5%' }} />
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '7.5%' }} />
+                  <col style={{ width: '11.5%' }} />
+                  <col style={{ width: '13.5%' }} />
+                </colgroup>
                 <thead>
-                  <tr>
-                    <th style={{ width: '45px', textAlign: 'center' }}>Stt</th>
-                    <th style={{ width: '135px', textAlign: 'center' }}>Mã hàng</th>
-                    <th style={{ textAlign: 'center' }}>Tên hàng hóa, dịch vụ</th>
-                    <th style={{ width: '80px', textAlign: 'center' }}>Đơn vị tính</th>
-                    <th style={{ width: '70px', textAlign: 'center' }}>Số lượng</th>
-                    <th style={{ width: '110px', textAlign: 'center' }}>Đơn giá</th>
-                    <th style={{ width: '130px', textAlign: 'center' }}>Thành tiền</th>
+                  <tr style={{ height: '28px' }}>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 3px' }}>
+                      Stt
+                    </th>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 4px' }}>
+                      Mã hàng
+                    </th>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 4px' }}>
+                      Tên hàng hóa, dịch vụ
+                    </th>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 3px' }}>
+                      Đơn vị tính
+                    </th>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 3px' }}>
+                      Số lượng
+                    </th>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 4px' }}>
+                      Đơn giá
+                    </th>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 4px' }}>
+                      Thành tiền
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {order.items?.filter((item) => Number(item.quantity) > 0).map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="excel-c">{idx + 1}</td>
-                      <td className="excel-c">{item.productCode}</td>
-                      <td className="excel-l">{item.productName}</td>
-                      <td className="excel-c">{item.unit || 'Cái'}</td>
-                      <td className="excel-c">{item.quantity}</td>
-                      <td className="excel-num">{formatVND(Number(item.unitPrice))}</td>
-                      <td className="excel-num">
-                        {formatVND(Number(item.total || Number(item.quantity) * Number(item.unitPrice)))}
-                      </td>
+                  {validItems.length === 0 ? (
+                    <tr style={{ height: '18px' }}>
+                      <td style={{ border: '1.15px solid #000' }}></td>
+                      <td style={{ border: '1.15px solid #000' }}></td>
+                      <td style={{ border: '1.15px solid #000' }}></td>
+                      <td style={{ border: '1.15px solid #000' }}></td>
+                      <td style={{ border: '1.15px solid #000' }}></td>
+                      <td style={{ border: '1.15px solid #000' }}></td>
+                      <td style={{ border: '1.15px solid #000' }}></td>
                     </tr>
-                  ))}
+                  ) : (
+                    validItems.map((item, idx) => {
+                      const lineAmount = Number(item.quantity) * Number(item.unitPrice);
+                      return (
+                        <tr key={idx}>
+                          <td style={{ border: '1.15px solid #000', textAlign: 'center', fontSize: '11pt', padding: '2px 3px' }}>
+                            {idx + 1}
+                          </td>
+                          <td style={{ border: '1.15px solid #000', textAlign: 'center', fontSize: '11pt', padding: '2px 4px', wordBreak: 'break-word' }}>
+                            {item.productCode}
+                          </td>
+                          <td style={{ border: '1.15px solid #000', textAlign: 'left', fontSize: '11pt', padding: '2px 5px', wordBreak: 'break-word' }}>
+                            {item.productName}
+                          </td>
+                          <td style={{ border: '1.15px solid #000', textAlign: 'center', fontSize: '11pt', padding: '2px 3px' }}>
+                            {item.unit || 'Cái'}
+                          </td>
+                          <td style={{ border: '1.15px solid #000', textAlign: 'center', fontSize: '11pt', padding: '2px 3px' }}>
+                            {formatExcelQty(item.quantity)}
+                          </td>
+                          <td style={{ border: '1.15px solid #000', textAlign: 'right', fontSize: '11pt', padding: '2px 5px', whiteSpace: 'nowrap' }}>
+                            {formatExcelNumber(item.unitPrice)}
+                          </td>
+                          <td style={{ border: '1.15px solid #000', textAlign: 'right', fontSize: '11pt', padding: '2px 5px', whiteSpace: 'nowrap' }}>
+                            {formatExcelNumber(lineAmount)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
 
                   {/* Dòng Tổng cộng tiền hàng */}
-                  <tr className="excel-keep font-bold">
-                    <td colSpan={6} className="excel-l font-bold" style={{ paddingLeft: '8px' }}>
+                  <tr className="excel-keep">
+                    <td
+                      colSpan={6}
+                      style={{
+                        border: '1.15px solid #000',
+                        fontSize: '10.5pt',
+                        fontWeight: 'bold',
+                        textAlign: 'left',
+                        padding: '2px 5px'
+                      }}
+                    >
                       Tổng cộng tiền hàng
                     </td>
-                    <td className="excel-num font-bold">
-                      {formatVND(Number(order.subtotal))}
+                    <td
+                      style={{
+                        border: '1.15px solid #000',
+                        fontSize: '10.5pt',
+                        fontWeight: 'bold',
+                        textAlign: 'right',
+                        padding: '2px 5px',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {formatExcelNumber(order.subtotal)}
                     </td>
                   </tr>
 
                   {/* Dòng Thuế VAT */}
-                  <tr className="excel-keep font-bold">
-                    <td colSpan={2} className="excel-l font-bold" style={{ paddingLeft: '8px' }}>
+                  <tr className="excel-keep">
+                    <td
+                      colSpan={2}
+                      style={{
+                        borderTop: '1.15px solid #000',
+                        borderBottom: '1.15px solid #000',
+                        borderLeft: '1.15px solid #000',
+                        borderRight: 'none',
+                        fontSize: '10.5pt',
+                        fontWeight: 'bold',
+                        textAlign: 'left',
+                        padding: '2px 5px'
+                      }}
+                    >
                       Thuế VAT
                     </td>
-                    <td colSpan={4} className="excel-l font-bold">
-                      {order.vatRate}%
+                    <td
+                      colSpan={4}
+                      style={{
+                        borderTop: '1.15px solid #000',
+                        borderBottom: '1.15px solid #000',
+                        borderLeft: 'none',
+                        borderRight: '1.15px solid #000',
+                        fontSize: '10.5pt',
+                        fontWeight: 'bold',
+                        textAlign: 'left',
+                        padding: '2px 5px'
+                      }}
+                    >
+                      {Number(order.vatRate) || 8}%
                     </td>
-                    <td className="excel-num font-bold">
-                      {formatVND(Number(order.vatAmount))}
+                    <td
+                      style={{
+                        border: '1.15px solid #000',
+                        fontSize: '10.5pt',
+                        fontWeight: 'bold',
+                        textAlign: 'right',
+                        padding: '2px 5px',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {formatExcelNumber(order.vatAmount)}
                     </td>
                   </tr>
 
                   {/* Dòng Tổng tiền thanh toán */}
-                  <tr className="excel-keep font-bold">
-                    <td colSpan={6} className="excel-l font-bold" style={{ paddingLeft: '8px' }}>
+                  <tr className="excel-keep">
+                    <td
+                      colSpan={6}
+                      style={{
+                        border: '1.15px solid #000',
+                        fontSize: '10.5pt',
+                        fontWeight: 'bold',
+                        textAlign: 'left',
+                        padding: '2px 5px'
+                      }}
+                    >
                       Tổng tiền thanh toán
                     </td>
-                    <td className="excel-num font-bold">
-                      {formatVND(Number(order.totalAmount))}
+                    <td
+                      style={{
+                        border: '1.15px solid #000',
+                        fontSize: '10.5pt',
+                        fontWeight: 'bold',
+                        textAlign: 'right',
+                        padding: '2px 5px',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {formatExcelNumber(order.totalAmount)}
                     </td>
                   </tr>
 
                   {/* Dòng Bằng chữ */}
-                  <tr className="excel-keep font-bold">
-                    <td colSpan={2} className="excel-l font-bold" style={{ paddingLeft: '8px' }}>
+                  <tr className="excel-keep">
+                    <td
+                      colSpan={2}
+                      style={{
+                        borderTop: '1.15px solid #000',
+                        borderBottom: '1.15px solid #000',
+                        borderLeft: '1.15px solid #000',
+                        borderRight: 'none',
+                        fontSize: '10.5pt',
+                        fontWeight: 'bold',
+                        textAlign: 'left',
+                        padding: '2px 5px'
+                      }}
+                    >
                       Bằng chữ :
                     </td>
-                    <td colSpan={5} className="excel-l font-bold italic">
+                    <td
+                      colSpan={5}
+                      style={{
+                        borderTop: '1.15px solid #000',
+                        borderBottom: '1.15px solid #000',
+                        borderLeft: 'none',
+                        borderRight: '1.15px solid #000',
+                        fontSize: '10.5pt',
+                        fontWeight: 'bold',
+                        textAlign: 'left',
+                        padding: '2px 5px'
+                      }}
+                    >
                       {numberToWords(order.totalAmount)}
-                    </td>
-                  </tr>
-
-                  {/* Dòng Đã thanh toán & Công nợ (Hiển thị rõ ràng chuẩn quản trị) */}
-                  <tr className="excel-keep">
-                    <td colSpan={2} className="excel-l font-bold" style={{ paddingLeft: '8px' }}>
-                      Đã thanh toán (Thực thu):
-                    </td>
-                    <td colSpan={4} className="excel-l font-bold text-emerald-800">
-                      {formatVND(Number(order.paidAmount || 0))}
-                    </td>
-                    <td className="excel-num font-bold text-red-600">
-                      Còn nợ: {formatVND(remaining)}
                     </td>
                   </tr>
                 </tbody>
               </table>
 
-              {/* Ghi chú chuẩn biểu mẫu Excel */}
-              <div className="excel-keep text-[12px] text-black mt-2.5 space-y-0.5">
-                <div className="font-bold">Ghi chú:</div>
-                <div>* Hàng hoá bảo hành theo tiêu chuẩn chính hãng</div>
-                <div>* Đơn giá chưa bao gồm VAT</div>
-                {order.notes && order.notes.trim() && (
-                  <div>* {order.notes.trim()}</div>
-                )}
-              </div>
-
-              {/* Chữ ký 2 bên chuẩn biểu mẫu Excel - BỎ in sẵn họ tên theo yêu cầu */}
-              <div className="excel-keep mt-6 grid grid-cols-2 text-center text-[13px] text-black">
-                <div>
-                  <div className="font-bold uppercase">Xác nhận bên bán hàng</div>
-                  <div className="text-[11px] italic text-gray-700">(Ký, ghi rõ họ tên)</div>
-                  <div className="h-20"></div>
+              {/* Phần Chữ ký 2 bên chuẩn biểu mẫu Excel (gọn trong 1 trang A4) */}
+              <div className="excel-keep" style={{ marginTop: '10px' }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    textAlign: 'center',
+                    fontSize: '11pt',
+                    fontWeight: 'bold',
+                    color: '#000'
+                  }}
+                >
+                  <div>Xác nhận bên bán hàng</div>
+                  <div>Xác nhận bên mua hàng</div>
                 </div>
-                <div>
-                  <div className="font-bold uppercase">Xác nhận bên mua hàng</div>
-                  <div className="text-[11px] italic text-gray-700">(Ký, ghi rõ họ tên)</div>
-                  <div className="h-20"></div>
-                </div>
+                <div style={{ height: '65px' }}></div>
               </div>
             </div>
           ) : (
-            /* ================= SHEET 2: LỆNH XUẤT - BBGH ================= */
+            /* ================= SHEET 2: LỆNH XUẤT - BBGH (GIỐNG HỆT EXCEL - GỌN 1 TRANG A4) ================= */
             <div
               className="excel-sheet"
               id="printable-delivery"
-              style={{ fontFamily: "'Times New Roman', Times, 'Liberation Serif', serif" }}
+              style={{
+                fontFamily: "'Times New Roman', Times, 'Liberation Serif', serif",
+                color: '#000',
+                padding: '6mm 10mm 6mm'
+              }}
             >
-              {/* Quốc hiệu tiêu ngữ */}
-              <div className="text-center pb-2">
-                <div className="font-bold text-[13px] uppercase">
+              {/* 1. Quốc hiệu tiêu ngữ (Dòng 1-2: Merge B1:F1 & B2:F2) */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '11pt', fontWeight: 'bold', lineHeight: '16.5pt' }}>
                   CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
                 </div>
-                <div className="font-bold text-[13px] underline">
+                <div style={{ fontSize: '11pt', fontWeight: 'bold', textDecoration: 'underline', lineHeight: '14pt' }}>
                   Độc lập - Tự do - Hạnh Phúc
                 </div>
               </div>
 
-              {/* Tiêu đề BIÊN BẢN GIAO HÀNG */}
-              <div className="text-center mt-2.5 mb-2">
-                <h2 className="text-[19px] font-bold text-black uppercase tracking-wide">
-                  BIÊN BẢN GIAO HÀNG
-                </h2>
+              {/* 2. Tiêu đề PHIẾU XUẤT KHO KIÊM BIÊN BẢN GIAO HÀNG (Dòng 3: Merge B3:F3) */}
+              <div
+                style={{
+                  textAlign: 'center',
+                  fontSize: '13.5pt',
+                  fontWeight: 'bold',
+                  lineHeight: '22pt',
+                  marginTop: '3px',
+                  marginBottom: '2px'
+                }}
+              >
+                PHIẾU XUẤT KHO KIÊM BIÊN BẢN GIAO HÀNG
               </div>
 
-              {/* Dòng thời gian */}
-              <div className="text-[12.5px] italic text-black mb-2">
-                Hôm nay ngày {dayStr} Tháng {monthStr} Năm {yearStr} tại ….................................................chúng tôi gồm có
+              {/* 3. Thời gian lập biên bản (Dòng 4: Merge B4:F4) */}
+              <div style={{ fontSize: '10.5pt', fontStyle: 'italic', lineHeight: '16.5pt' }}>
+                Hôm nay ngày {dayStr} Tháng {monthStr} Năm {yearStr} chúng tôi gồm có
               </div>
 
-              {/* Khối Bên A & Bên B */}
-              <div className="text-[13px] text-black space-y-1 mb-2.5">
-                <div>
-                  <span className="font-bold">Bên A ( Bên giao hàng) : </span>
-                  <span className="font-bold">Công ty TNHH NK Nam Khánh</span>
+              {/* 4. Bên A & Bên B (Dòng 5 - 14 chuẩn Excel BIEU_MAU_CRM.xlsx) */}
+              <div style={{ color: '#000', marginBottom: '3px' }}>
+                {/* Dòng 5: Bên A (size 12 bold trong Excel) */}
+                <div style={{ fontSize: '10.5pt', fontWeight: 'bold', lineHeight: '15.5pt' }}>
+                  Bên A ( Bên giao hàng) : Công ty TNHH NK Nam Khánh
                 </div>
-                <div>Địa chỉ ( Address): Khu X1, Thôn Nguyên Khê - Xã Phúc Thịnh - TP.Hà Nội</div>
-                <div>MST (Tax code) : 0108910572</div>
-                <div>Số điện thoại ( Tel): 0766.088.886</div>
-                <div>
-                  Đại diện : Ông /Bà: &nbsp;&nbsp;&nbsp;&nbsp;<b>{managerName}</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Chức vụ : <b>Thủ Kho</b>
+                {/* Dòng 6 - 9: Thông tin Bên A (size 14 trong Excel) */}
+                <div style={{ fontSize: '11.5pt', lineHeight: '15.5pt' }}>
+                  Địa chỉ ( Address): &nbsp;Khu X1, Thôn Nguyên Khê &nbsp;- Xã Phúc Thịnh - TP.Hà Nội
+                </div>
+                <div style={{ fontSize: '11.5pt', lineHeight: '15.5pt' }}>
+                  MST (Tax code) : 0108910572
+                </div>
+                <div style={{ fontSize: '11.5pt', lineHeight: '15.5pt' }}>
+                  Số điện thoại ( Tel): 0766.088.886
+                </div>
+                <div style={{ fontSize: '11.5pt', lineHeight: '15.5pt' }}>
+                  Đại diện : Ông /Bà: &nbsp;&nbsp;&nbsp;&nbsp;{repName}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Chức vụ &nbsp;: Thủ Kho
                 </div>
 
-                <div className="pt-1">
-                  <span className="font-bold">Bên B ( Bên nhận hàng) : </span>
-                  <span className="font-bold">{customerName}</span>
+                {/* Dòng 10: Bên B (B10 = Bên B, D10:F10 = Tên KH căn thẳng hàng cột D = 25%) */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    fontSize: '10.5pt',
+                    fontWeight: 'bold',
+                    lineHeight: '16pt',
+                    marginTop: '1px'
+                  }}
+                >
+                  <span style={{ width: '25%', flexShrink: 0 }}>Bên B ( Bên nhận hàng)</span>
+                  <span>{customerName}</span>
                 </div>
-                <div>Địa chỉ : {address || '........................................................................................................................'}</div>
-                <div>Người đại diện: {contactPerson || '..............................................................................................................................'}</div>
-
-                <div className="pt-1 italic">
-                  Hai bên cùng tiến hành giao nhận hàng hóa theo bảng sau:
+                {/* Dòng 11 - 13: Thông tin Bên B (size 12 trong Excel) */}
+                <div style={{ fontSize: '10.5pt', lineHeight: '15pt' }}>
+                  Địa chỉ : {address}
+                </div>
+                <div
+                  style={{
+                    fontSize: '10.5pt',
+                    lineHeight: '15pt',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'clip'
+                  }}
+                >
+                  {bbghContact
+                    ? `Người đại diện: ${bbghContact}`
+                    : 'Người đại diện…..........................................................................................................................................................................................................................'}
+                </div>
+                <div
+                  style={{
+                    fontSize: '10.5pt',
+                    lineHeight: '15pt',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'clip'
+                  }}
+                >
+                  Chức vụ: …....................................................................................................................................................................................................................................
+                </div>
+                {/* Dòng 14: Lời dẫn bàn giao (size 14 trong Excel) */}
+                <div style={{ fontSize: '11.5pt', lineHeight: '16.5pt', marginTop: '1px' }}>
+                  Chúng tôi &nbsp;thống nhất giao và nhận hàng hóa, với quy cách, chủng loại và số lượng như sau:
                 </div>
               </div>
 
-              {/* BẢNG SẢN PHẨM GIAO HÀNG */}
-              <table className="excel-table">
+              {/* 5. BẢNG SẢN PHẨM GIAO HÀNG (5 cột chuẩn Excel: B=5.55, C=21.33, D=54.55, E=13.33, F=14.89) */}
+              <table
+                className="excel-table"
+                style={{
+                  width: '100%',
+                  tableLayout: 'fixed',
+                  borderCollapse: 'collapse',
+                  fontFamily: "'Times New Roman', Times, serif",
+                  color: '#000'
+                }}
+              >
+                <colgroup>
+                  <col style={{ width: '5.5%' }} />
+                  <col style={{ width: '19.5%' }} />
+                  <col style={{ width: '49.5%' }} />
+                  <col style={{ width: '12.0%' }} />
+                  <col style={{ width: '13.5%' }} />
+                </colgroup>
                 <thead>
-                  <tr>
-                    <th style={{ width: '45px', textAlign: 'center' }}>Stt</th>
-                    <th style={{ width: '140px', textAlign: 'center' }}>Mã hàng</th>
-                    <th style={{ textAlign: 'center' }}>Tên hàng hóa, dịch vụ</th>
-                    <th style={{ width: '90px', textAlign: 'center' }}>Đơn vị</th>
-                    <th style={{ width: '90px', textAlign: 'center' }}>Số lượng</th>
-                    <th style={{ width: '130px', textAlign: 'center' }}>Ghi chú</th>
+                  <tr style={{ height: '32px' }}>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 2px' }}>
+                      Stt (Sn)
+                    </th>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 4px' }}>
+                      Mã hàng (Item Code)
+                    </th>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 4px' }}>
+                      <div>Tên hàng hóa, dịch vụ</div>
+                      <div>( Name of goods/service)</div>
+                    </th>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 3px' }}>
+                      Đơn vị (Unit)
+                    </th>
+                    <th style={{ fontSize: '10.5pt', fontWeight: 'bold', textAlign: 'center', border: '1.15px solid #000', padding: '2px 3px' }}>
+                      Số lượng (Amount)
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {order.items?.filter((item) => Number(item.quantity) > 0).map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="excel-c">{idx + 1}</td>
-                      <td className="excel-c">{item.productCode}</td>
-                      <td className="excel-l">{item.productName}</td>
-                      <td className="excel-c">{item.unit || 'Cái'}</td>
-                      <td className="excel-c font-bold">{item.quantity}</td>
-                      <td className="excel-l text-[11px] text-gray-700">Hàng mới 100%</td>
+                  {validItems.length === 0 ? (
+                    <tr style={{ height: '18px' }}>
+                      <td style={{ border: '1.15px solid #000' }}></td>
+                      <td style={{ border: '1.15px solid #000' }}></td>
+                      <td style={{ border: '1.15px solid #000' }}></td>
+                      <td style={{ border: '1.15px solid #000' }}></td>
+                      <td style={{ border: '1.15px solid #000' }}></td>
                     </tr>
-                  ))}
+                  ) : (
+                    validItems.map((item, idx) => (
+                      <tr key={idx}>
+                        <td style={{ border: '1.15px solid #000', textAlign: 'center', fontSize: '11.5pt', padding: '2px 3px' }}>
+                          {idx + 1}
+                        </td>
+                        <td style={{ border: '1.15px solid #000', textAlign: 'center', fontSize: '11.5pt', padding: '2px 4px', wordBreak: 'break-word' }}>
+                          {item.productCode}
+                        </td>
+                        <td style={{ border: '1.15px solid #000', textAlign: 'left', fontSize: '11.5pt', padding: '2px 5px', wordBreak: 'break-word' }}>
+                          {item.productName}
+                        </td>
+                        <td style={{ border: '1.15px solid #000', textAlign: 'center', fontSize: '11.5pt', padding: '2px 3px' }}>
+                          {item.unit || 'Cái'}
+                        </td>
+                        <td style={{ border: '1.15px solid #000', textAlign: 'center', fontSize: '11.5pt', padding: '2px 3px' }}>
+                          {formatExcelQty(item.quantity)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
 
-              {/* Chữ ký 3 bên - BỎ in sẵn họ tên theo yêu cầu */}
-              <div className="excel-keep mt-7 grid grid-cols-3 text-center text-[13px] text-black">
-                <div>
-                  <div className="font-bold uppercase">Đại diện bên nhận hàng</div>
-                  <div className="text-[11px] italic text-gray-700">(Ký, ghi rõ họ tên)</div>
-                  <div className="h-20"></div>
+              {/* 6. Lời cam kết bàn giao chuẩn Excel (size 14 trong Excel) */}
+              <div
+                className="excel-keep"
+                style={{
+                  fontSize: '11.5pt',
+                  lineHeight: '16pt',
+                  marginTop: '4px',
+                  color: '#000'
+                }}
+              >
+                Bên B xác nhận bên A đã giao cho bên B đúng chủng loại và đủ số lượng hàng hóa như trên. Hai bên đồng ý thống nhất ký tên biên bản được lập thành 02 bản có giá trị pháp lý như nhau.
+              </div>
+
+              {/* 7. Chữ ký 4 bên chuẩn BIEU_MAU_CRM.xlsx */}
+              <div className="excel-keep" style={{ marginTop: '10px' }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    textAlign: 'center',
+                    fontSize: '11.5pt',
+                    fontWeight: 'bold',
+                    color: '#000'
+                  }}
+                >
+                  <div>Người &nbsp;lập</div>
+                  <div>Trưởng phòng KD</div>
+                  <div>Bên giao hàng</div>
+                  <div>Bên nhận hàng</div>
                 </div>
-                <div>
-                  <div className="font-bold uppercase">Người giao hàng</div>
-                  <div className="text-[11px] italic text-gray-700">(Ký, ghi rõ họ tên)</div>
-                  <div className="h-20"></div>
-                </div>
-                <div>
-                  <div className="font-bold uppercase">Thủ kho</div>
-                  <div className="text-[11px] italic text-gray-700">(Ký, ghi rõ họ tên)</div>
-                  <div className="h-20"></div>
-                </div>
+                <div style={{ height: '65px' }}></div>
               </div>
             </div>
           )}

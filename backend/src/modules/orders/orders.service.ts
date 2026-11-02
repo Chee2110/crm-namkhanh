@@ -1,27 +1,35 @@
 import { prisma } from '../../config/db';
 
-export async function generateOrderCode(tx?: any): Promise<string> {
+export async function generateOrderCode(tx?: any, dateInput?: Date | string): Promise<string> {
   const client = tx || prisma;
-  const year = new Date().getFullYear();
-  const prefix = `DH-${year}-`;
-  const latestOrder = await client.order.findFirst({
+  const rawDate = dateInput ? new Date(dateInput) : new Date();
+  const targetDate = isNaN(rawDate.getTime()) ? new Date() : rawDate;
+  const yy = String(targetDate.getFullYear()).slice(-2);
+  const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const prefix = `${yy}${mm}`;
+
+  const existingOrders = await client.order.findMany({
     where: { code: { startsWith: prefix } },
-    orderBy: { code: 'desc' },
     select: { code: true }
   });
 
-  let nextSeq = 1;
-  if (latestOrder?.code) {
-    const match = latestOrder.code.match(new RegExp(`^DH-${year}-(\\d+)`));
+  let maxSeq = 0;
+  const regex = new RegExp(`^${prefix}(\\d+)$`);
+  for (const ord of existingOrders) {
+    const match = ord.code?.match(regex);
     if (match) {
-      nextSeq = parseInt(match[1], 10) + 1;
+      const seq = parseInt(match[1], 10);
+      if (!isNaN(seq) && seq > maxSeq) {
+        maxSeq = seq;
+      }
     }
   }
 
-  let code = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+  let nextSeq = maxSeq + 1;
+  let code = `${prefix}${String(nextSeq).padStart(3, '0')}`;
   while (await client.order.findUnique({ where: { code } })) {
     nextSeq++;
-    code = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+    code = `${prefix}${String(nextSeq).padStart(3, '0')}`;
   }
   return code;
 }
@@ -256,7 +264,7 @@ export class OrdersService {
     const customer = await prisma.customer.findUnique({ where: { id: data.customerId } });
     if (!customer) throw new Error('Không tìm thấy khách hàng được chọn');
 
-    const code = await generateOrderCode();
+    const code = await generateOrderCode(undefined, data.orderDate);
 
     let subtotal = 0;
     const computedItems = data.items.map((item) => {

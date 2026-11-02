@@ -432,36 +432,12 @@ export async function exportOrderToExcel(order: Order, fileName?: string) {
   });
   ws.getCell(`H${wordsRowIdx}`).border = { top: { style: 'hair' }, bottom: { style: 'hair' }, right: { style: 'hair' } };
 
-  // --- Ghi chú chuẩn biểu mẫu ---
-  let noteRowIdx = wordsRowIdx + 1;
-  ws.mergeCells(`B${noteRowIdx}:C${noteRowIdx}`);
-  const cNoteTitle = ws.getCell(`B${noteRowIdx}`);
-  cNoteTitle.value = 'Ghi chú:';
-  cNoteTitle.font = { name: 'Times New Roman', size: 11, bold: true };
-  cNoteTitle.alignment = { horizontal: 'left' };
-  ws.getCell(`B${noteRowIdx}`).border = { top: { style: 'hair' } };
-  ws.getCell(`C${noteRowIdx}`).border = { top: { style: 'hair' } };
+  // --- Dòng trống ngăn cách trước phần chữ ký (đã bỏ dòng Ghi chú theo yêu cầu) ---
+  const spacerRowIdx = wordsRowIdx + 1;
+  ws.getRow(spacerRowIdx).height = 16.8;
 
-  const notesList = [
-    '* Hàng hoá bảo hành theo tiêu chuẩn chính hãng',
-    '* Đơn giá chưa bao gồm VAT'
-  ];
-  if (order.notes && order.notes.trim()) {
-    notesList.push(`* ${order.notes.trim()}`);
-  }
-
-  notesList.forEach((n) => {
-    noteRowIdx++;
-    ws.mergeCells(`B${noteRowIdx}:H${noteRowIdx}`);
-    const cell = ws.getCell(`B${noteRowIdx}`);
-    cell.value = n;
-    cell.font = { name: 'Times New Roman', size: 11 };
-    cell.alignment = { horizontal: 'left', vertical: 'middle' };
-    ws.getRow(noteRowIdx).height = 19.05;
-  });
-
-  // --- Phần Chữ ký 2 bên chuẩn Don_Hang_DH-2026-0005_2026-10-17.xlsx ---
-  const signTitleRow = noteRowIdx + 1;
+  // --- Phần Chữ ký 2 bên chuẩn biểu mẫu ---
+  const signTitleRow = spacerRowIdx + 1;
   ws.getRow(signTitleRow).height = 36;
 
   // Bên trái: Xác nhận bên bán hàng
@@ -541,7 +517,7 @@ export function buildDeliveryNoteWorksheet(workbook: ExcelJS.Workbook, order: Or
   // 2. Tiêu đề BBGH
   wsBBGH.mergeCells('B3:F3');
   const bb3 = wsBBGH.getCell('B3');
-  bb3.value = 'BIÊN BẢN GIAO HÀNG';
+  bb3.value = 'PHIẾU XUẤT KHO KIÊM BIÊN BẢN GIAO HÀNG';
   bb3.font = { name: 'Times New Roman', size: 15, bold: true };
   bb3.alignment = { horizontal: 'center', vertical: 'middle' };
   wsBBGH.getRow(3).height = 34.8;
@@ -555,7 +531,7 @@ export function buildDeliveryNoteWorksheet(workbook: ExcelJS.Workbook, order: Or
   const dayStr = dValid ? dObj.getDate().toString().padStart(2, '0') : '........';
   const monthStr = dValid ? (dObj.getMonth() + 1).toString().padStart(2, '0') : '.......';
   const yearStr = dValid ? dObj.getFullYear() : new Date().getFullYear();
-  bb4.value = `Hôm nay ngày ${dayStr} Tháng ${monthStr} Năm ${yearStr} tại ….................................................chúng tôi gồm có `;
+  bb4.value = `Hôm nay ngày ${dayStr} Tháng ${monthStr} Năm ${yearStr} chúng tôi gồm có`;
   bb4.font = { name: 'Times New Roman', size: 12, italic: true };
   bb4.alignment = { horizontal: 'left', vertical: 'middle' };
   wsBBGH.getRow(4).height = 26;

@@ -17,7 +17,9 @@ import {
   ChevronRight,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Calendar,
+  RotateCcw
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -47,7 +49,22 @@ interface DashboardPageProps {
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) => {
   const { user } = useAuth();
-  const [period, setPeriod] = useState<'all' | 'year' | 'month'>('year');
+  const currentYearNum = new Date().getFullYear();
+  const currentMonthNum = new Date().getMonth() + 1;
+
+  const formatDateInput = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const [period, setPeriod] = useState<'all' | 'year' | 'quarter' | 'month' | 'today' | 'custom'>('year');
+  const [startDate, setStartDate] = useState<string>(`${currentYearNum}-01-01`);
+  const [endDate, setEndDate] = useState<string>(`${currentYearNum}-12-31`);
+  const [selectedYear, setSelectedYear] = useState<string>(String(currentYearNum));
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+
   const [activeSubTab, setActiveSubTab] = useState<'revenue' | 'profit'>('revenue');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,16 +81,89 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
   const [revenueVolume, setRevenueVolume] = useState<DashboardRevenueVolume | null>(null);
   const [profitData, setProfitData] = useState<DashboardProfit | null>(null);
 
+  const handleSelectPreset = (nextPeriod: 'all' | 'year' | 'quarter' | 'month' | 'today') => {
+    const now = new Date();
+    setPeriod(nextPeriod);
+    if (nextPeriod === 'all') {
+      setStartDate('');
+      setEndDate('');
+      setSelectedYear('all');
+      setSelectedMonth('all');
+    } else if (nextPeriod === 'year') {
+      const y = now.getFullYear();
+      setStartDate(`${y}-01-01`);
+      setEndDate(`${y}-12-31`);
+      setSelectedYear(String(y));
+      setSelectedMonth('all');
+    } else if (nextPeriod === 'quarter') {
+      const y = now.getFullYear();
+      const q = Math.floor(now.getMonth() / 3);
+      const s = new Date(y, q * 3, 1);
+      const e = new Date(y, q * 3 + 3, 0);
+      setStartDate(formatDateInput(s));
+      setEndDate(formatDateInput(e));
+      setSelectedYear(String(y));
+      setSelectedMonth('all');
+    } else if (nextPeriod === 'month') {
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const s = new Date(y, m, 1);
+      const e = new Date(y, m + 1, 0);
+      setStartDate(formatDateInput(s));
+      setEndDate(formatDateInput(e));
+      setSelectedYear(String(y));
+      setSelectedMonth(String(m + 1));
+    } else if (nextPeriod === 'today') {
+      const todayStr = formatDateInput(now);
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+      setSelectedYear(String(now.getFullYear()));
+      setSelectedMonth(String(now.getMonth() + 1));
+    }
+  };
+
+  const handleYearMonthChange = (yearVal: string, monthVal: string) => {
+    setSelectedYear(yearVal);
+    setSelectedMonth(monthVal);
+    if (yearVal === 'all') {
+      setPeriod('all');
+      setStartDate('');
+      setEndDate('');
+      return;
+    }
+    const y = Number(yearVal);
+    if (monthVal === 'all') {
+      setPeriod(y === currentYearNum ? 'year' : 'custom');
+      setStartDate(`${y}-01-01`);
+      setEndDate(`${y}-12-31`);
+    } else {
+      const m = Number(monthVal);
+      const s = new Date(y, m - 1, 1);
+      const e = new Date(y, m, 0);
+      setPeriod(y === currentYearNum && m === currentMonthNum ? 'month' : 'custom');
+      setStartDate(formatDateInput(s));
+      setEndDate(formatDateInput(e));
+    }
+  };
+
   const loadDashboard = async (isManualRefresh = false) => {
     try {
       if (isManualRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const refreshParam = isManualRefresh ? '&refresh=true' : '';
+      const params = new URLSearchParams();
+      params.set('period', period);
+      if (period !== 'all') {
+        if (startDate) params.set('startDate', startDate);
+        if (endDate) params.set('endDate', endDate);
+      }
+      if (isManualRefresh) params.set('refresh', 'true');
+      const queryStr = params.toString();
+
       const [ovRes, rvRes, pfRes] = await Promise.all([
-        api.get<DashboardExecutiveOverview>(`/dashboard/overview?period=${period}${refreshParam}`),
-        api.get<DashboardRevenueVolume>(`/dashboard/revenue-volume?period=${period}${refreshParam}`),
-        api.get<DashboardProfit>(`/dashboard/profit?period=${period}${refreshParam}`)
+        api.get<DashboardExecutiveOverview>(`/dashboard/overview?${queryStr}`),
+        api.get<DashboardRevenueVolume>(`/dashboard/revenue-volume?${queryStr}`),
+        api.get<DashboardProfit>(`/dashboard/profit?${queryStr}`)
       ]);
 
       setOverview(ovRes.data);
@@ -91,18 +181,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
     setCategoryPage(1);
     setProfitPage(1);
     loadDashboard();
-  }, [period]);
+  }, [period, startDate, endDate]);
 
   const formatVND = (num: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
   };
 
-  const currentYearNum = new Date().getFullYear();
-  const currentMonthNum = new Date().getMonth() + 1;
+  const formatDisplayDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
+  };
 
   const getPeriodText = () => {
+    if (period === 'all') return 'Lũy kế toàn bộ';
+    if (period === 'today') return `Hôm nay (${formatDisplayDate(startDate)})`;
     if (period === 'month') return `Tháng này (Thg ${currentMonthNum}/${currentYearNum})`;
+    if (period === 'quarter') {
+      const q = Math.floor((currentMonthNum - 1) / 3) + 1;
+      return `Quý ${q}/${currentYearNum}`;
+    }
     if (period === 'year') return `Năm nay (${currentYearNum})`;
+    if (startDate && endDate) return `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`;
+    if (startDate) return `Từ ${formatDisplayDate(startDate)}`;
+    if (endDate) return `Đến ${formatDisplayDate(endDate)}`;
     return 'Lũy kế toàn bộ';
   };
 
@@ -158,97 +260,210 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
     return list.slice((profitPage - 1) * PROFIT_PER_PAGE, profitPage * PROFIT_PER_PAGE);
   }, [profitData?.categoryProfits, profitPage]);
 
-  // Các chỉ số tính toán cho 6 thẻ thống kê điều hành
+  // Các chỉ số tính toán cho 5 thẻ thống kê điều hành
   const totalRevenue = overview?.kpis.totalRevenue || 0;
   const totalCogs = overview?.kpis.totalCogs || 0;
-  const profitBeforeTax = overview?.kpis.profitBeforeTax ?? (totalRevenue - totalCogs);
   const totalVat = overview?.kpis.totalVat ?? 0;
-  const profitAfterTax = overview?.kpis.profitAfterTax ?? (profitBeforeTax - totalVat);
+  const revenueBeforeTax = Math.max(0, totalRevenue - totalVat);
+  const profitBeforeTax = overview?.kpis.profitBeforeTax ?? (revenueBeforeTax - totalCogs);
   const totalDebt = overview?.kpis.totalDebt || 0;
 
-  const marginBeforeTax = totalRevenue > 0 ? ((profitBeforeTax / totalRevenue) * 100).toFixed(1) : '0';
-  const marginAfterTax = totalRevenue > 0 ? ((profitAfterTax / totalRevenue) * 100).toFixed(1) : '0';
+  const marginBeforeTax = revenueBeforeTax > 0 ? ((profitBeforeTax / revenueBeforeTax) * 100).toFixed(1) : '0';
 
   return (
     <div className="space-y-6 pb-12">
       {/* ================= HEADER ĐIỀU HÀNH ================= */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#EA332A] animate-pulse"></span>
-            <span className="text-xs font-bold uppercase tracking-wider text-[#EA332A] bg-red-50 px-2.5 py-0.5 rounded-full border border-red-100">
-              Executive Real-Time Dashboard
-            </span>
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#EA332A] animate-pulse"></span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#EA332A] bg-red-50 px-2.5 py-0.5 rounded-full border border-red-100">
+                Executive Real-Time Dashboard
+              </span>
+            </div>
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 mt-1">
+              Dashboard Điều Hành Doanh Nghiệp Nam Khánh
+            </h1>
+            <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+              Tổng hợp dữ liệu kinh doanh, doanh số bán lẻ/đại lý, lợi nhuận gộp và dòng tiền thời gian thực
+            </p>
           </div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-900 mt-1">
-            Dashboard Điều Hành Doanh Nghiệp Nam Khánh
-          </h1>
-          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
-            Tổng hợp dữ liệu kinh doanh, doanh số bán lẻ/đại lý, lợi nhuận gộp và dòng tiền thời gian thực
-          </p>
+
+          {/* Bộ lọc kỳ nhanh và nút thao tác */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <div className="inline-flex flex-wrap bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium">
+              <button
+                id="period-btn-all"
+                type="button"
+                onClick={() => handleSelectPreset('all')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'all'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                  }`}
+              >
+                Lũy kế toàn bộ
+              </button>
+              <button
+                id="period-btn-year"
+                type="button"
+                onClick={() => handleSelectPreset('year')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'year'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                  }`}
+              >
+                Năm nay ({currentYearNum})
+              </button>
+              <button
+                id="period-btn-quarter"
+                type="button"
+                onClick={() => handleSelectPreset('quarter')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'quarter'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                  }`}
+              >
+                Quý này
+              </button>
+              <button
+                id="period-btn-month"
+                type="button"
+                onClick={() => handleSelectPreset('month')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'month'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                  }`}
+              >
+                Tháng này
+              </button>
+              <button
+                id="period-btn-today"
+                type="button"
+                onClick={() => handleSelectPreset('today')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'today'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                  }`}
+              >
+                Hôm nay
+              </button>
+            </div>
+
+            <button
+              onClick={() => loadDashboard(true)}
+              disabled={refreshing}
+              className="btn btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 text-slate-700 hover:text-slate-900"
+              title="Làm mới dữ liệu từ CSDL"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#EA332A]' : ''}`} />
+              <span className="hidden sm:inline">Làm mới</span>
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="btn btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 text-slate-700"
+              title="In báo cáo điều hành"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">In báo cáo</span>
+            </button>
+          </div>
         </div>
 
-        {/* Bộ lọc kỳ và nút thao tác */}
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium">
-            <button
-              id="period-btn-all"
-              type="button"
-              onClick={() => setPeriod('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'all'
-                  ? 'bg-white text-slate-900 font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-                }`}
-            >
-              Lũy kế toàn bộ
-            </button>
-            <button
-              id="period-btn-year"
-              type="button"
-              onClick={() => setPeriod('year')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'year'
-                  ? 'bg-white text-slate-900 font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-                }`}
-            >
-              Năm nay ({currentYearNum})
-            </button>
-            <button
-              id="period-btn-month"
-              type="button"
-              onClick={() => setPeriod('month')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${period === 'month'
-                  ? 'bg-white text-slate-900 font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-                }`}
-            >
-              Tháng này
-            </button>
+        {/* Thanh điều chỉnh thời gian chọn lọc báo cáo */}
+        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs">
+            <div className="flex items-center gap-1.5 text-slate-700 font-bold">
+              <Calendar className="w-4 h-4 text-[#EA332A]" />
+              <span>Chọn thời gian báo cáo:</span>
+            </div>
+
+            {/* Chọn theo Năm / Tháng */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+              <span className="text-slate-500 font-medium">Năm:</span>
+              <select
+                value={selectedYear}
+                onChange={(e) => handleYearMonthChange(e.target.value, selectedMonth)}
+                className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+              >
+                <option value="all">Tất cả</option>
+                {[currentYearNum, currentYearNum - 1, currentYearNum - 2, currentYearNum - 3].map((y) => (
+                  <option key={y} value={String(y)}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+              <span className="text-slate-500 font-medium">Tháng:</span>
+              <select
+                value={selectedMonth}
+                disabled={selectedYear === 'all'}
+                onChange={(e) => handleYearMonthChange(selectedYear, e.target.value)}
+                className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer disabled:opacity-50"
+              >
+                <option value="all">Cả năm</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                  <option key={m} value={String(m)}>
+                    Tháng {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Chọn khoảng thời gian Từ ngày - Đến ngày */}
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1">
+              <span className="text-slate-500 font-medium">Từ ngày:</span>
+              <input
+                type="date"
+                value={startDate}
+                max={endDate || undefined}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setPeriod('custom');
+                }}
+                className="bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#EA332A]"
+              />
+              <span className="text-slate-400 font-bold px-0.5">→</span>
+              <span className="text-slate-500 font-medium">Đến ngày:</span>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setPeriod('custom');
+                }}
+                className="bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#EA332A]"
+              />
+            </div>
+
+            {(period === 'custom' || period === 'today' || period === 'quarter') && (
+              <button
+                type="button"
+                onClick={() => handleSelectPreset('year')}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-[#EA332A] bg-slate-100 hover:bg-red-50 transition-colors cursor-pointer"
+                title="Đặt lại về Năm nay"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Đặt lại</span>
+              </button>
+            )}
           </div>
 
-          <button
-            onClick={() => loadDashboard(true)}
-            disabled={refreshing}
-            className="btn btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 text-slate-700 hover:text-slate-900"
-            title="Làm mới dữ liệu từ CSDL"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#EA332A]' : ''}`} />
-            <span className="hidden sm:inline">Làm mới</span>
-          </button>
-
-          <button
-            onClick={() => window.print()}
-            className="btn btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 text-slate-700"
-            title="In báo cáo điều hành"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">In báo cáo</span>
-          </button>
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-slate-500">Kỳ báo cáo đang xem:</span>
+            <span className="font-bold text-[#EA332A] bg-red-50 border border-red-100 px-2.5 py-1 rounded-full">
+              {getPeriodText()}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* ================= 6 EXECUTIVE STAT CARDS ================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* ================= 5 EXECUTIVE STAT CARDS ================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         {/* 1. Doanh thu */}
         <div
           onClick={() => onNavigateTab?.('sales-overview')}
@@ -263,11 +478,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-lg xl:text-xl font-black text-slate-900 truncate" title={formatVND(totalRevenue)}>
+            <div className="text-lg xl:text-xl font-black text-emerald-600 truncate" title={formatVND(totalRevenue)}>
               {formatVND(totalRevenue)}
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
-              <span className="font-semibold text-slate-700">{overview?.kpis.orderCount || 0}</span> đơn hàng
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 mt-1 font-semibold">
+              <span>{overview?.kpis.orderCount || 0}</span> đơn hàng
             </div>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#EA332A]"></div>
@@ -297,14 +512,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500"></div>
         </div>
 
-        {/* 3. Lợi nhuận trước thuế */}
+        {/* 3. LN trước VAT */}
         <div
           onClick={() => setActiveSubTab('profit')}
           className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-blue-200 transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Lợi nhuận trước thuế">
-              Lợi nhuận trước thuế
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="LN trước VAT">
+              LN trước VAT
             </span>
             <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
               <TrendingUp className="w-4 h-4" />
@@ -345,31 +560,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-500"></div>
         </div>
 
-        {/* 5. Tổng lợi nhuận sau thuế */}
-        <div
-          onClick={() => setActiveSubTab('profit')}
-          className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-emerald-200 transition-all cursor-pointer"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate" title="Tổng lợi nhuận sau thuế">
-              Tổng lợi nhuận sau thuế
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <Sparkles className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className={`text-lg xl:text-xl font-black truncate ${profitAfterTax >= 0 ? 'text-emerald-600' : 'text-red-500'}`} title={formatVND(profitAfterTax)}>
-              {formatVND(profitAfterTax)}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-emerald-600 mt-1 font-semibold">
-              Biên lãi ròng: {marginAfterTax}%
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
-        </div>
-
-        {/* 6. Tổng công nợ */}
+        {/* 5. Tổng công nợ */}
         <div
           onClick={() => onNavigateTab?.('customers')}
           className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden group hover:border-purple-200 transition-all cursor-pointer"
@@ -858,7 +1049,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
                         <th className="py-3 px-4 text-center">Giá Vốn COGS (VNĐ)</th>
                         <th className="py-3 px-4 text-center">Lợi Nhuận Gộp (VNĐ)</th>
                         <th className="py-3 px-4 text-center w-28">Biên Lãi (%)</th>
-                        <th className="py-3 px-4 text-center w-28">Tỷ Trọng (%)</th>
+                        <th className="py-3 px-4 text-center w-28">Tỉ Lệ (%)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">

@@ -347,14 +347,14 @@ td {
 }
 
 /* Ngăn ngừa chữ dài tự do tràn và đè sang các cột lân cận */
-table td,
-table th {
+table:not(.excel-table):not(.a4-table) td,
+table:not(.excel-table):not(.a4-table) th {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .table-th,
-table thead th {
+table:not(.excel-table):not(.a4-table) thead th {
   background-color: #F8FAFC !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -371,17 +371,17 @@ table thead th {
 }
 
 /* CĂN GIỮA TIÊU ĐỀ TẤT CẢ CÁC BẢNG TRÊN TOÀN HỆ THỐNG */
-table thead th,
+table:not(.excel-table):not(.a4-table) thead th,
 .table-th,
 .table thead th,
-table th {
+table:not(.excel-table):not(.a4-table) th {
   position: relative;
   text-align: center !important;
 }
 
-table thead th>div,
+table:not(.excel-table):not(.a4-table) thead th>div,
 .table-th>div,
-table th>div {
+table:not(.excel-table):not(.a4-table) th>div {
   justify-content: center !important;
   text-align: center !important;
 }
@@ -401,9 +401,9 @@ table th.th-left>div {
 }
 
 /* GẠCH NGĂN CÁCH NHỎ VÀ MỎNG GIỮA CÁC CỘT TIÊU ĐỀ BẢNG */
-table thead th:not(:last-child)::after,
+table:not(.excel-table):not(.a4-table) thead th:not(:last-child)::after,
 .table-th:not(:last-child)::after,
-table th:not(:last-child)::after {
+table:not(.excel-table):not(.a4-table) th:not(:last-child)::after {
   content: '';
   position: absolute;
   right: 0;
@@ -438,7 +438,7 @@ th.sticky-action-th::after,
 }
 
 .table-tr:hover .table-td,
-tr:hover>td {
+table:not(.excel-table):not(.a4-table) tr:hover>td {
   background-color: #F8FAFC !important;
   backdrop-filter: none !important;
 }

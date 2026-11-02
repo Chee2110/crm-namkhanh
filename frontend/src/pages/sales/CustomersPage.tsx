@@ -909,7 +909,7 @@ export const CustomersPage: React.FC = () => {
     setFormData({
       code: c.code,
       name: c.name,
-      phone: c.phone,
+      phone: c.phone || '',
       taxCode: c.taxCode || '',
       address: c.address || '',
       deliveryAddress: c.deliveryAddress || '',
@@ -946,10 +946,6 @@ export const CustomersPage: React.FC = () => {
       return;
     }
     const finalPhone = formData.phone.trim() || formData.contactPhone.trim();
-    if (!finalPhone) {
-      setFormError('Vui lòng nhập số điện thoại khách hàng');
-      return;
-    }
     if (phoneWarning || taxWarning) {
       setFormError('Vui lòng kiểm tra lại cảnh báo trùng lặp trước khi lưu');
       return;
@@ -960,6 +956,7 @@ export const CustomersPage: React.FC = () => {
       const submitData = {
         ...formData,
         phone: finalPhone,
+        contactPhone: formData.contactPhone.trim(),
         code: formData.code.trim() || `KH${String(customers.length + 1).padStart(4, '0')}`
       };
       if (editingId) {
@@ -2776,14 +2773,13 @@ export const CustomersPage: React.FC = () => {
                     </div>
 
                     <div className="customer-modal-field">
-                      <label className="customer-modal-label"><span className="req">*</span>Số điện thoại</label>
+                      <label className="customer-modal-label">Số điện thoại</label>
                       <input
                         type="text"
                         className="customer-modal-input"
                         placeholder="Nhập số điện thoại"
                         value={formData.phone}
                         onChange={(e) => handlePhoneChange(e.target.value)}
-                        required
                       />
                       {phoneWarning && (
                         <div className="text-[11px] text-red-600 mt-1 font-medium flex items-start gap-1">
@@ -2857,7 +2853,7 @@ export const CustomersPage: React.FC = () => {
                     </div>
 
                     <div className="customer-modal-field">
-                      <label className="customer-modal-label"><span className="req">*</span>Điện thoại liên hệ</label>
+                      <label className="customer-modal-label">Điện thoại liên hệ</label>
                       <input
                         type="text"
                         className="customer-modal-input"
@@ -3068,8 +3064,8 @@ export const CustomersPage: React.FC = () => {
           [1, '', 'Công ty Cổ phần Tập đoàn FPT', '0101248141', '02473007300', 'Tòa nhà FPT, Phố Duy Tân, Cầu Giấy, Hà Nội', 'Anh Hoàng', '0912345678', 'Số 17 Duy Tân, Cầu Giấy, Hà Nội', users[0]?.fullName || '', 'Doanh nghiệp', 'Tự tìm kiếm'],
           [2, '', 'Trường THCS Lê Quý Đôn', '0102345678', '02438345678', 'Số 66 Nguyễn Văn Huyên, Cầu Giấy, Hà Nội', 'Cô Lan', '0987654321', '', users[0]?.fullName || '', 'Trường học', 'Được giới thiệu']
         ]}
-        requiredFields={['Tên khách hàng', 'Số điện thoại']}
-        fieldMappingHelp="Tên khách hàng, Số điện thoại (bắt buộc). Mã khách hàng để trống sẽ tự sinh (KH00001, KH00002, ...). Địa chỉ giao hàng trống sẽ lấy theo địa chỉ công ty. Người phụ trách: Họ tên / Mã NV / Email (trống = người nhập). Loại khách hàng: Doanh nghiệp / Trường học / Cơ quan - Tổ chức / Hộ kinh doanh / Cá nhân. Nguồn gốc: Tự tìm kiếm / Được giới thiệu / Mạng xã hội - Trang web / Hội thảo - Triển lãm / Khác."
+        requiredFields={['Tên khách hàng']}
+        fieldMappingHelp="Tên khách hàng (bắt buộc). Mã khách hàng để trống sẽ tự sinh (KH00001, KH00002, ...). Địa chỉ giao hàng trống sẽ lấy theo địa chỉ công ty. Người phụ trách: Họ tên / Mã NV / Email (trống = người nhập). Loại khách hàng: Doanh nghiệp / Trường học / Cơ quan - Tổ chức / Hộ kinh doanh / Cá nhân. Nguồn gốc: Tự tìm kiếm / Được giới thiệu / Mạng xã hội - Trang web / Hội thảo - Triển lãm / Khác."
         onImport={handleImportCustomers}
       />
       {/* MODAL IN ĐỐI CHIẾU CÔNG NỢ A4 */}

@@ -14,23 +14,45 @@ export class DashboardService {
     if (key) await cacheService.del(key);
   }
 
-  private getDateRange(period: 'all' | 'year' | 'quarter' | 'month') {
+  private getDateRange(
+    period: 'all' | 'year' | 'quarter' | 'month' | 'today' | 'custom',
+    startDate?: string,
+    endDate?: string
+  ) {
+    if (startDate || endDate) {
+      const range: { gte?: Date; lte?: Date } = {};
+      if (startDate) {
+        const d = new Date(`${startDate}T00:00:00`);
+        if (!isNaN(d.getTime())) range.gte = d;
+      }
+      if (endDate) {
+        const d = new Date(`${endDate}T23:59:59.999`);
+        if (!isNaN(d.getTime())) range.lte = d;
+      }
+      if (range.gte || range.lte) return range;
+    }
+
     const now = new Date();
+    if (period === 'today') {
+      const gte = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      const lte = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return { gte, lte };
+    }
     if (period === 'month') {
       const gte = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lte = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      const lte = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       return { gte, lte };
     }
     if (period === 'quarter') {
       const currentQuarter = Math.floor(now.getMonth() / 3);
       const startMonth = currentQuarter * 3;
       const gte = new Date(now.getFullYear(), startMonth, 1);
-      const lte = new Date(now.getFullYear(), startMonth + 3, 0, 23, 59, 59);
+      const lte = new Date(now.getFullYear(), startMonth + 3, 0, 23, 59, 59, 999);
       return { gte, lte };
     }
     if (period === 'year') {
       const gte = new Date(now.getFullYear(), 0, 1);
-      const lte = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+      const lte = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
       return { gte, lte };
     }
     return undefined; // 'all'
@@ -39,14 +61,19 @@ export class DashboardService {
   // ==============================================================
   // 1. TỔNG QUAN ĐIỀU HÀNH EXECUTIVE OVERVIEW (6 THẺ KPI)
   // ==============================================================
-  async getExecutiveOverview(period: 'all' | 'year' | 'quarter' | 'month' = 'year', refresh = false) {
-    const cacheKey = `dashboard:overview:${period}`;
+  async getExecutiveOverview(
+    period: 'all' | 'year' | 'quarter' | 'month' | 'today' | 'custom' = 'year',
+    refresh = false,
+    startDate?: string,
+    endDate?: string
+  ) {
+    const cacheKey = `dashboard:overview:${period}:${startDate || ''}:${endDate || ''}`;
     if (!refresh) {
       const cached = await this.getCache(cacheKey);
       if (cached) return cached;
     }
 
-    const dateRange = this.getDateRange(period);
+    const dateRange = this.getDateRange(period, startDate, endDate);
     const orderWhere: any = { deliveryStatus: { not: 'CANCELLED' } };
     if (dateRange) {
       orderWhere.orderDate = dateRange;
@@ -90,6 +117,7 @@ export class DashboardService {
       prisma.product.findMany({
         select: {
           id: true,
+          code: true,
           stockQuantity: true,
           minStockLevel: true,
           costPrice: true
@@ -114,16 +142,21 @@ export class DashboardService {
     // 2. Sản lượng bán (Tổng số lượng sản phẩm bán ra)
     const totalVolume = orderItems.reduce((sum, item) => sum + item.quantity, 0);
 
-    // 3. Giá vốn hàng bán (COGS)
+    // 3. Giá vốn hàng bán / Giá nhập (COGS)
+    const productCostByCode = new Map<string, number>();
+    products.forEach((p) => {
+      if (p.code) productCostByCode.set(p.code.trim().toUpperCase(), Number(p.costPrice || 0));
+    });
+
     const totalCogs = orderItems.reduce((sum, item) => {
-      const cost = Number(item.product?.costPrice || 0);
+      const cost =
+        item.product?.costPrice !== undefined && item.product?.costPrice !== null
+          ? Number(item.product.costPrice)
+          : productCostByCode.get(String(item.productCode || '').trim().toUpperCase()) || 0;
       return sum + item.quantity * cost;
     }, 0);
 
-    // 4. Lợi nhuận trước thuế
-    const profitBeforeTax = totalRevenue - totalCogs;
-
-    // 5. Tổng thuế VAT
+    // 4. Tổng thuế VAT
     const totalVat = orders.reduce((sum, o) => {
       const vat = Number(o.vatAmount || 0);
       if (vat > 0) return sum + vat;
@@ -133,12 +166,21 @@ export class DashboardService {
       return sum;
     }, 0);
 
-    // 6. Tổng lợi nhuận sau thuế
-    const profitAfterTax = profitBeforeTax - totalVat;
+    // 5. Giá bán trước thuế & LN trước VAT (LN trước VAT = Giá bán trước thuế - Giá nhập)
+    const totalSellingBeforeTax = orders.reduce((sum, o) => {
+      const sub = Number(o.subtotal || 0);
+      if (sub > 0) return sum + sub;
+      const tot = Number(o.totalAmount || 0);
+      const vat = Number(o.vatAmount || 0);
+      return sum + Math.max(0, tot - vat);
+    }, 0);
 
-    // Lợi nhuận gộp & Biên lợi nhuận
+    const profitBeforeTax = totalSellingBeforeTax - totalCogs;
+    const profitAfterTax = profitBeforeTax;
+
+    // Lợi nhuận gộp & Biên lợi nhuận trước VAT
     const grossProfit = profitBeforeTax;
-    const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+    const grossMargin = totalSellingBeforeTax > 0 ? (grossProfit / totalSellingBeforeTax) * 100 : 0;
 
     // 7. Tổng công nợ phải thu của khách
     const totalDebt = orders.reduce((sum, o) => sum + Number(o.remainingAmount), 0);
@@ -183,18 +225,31 @@ export class DashboardService {
   // ==============================================================
   // 2. [F-D1] DASHBOARD DOANH THU & SẢN LƯỢNG
   // ==============================================================
-  async getRevenueAndVolume(period: 'all' | 'year' | 'quarter' | 'month' = 'year', refresh = false) {
-    const cacheKey = `dashboard:revenue_volume:${period}`;
+  async getRevenueAndVolume(
+    period: 'all' | 'year' | 'quarter' | 'month' | 'today' | 'custom' = 'year',
+    refresh = false,
+    startDate?: string,
+    endDate?: string
+  ) {
+    const cacheKey = `dashboard:revenue_volume:${period}:${startDate || ''}:${endDate || ''}`;
     if (!refresh) {
       const cached = await this.getCache(cacheKey);
       if (cached) return cached;
     }
 
-    const dateRange = this.getDateRange(period);
+    const dateRange = this.getDateRange(period, startDate, endDate);
     const orderWhere: any = { deliveryStatus: { not: 'CANCELLED' } };
     if (dateRange) {
       orderWhere.orderDate = dateRange;
     }
+
+    const chartOrderDateRange =
+      (startDate || endDate) && dateRange
+        ? dateRange
+        : {
+            gte: new Date(new Date().getFullYear(), 0, 1),
+            lte: new Date(new Date().getFullYear(), 11, 31, 23, 59, 59, 999)
+          };
 
     const [categories, orderItems, allOrdersInYear, customers] = await Promise.all([
       // Danh mục sản phẩm cấp 1
@@ -210,14 +265,11 @@ export class DashboardService {
           }
         }
       }),
-      // Tất cả đơn hàng trong năm để vẽ biểu đồ 12 tháng
+      // Tất cả đơn hàng trong năm / khoảng thời gian để vẽ biểu đồ 12 tháng
       prisma.order.findMany({
         where: {
           deliveryStatus: { not: 'CANCELLED' },
-          orderDate: {
-            gte: new Date(new Date().getFullYear(), 0, 1),
-            lte: new Date(new Date().getFullYear(), 11, 31, 23, 59, 59)
-          }
+          orderDate: chartOrderDateRange
         },
         select: {
           id: true,
@@ -376,14 +428,19 @@ export class DashboardService {
   // ==============================================================
   // 3. [F-D2] DASHBOARD LỢI NHUẬN GỘP (PROFIT DASHBOARD)
   // ==============================================================
-  async getProfitDashboard(period: 'all' | 'year' | 'quarter' | 'month' = 'year', refresh = false) {
-    const cacheKey = `dashboard:profit:${period}`;
+  async getProfitDashboard(
+    period: 'all' | 'year' | 'quarter' | 'month' | 'today' | 'custom' = 'year',
+    refresh = false,
+    startDate?: string,
+    endDate?: string
+  ) {
+    const cacheKey = `dashboard:profit:${period}:${startDate || ''}:${endDate || ''}`;
     if (!refresh) {
       const cached = await this.getCache(cacheKey);
       if (cached) return cached;
     }
 
-    const dateRange = this.getDateRange(period);
+    const dateRange = this.getDateRange(period, startDate, endDate);
     const orderWhere: any = { deliveryStatus: { not: 'CANCELLED' } };
     if (dateRange) {
       orderWhere.orderDate = dateRange;
@@ -436,7 +493,7 @@ export class DashboardService {
 
     orderItems.forEach((item) => {
       const catId = item.product?.categoryId;
-      const rev = Number(item.total);
+      const rev = Number(item.amount) || (item.quantity * Number(item.unitPrice || 0));
       const cogs = item.quantity * Number(item.product?.costPrice || 0);
 
       if (catId && categoryProfitMap[catId]) {

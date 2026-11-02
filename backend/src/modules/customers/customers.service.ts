@@ -233,7 +233,7 @@ export class CustomersService {
     data: {
       code?: string;
       name: string;
-      phone: string;
+      phone?: string;
       taxCode?: string;
       address?: string;
       deliveryAddress?: string;
@@ -250,22 +250,28 @@ export class CustomersService {
     },
     creatorId: string
   ) {
-    // 1. Kiểm tra trùng SĐT
-    const existPhone = await prisma.customer.findUnique({ where: { phone: data.phone } });
-    if (existPhone) {
-      throw new Error(`Số điện thoại [${data.phone}] đã tồn tại cho khách hàng "${existPhone.name}" (${existPhone.code})`);
+    const cleanPhone = data.phone ? String(data.phone).trim() : '';
+    const cleanContactPhone = data.contactPhone ? String(data.contactPhone).trim() : '';
+
+    // 1. Kiểm tra trùng SĐT (chỉ kiểm tra khi có nhập SĐT)
+    if (cleanPhone) {
+      const existPhone = await prisma.customer.findUnique({ where: { phone: cleanPhone } });
+      if (existPhone) {
+        throw new Error(`Số điện thoại [${cleanPhone}] đã tồn tại cho khách hàng "${existPhone.name}" (${existPhone.code})`);
+      }
     }
 
     // 2. Kiểm tra trùng Mã số thuế
-    if (data.taxCode) {
-      const existTax = await prisma.customer.findUnique({ where: { taxCode: data.taxCode } });
+    const cleanTaxCode = data.taxCode ? String(data.taxCode).trim() : '';
+    if (cleanTaxCode) {
+      const existTax = await prisma.customer.findUnique({ where: { taxCode: cleanTaxCode } });
       if (existTax) {
-        throw new Error(`Mã số thuế [${data.taxCode}] đã tồn tại cho khách hàng "${existTax.name}" (${existTax.code})`);
+        throw new Error(`Mã số thuế [${cleanTaxCode}] đã tồn tại cho khách hàng "${existTax.name}" (${existTax.code})`);
       }
     }
 
     // Tự sinh mã KH nếu chưa có
-    let code = data.code;
+    let code = data.code ? String(data.code).trim() : '';
     if (!code) {
       const count = await prisma.customer.count();
       code = `KH${String(count + 1).padStart(4, '0')}`;
@@ -275,14 +281,14 @@ export class CustomersService {
       data: {
         code,
         name: data.name,
-        phone: data.phone,
-        taxCode: data.taxCode || null,
+        phone: (cleanPhone || null) as any,
+        taxCode: cleanTaxCode || null,
         address: data.address,
         deliveryAddress: data.deliveryAddress || data.address,
         customerType: data.customerType || 'ENTERPRISE',
         source: data.source || 'SELF_FOUND',
         contactPerson: data.contactPerson,
-        contactPhone: data.contactPhone || null,
+        contactPhone: cleanContactPhone || null,
         email: data.email,
         notes: data.notes,
         managerId: data.managerId || creatorId,
@@ -319,19 +325,21 @@ export class CustomersService {
     const customer = await prisma.customer.findUnique({ where: { id } });
     if (!customer) throw new Error('Không tìm thấy khách hàng');
 
-    // Kiểm tra trùng SĐT nếu thay đổi
-    if (data.phone && data.phone !== customer.phone) {
-      const existPhone = await prisma.customer.findUnique({ where: { phone: data.phone } });
-      if (existPhone) {
-        throw new Error(`Số điện thoại [${data.phone}] đã tồn tại cho khách hàng "${existPhone.name}"`);
+    // Kiểm tra trùng SĐT nếu thay đổi và có giá trị
+    const nextPhone = data.phone !== undefined ? String(data.phone || '').trim() : undefined;
+    if (nextPhone && nextPhone !== customer.phone) {
+      const existPhone = await prisma.customer.findUnique({ where: { phone: nextPhone } });
+      if (existPhone && existPhone.id !== id) {
+        throw new Error(`Số điện thoại [${nextPhone}] đã tồn tại cho khách hàng "${existPhone.name}"`);
       }
     }
 
     // Kiểm tra trùng MST nếu thay đổi
-    if (data.taxCode && data.taxCode !== customer.taxCode) {
-      const existTax = await prisma.customer.findUnique({ where: { taxCode: data.taxCode } });
-      if (existTax) {
-        throw new Error(`Mã số thuế [${data.taxCode}] đã tồn tại cho khách hàng "${existTax.name}"`);
+    const nextTaxCode = data.taxCode !== undefined ? String(data.taxCode || '').trim() : undefined;
+    if (nextTaxCode && nextTaxCode !== customer.taxCode) {
+      const existTax = await prisma.customer.findUnique({ where: { taxCode: nextTaxCode } });
+      if (existTax && existTax.id !== id) {
+        throw new Error(`Mã số thuế [${nextTaxCode}] đã tồn tại cho khách hàng "${existTax.name}"`);
       }
     }
 
@@ -343,6 +351,14 @@ export class CustomersService {
     const updateData: any = {};
     for (const key of allowedFields) {
       if (data[key] !== undefined) updateData[key] = data[key];
+    }
+    if (updateData.phone !== undefined) {
+      const p = String(updateData.phone || '').trim();
+      updateData.phone = p ? p : null;
+    }
+    if (updateData.contactPhone !== undefined) {
+      const cp = String(updateData.contactPhone || '').trim();
+      updateData.contactPhone = cp ? cp : null;
     }
     if (updateData.taxCode === '') updateData.taxCode = null;
     if (updateData.managerId === '') updateData.managerId = null;
@@ -443,8 +459,7 @@ export class CustomersService {
 
         const contactPhone = normalizePhone(r.contactPhone);
         const phone = normalizePhone(r.phone) || contactPhone;
-        if (!phone) throw new Error('Thiếu Số điện thoại');
-        if (phoneOwner.has(phone)) {
+        if (phone && phoneOwner.has(phone)) {
           throw new Error(`SĐT [${phone}] đã tồn tại cho khách hàng "${phoneOwner.get(phone)}"`);
         }
 
@@ -500,7 +515,7 @@ export class CustomersService {
           data: {
             code,
             name,
-            phone,
+            phone: (phone || null) as any,
             taxCode: taxCode || null,
             address: address || null,
             deliveryAddress: deliveryAddress || null,
@@ -513,7 +528,7 @@ export class CustomersService {
           }
         });
 
-        phoneOwner.set(phone, `${name} (${code})`);
+        if (phone) phoneOwner.set(phone, `${name} (${code})`);
         if (taxCode) taxOwner.set(taxCode, `${name} (${code})`);
         created.push({ rowNumber, code, name });
       } catch (err: any) {

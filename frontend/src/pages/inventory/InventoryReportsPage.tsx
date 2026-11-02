@@ -143,7 +143,7 @@ export const InventoryReportsPage: React.FC = () => {
     let rows: string[][] = [];
 
     if (activeTab === 'category') {
-      headers = ['STT', 'Mã Danh Mục', 'Tên Danh Mục', 'Số Lượng Tồn', 'Tổng Giá Trị Tồn (VND)', 'Tỷ Trọng (%)'];
+      headers = ['STT', 'Mã Danh Mục', 'Tên Danh Mục', 'Số Lượng Tồn', 'Tổng Giá Trị Tồn (VND)', 'Tỉ Lệ (%)'];
       rows = filteredItems.map((item, idx) => [
         String(idx + 1),
         `"${item.code}"`,
@@ -153,7 +153,7 @@ export const InventoryReportsPage: React.FC = () => {
         `"${item.percentage}%"`
       ]);
     } else if (activeTab === 'type') {
-      headers = ['STT', 'Mã Loại', 'Tên Loại Hàng', 'Thuộc Danh Mục', 'ĐVT Chuẩn', 'Số Lượng Tồn', 'Tổng Giá Trị Tồn (VND)', 'Tỷ Trọng (%)'];
+      headers = ['STT', 'Mã Loại', 'Tên Loại Hàng', 'Thuộc Danh Mục', 'ĐVT Chuẩn', 'Số Lượng Tồn', 'Tổng Giá Trị Tồn (VND)', 'Tỉ Lệ (%)'];
       rows = filteredItems.map((item, idx) => [
         String(idx + 1),
         `"${item.code}"`,
@@ -165,7 +165,7 @@ export const InventoryReportsPage: React.FC = () => {
         `"${item.percentage}%"`
       ]);
     } else {
-      headers = ['STT', 'Mã SKU', 'Mã Vạch Barcode', 'Tên Sản Phẩm', 'Danh Mục', 'Loại Hàng', 'Kho Lưu Trữ', 'ĐVT', 'Tồn Kho', 'Định Mức Tối Thiểu', 'Giá Nhập Bình Quân (VND)', 'Tổng Giá Trị Tồn (VND)', 'Tỷ Trọng (%)', 'Trạng Thái'];
+      headers = ['STT', 'Mã SKU', 'Mã Vạch Barcode', 'Tên Sản Phẩm', 'Danh Mục', 'Loại Hàng', 'Kho Lưu Trữ', 'ĐVT', 'Tồn Kho', 'Định Mức Tối Thiểu', 'Giá Nhập Bình Quân (VND)', 'Tổng Giá Trị Tồn (VND)', 'Tỉ Lệ (%)', 'Trạng Thái'];
       rows = filteredItems.map((item, idx) => [
         String(idx + 1),
         `"${item.code}"`,
@@ -342,7 +342,7 @@ export const InventoryReportsPage: React.FC = () => {
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500">Tỷ Trọng Hiển Thị</p>
+              <p className="text-xs font-medium text-gray-500">Tỉ Lệ Hiển Thị</p>
               <p className="text-base lg:text-lg font-bold text-emerald-700 leading-tight mt-0.5">
                 {reportData.totalInventoryValue > 0
                   ? ((totalDisplayValue / reportData.totalInventoryValue) * 100).toFixed(1)
@@ -449,7 +449,7 @@ export const InventoryReportsPage: React.FC = () => {
                       <th className="py-3 px-4">Tên Danh Mục Hàng Hóa</th>
                       <th className="py-3 px-4 text-center">Tổng SL Tồn</th>
                       <th className="py-3 px-4 text-center">Giá Trị Tồn (VND)</th>
-                      <th className="py-3 px-4 text-center w-36">Tỷ Trọng (%)</th>
+                      <th className="py-3 px-4 text-center w-36">Tỉ Lệ (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700">
@@ -508,7 +508,7 @@ export const InventoryReportsPage: React.FC = () => {
                       <th className="py-3 px-4 w-20 text-center">ĐVT</th>
                       <th className="py-3 px-4 text-center">SL Tồn</th>
                       <th className="py-3 px-4 text-center">Giá Trị Tồn (VND)</th>
-                      <th className="py-3 px-4 text-center w-36">Tỷ Trọng (%)</th>
+                      <th className="py-3 px-4 text-center w-36">Tỉ Lệ (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700">

@@ -744,7 +744,7 @@ export interface DashboardExecutiveKPIs {
 }
 
 export interface DashboardExecutiveOverview {
-  period: 'all' | 'year' | 'quarter' | 'month';
+  period: 'all' | 'year' | 'quarter' | 'month' | 'today' | 'custom';
   kpis: DashboardExecutiveKPIs;
   updatedAt: string;
 }
@@ -789,7 +789,7 @@ export interface TopCustomerStat {
 }
 
 export interface DashboardRevenueVolume {
-  period: 'all' | 'year' | 'quarter' | 'month';
+  period: 'all' | 'year' | 'quarter' | 'month' | 'today' | 'custom';
   totals: {
     revenue: number;
     volume: number;
@@ -821,7 +821,7 @@ export interface ProfitSummary {
 }
 
 export interface DashboardProfit {
-  period: 'all' | 'year' | 'quarter' | 'month';
+  period: 'all' | 'year' | 'quarter' | 'month' | 'today' | 'custom';
   summary: ProfitSummary;
   categoryProfits: CategoryProfit[];
   updatedAt: string;

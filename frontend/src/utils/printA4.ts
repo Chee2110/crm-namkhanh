@@ -19,7 +19,7 @@ export async function printA4(elementId: string, documentTitle?: string): Promis
 
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
-  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;z-index:-1;';
   document.body.appendChild(iframe);
 
   const win = iframe.contentWindow;
@@ -41,7 +41,7 @@ export async function printA4(elementId: string, documentTitle?: string): Promis
     `<!DOCTYPE html><html lang="vi" class="a4-print-doc"><head><meta charset="utf-8" />` +
       `<base href="${window.location.origin}/" /><title>${title}</title>${styles}` +
       `<style>
-        @page { size: A4 portrait; margin: 8mm 10mm; }
+        @page { size: A4 portrait; margin: 6mm 8mm; }
         body, body * { font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important; color: #000000 !important; }
         table { border-collapse: collapse !important; }
       </style></head>` +
@@ -65,6 +65,20 @@ export async function printA4(elementId: string, documentTitle?: string): Promis
   );
   if ((doc as any).fonts?.ready) {
     await waitWithTimeout((doc as any).fonts.ready, 1500);
+  }
+
+  // Tự động co giãn vừa khít 1 trang A4 (tương đương Fit to 1 page wide by 1 page tall của Excel)
+  const sheetEl = doc.body.firstElementChild as HTMLElement | null;
+  if (sheetEl) {
+    sheetEl.style.padding = '0';
+    sheetEl.style.margin = '0';
+    sheetEl.style.width = '100%';
+    const maxSinglePageHeightPx = 1030; // ~285mm vùng in khả dụng của khổ A4 đứng
+    const currentHeight = sheetEl.scrollHeight || doc.body.scrollHeight;
+    if (currentHeight > maxSinglePageHeightPx && currentHeight <= 1700) {
+      const fitScale = Math.max(0.62, Math.floor((maxSinglePageHeightPx / currentHeight) * 1000) / 1000);
+      (sheetEl.style as any).zoom = String(fitScale);
+    }
   }
 
   const cleanup = () => setTimeout(() => iframe.remove(), 500);

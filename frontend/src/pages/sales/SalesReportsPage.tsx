@@ -368,7 +368,7 @@ export const SalesReportsPage: React.FC = () => {
                       <th className="py-3 px-4 w-32 text-center">Số lượng bán</th>
                     )}
                     <th className="py-3 px-4 w-44 text-center">Doanh thu (VNĐ)</th>
-                    <th className="py-3 px-4 w-56 text-center">Tỷ trọng (%)</th>
+                    <th className="py-3 px-4 w-56 text-center">Tỉ lệ (%)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
