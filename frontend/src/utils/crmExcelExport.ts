@@ -468,7 +468,7 @@ export async function exportOrderToExcel(order: Order, fileName?: string) {
   buildDeliveryNoteWorksheet(workbook, order);
 
   // Tải file về máy
-  const finalFileName = fileName || `Don_Hang_${order.code}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const finalFileName = fileName || `${order.code}.xlsx`;
   await saveWorkbook(workbook, finalFileName);
 }
 
@@ -725,7 +725,7 @@ export async function exportDeliveryNoteToExcel(order: Order, fileName?: string)
 
   buildDeliveryNoteWorksheet(workbook, order);
 
-  const finalFileName = fileName || `Bien_Ban_Giao_Hang_${order.code}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const finalFileName = fileName || `${order.code}.xlsx`;
   await saveWorkbook(workbook, finalFileName);
 }
 

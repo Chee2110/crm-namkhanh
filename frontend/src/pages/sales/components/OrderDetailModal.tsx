@@ -57,9 +57,9 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
 
   const handlePrint = () => {
     if (activeSheet === 'ORDER') {
-      printA4('printable-order', `Don_Hang_${order.code}`);
+      printA4('printable-order', `${order.code}`);
     } else {
-      printA4('printable-delivery', `BBGH_${order.code}`);
+      printA4('printable-delivery', `${order.code}`);
     }
   };
 
