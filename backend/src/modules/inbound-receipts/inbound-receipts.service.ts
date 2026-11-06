@@ -135,26 +135,7 @@ export class InboundReceiptsService {
         createdBy: { select: { id: true, fullName: true, code: true } },
         checkedBy: { select: { id: true, fullName: true, code: true } },
         approvedBy: { select: { id: true, fullName: true, code: true } },
-        items: {
-          select: {
-            id: true,
-            productId: true,
-            productCode: true,
-            productName: true,
-            unit: true,
-            expectedQuantity: true,
-            actualQuantity: true,
-            acceptedQuantity: true,
-            rejectedQuantity: true,
-            unitPrice: true,
-            amount: true,
-            batchNumber: true,
-            expiryDate: true,
-            locationArea: true,
-            locationRack: true,
-            qualityStatus: true
-          }
-        },
+        items: true,
         _count: {
           select: { items: true, history: true }
         }
@@ -380,7 +361,7 @@ export class InboundReceiptsService {
   }
 
   /**
-   * Cập nhật thông tin phiếu nhập kho (chỉ áp dụng khi DRAFT, CHECKING, hoặc REJECTED)
+   * Cập nhật thông tin phiếu nhập kho (hỗ trợ tất cả trạng thái; nếu đã APPROVED sẽ tự động đồng bộ lại tồn kho theo chênh lệch)
    */
   async updateReceipt(id: string, data: Partial<CreateInboundReceiptDTO>, currentUserId: string) {
     const existing = await prisma.inboundReceipt.findUnique({
@@ -392,15 +373,14 @@ export class InboundReceiptsService {
       throw new Error(`Không tìm thấy phiếu nhập kho với ID: ${id}`);
     }
 
-    if (existing.status === 'APPROVED') {
-      throw new Error('Phiếu nhập kho đã được phê duyệt và cập nhật vào tồn kho, không thể chỉnh sửa trực tiếp');
-    }
-
-    if (existing.status === 'CANCELLED') {
-      throw new Error('Phiếu nhập kho đã bị hủy, không thể chỉnh sửa');
-    }
-
     const updateData: any = {};
+    if (data.code && data.code.trim() && data.code.trim() !== existing.code) {
+      const duplicate = await prisma.inboundReceipt.findUnique({ where: { code: data.code.trim() } });
+      if (duplicate) {
+        throw new Error(`Mã phiếu nhập kho "${data.code.trim()}" đã tồn tại trên hệ thống`);
+      }
+      updateData.code = data.code.trim();
+    }
     if (data.receiptDate) updateData.receiptDate = new Date(data.receiptDate);
     if (data.type) updateData.type = data.type;
     if (data.warehouseId) updateData.warehouseId = data.warehouseId;
@@ -412,10 +392,38 @@ export class InboundReceiptsService {
     if (data.fileUrl !== undefined) updateData.fileUrl = data.fileUrl;
     if (data.fileName !== undefined) updateData.fileName = data.fileName;
 
+    // Giữ nguyên trạng thái APPROVED nếu phiếu đã duyệt (trừ khi truyền trạng thái cụ thể)
+    const targetStatus = existing.status === 'APPROVED' ? 'APPROVED' : (data.status || existing.status);
+    updateData.status = targetStatus;
+
     return await prisma.$transaction(async (tx) => {
       // Nếu có cập nhật danh sách mặt hàng
       if (data.items && Array.isArray(data.items)) {
-        // Xóa items cũ và tạo items mới
+        // 1. Nếu phiếu cũ đã ở trạng thái APPROVED, hoàn tác số lượng tồn kho cũ trước khi áp danh sách mới
+        if (existing.status === 'APPROVED') {
+          for (const oldItem of existing.items) {
+            const oldQty = oldItem.acceptedQuantity > 0 ? oldItem.acceptedQuantity : oldItem.actualQuantity;
+            if (oldQty > 0) {
+              const oldProd = oldItem.productId
+                ? await tx.product.findUnique({ where: { id: oldItem.productId } })
+                : (oldItem.productCode && oldItem.productCode !== 'N/A'
+                    ? await tx.product.findUnique({ where: { code: oldItem.productCode } })
+                    : null);
+              if (oldProd) {
+                await tx.product.update({
+                  where: { id: oldProd.id },
+                  data: {
+                    stockQuantity: {
+                      decrement: oldQty
+                    }
+                  }
+                });
+              }
+            }
+          }
+        }
+
+        // 2. Xóa items cũ và tạo items mới
         await tx.inboundReceiptItem.deleteMany({ where: { receiptId: id } });
 
         let subtotal = 0;
@@ -428,7 +436,7 @@ export class InboundReceiptsService {
 
         let existingProductsByCode: Record<string, string> = {};
         if (productCodesToMatch.length > 0) {
-          const foundProds = await prisma.product.findMany({
+          const foundProds = await tx.product.findMany({
             where: { code: { in: productCodesToMatch } },
             select: { id: true, code: true }
           });
@@ -482,6 +490,30 @@ export class InboundReceiptsService {
 
         await tx.inboundReceiptItem.createMany({ data: formattedItems });
 
+        // 3. Nếu trạng thái là APPROVED, cộng số lượng mới vào tồn kho
+        if (targetStatus === 'APPROVED') {
+          for (const newItem of formattedItems) {
+            const newQty = newItem.acceptedQuantity > 0 ? newItem.acceptedQuantity : newItem.actualQuantity;
+            if (newQty > 0) {
+              const newProd = newItem.productId
+                ? await tx.product.findUnique({ where: { id: newItem.productId } })
+                : (newItem.productCode && newItem.productCode !== 'N/A'
+                    ? await tx.product.findUnique({ where: { code: newItem.productCode } })
+                    : null);
+              if (newProd) {
+                await tx.product.update({
+                  where: { id: newProd.id },
+                  data: {
+                    stockQuantity: {
+                      increment: newQty
+                    }
+                  }
+                });
+              }
+            }
+          }
+        }
+
         const vatAmount = (subtotal * vatRate) / 100;
         const totalAmount = subtotal + vatAmount;
 
@@ -507,7 +539,7 @@ export class InboundReceiptsService {
           receiptId: id,
           action: 'UPDATE',
           title: 'Cập nhật thông tin phiếu nhập kho',
-          description: `Chỉnh sửa thông tin phiếu ${existing.code}`,
+          description: `Chỉnh sửa thông tin phiếu ${updated.code}${existing.status === 'APPROVED' ? ' (Đã tự động đồng bộ lại số lượng tồn kho)' : ''}`,
           performedById: currentUserId
         }
       });

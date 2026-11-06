@@ -60,6 +60,7 @@ export const InboundReceiptDetailModal: React.FC<InboundReceiptDetailModalProps>
   const canApproveOrEdit =
     user?.roles?.includes('ADMIN') ||
     user?.roles?.includes('CEO') ||
+    user?.roles?.includes('WAREHOUSE') ||
     hasPermission('C_INBOUND_RECEIPTS', 'update');
 
   const canDelete =
@@ -91,8 +92,16 @@ export const InboundReceiptDetailModal: React.FC<InboundReceiptDetailModalProps>
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-      <div className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto">
+      <div
+        className="relative w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        style={{
+          width: '94vw',
+          maxWidth: '1280px',
+          maxHeight: '92vh',
+          padding: 0
+        }}
+      >
         {/* Modal Top Bar */}
         <div className="flex flex-wrap items-center justify-between px-6 py-4 bg-white border-b border-gray-200 gap-4">
           <div className="flex items-center gap-3">
@@ -163,12 +172,13 @@ export const InboundReceiptDetailModal: React.FC<InboundReceiptDetailModalProps>
               </>
             )}
 
-            {canApproveOrEdit && (receipt.status === 'DRAFT' || receipt.status === 'REJECTED') && onEdit && (
+            {canApproveOrEdit && onEdit && (
               <button
                 onClick={() => onEdit(receipt)}
-                className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-white border border-blue-300 hover:bg-blue-50 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Chỉnh sửa toàn bộ thông tin phiếu nhập kho này"
               >
-                <Edit2 className="w-3.5 h-3.5 text-gray-600" />
+                <Edit2 className="w-3.5 h-3.5 text-blue-600" />
                 <span>Sửa phiếu</span>
               </button>
             )}

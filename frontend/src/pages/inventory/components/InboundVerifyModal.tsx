@@ -139,8 +139,16 @@ export const InboundVerifyModal: React.FC<InboundVerifyModalProps> = ({
   const totalRejected = items.reduce((s, it) => s + it.rejectedQuantity, 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-      <div className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto">
+      <div
+        className="relative w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        style={{
+          width: '94vw',
+          maxWidth: '1280px',
+          maxHeight: '92vh',
+          padding: 0
+        }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
           <div className="flex items-center gap-3">

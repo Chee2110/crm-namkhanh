@@ -231,6 +231,7 @@ export const InboundReceiptsPage: React.FC = () => {
   const canEdit =
     user?.roles?.includes('ADMIN') ||
     user?.roles?.includes('CEO') ||
+    user?.roles?.includes('WAREHOUSE') ||
     hasPermission('C_INBOUND_RECEIPTS', 'update');
 
   const canDelete =
@@ -881,15 +882,15 @@ export const InboundReceiptsPage: React.FC = () => {
                                         </button>
                                       )}
 
-                                      {/* Sửa phiếu (nếu DRAFT hoặc REJECTED) */}
-                                      {canEdit && (r.status === 'DRAFT' || r.status === 'REJECTED') && (
+                                      {/* Sửa phiếu */}
+                                      {canEdit && (
                                         <button
                                           onClick={() => {
                                             setEditingReceipt(r);
                                             setIsCreatePage(true);
                                           }}
-                                          className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
-                                          title="Chỉnh sửa phiếu"
+                                          className="p-1 text-blue-600 hover:text-blue-800 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer"
+                                          title="Chỉnh sửa phiếu nhập kho"
                                         >
                                           <Edit2 className="w-4 h-4" />
                                         </button>
