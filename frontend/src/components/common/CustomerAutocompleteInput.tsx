@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, X, ChevronDown, Check, User, Phone, MapPin, Building2 } from 'lucide-react';
+import { Search, X, ChevronDown, Check, User, Phone, MapPin, Building2, Plus } from 'lucide-react';
 import { Customer } from '../../types';
 
 export interface CustomerAutocompleteInputProps {
@@ -10,6 +10,9 @@ export interface CustomerAutocompleteInputProps {
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  allowCustomName?: boolean;
+  customName?: string;
+  onCustomNameChange?: (name: string) => void;
 }
 
 // Hàm chuẩn hóa chuỗi tiếng Việt không dấu để tìm kiếm thông minh theo mặt chữ
@@ -23,6 +26,10 @@ const normalizeText = (str: string): string => {
     .trim();
 };
 
+const formatCustomerDisplay = (c: Customer): string => {
+  return `${c.name} (${c.code})${c.phone ? ` - ${c.phone}` : ''}`;
+};
+
 export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps> = ({
   value,
   onChange,
@@ -30,7 +37,10 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
   placeholder = '-- Chọn khách hàng --',
   required = false,
   disabled = false,
-  className = ''
+  className = '',
+  allowCustomName = false,
+  customName = '',
+  onCustomNameChange
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState('');
@@ -50,12 +60,14 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
   useEffect(() => {
     if (!isTyping) {
       if (selectedCustomer) {
-        setInputText(`${selectedCustomer.name} (${selectedCustomer.code}) - ${selectedCustomer.phone}`);
+        setInputText(formatCustomerDisplay(selectedCustomer));
+      } else if (allowCustomName) {
+        setInputText(customName || '');
       } else {
         setInputText('');
       }
     }
-  }, [selectedCustomer, isTyping]);
+  }, [selectedCustomer, customName, allowCustomName, isTyping]);
 
   // Danh sách khách hàng đã được lọc theo từ khóa tìm kiếm ("nhập đến đâu tìm đến đấy")
   const filteredCustomers = useMemo(() => {
@@ -82,6 +94,12 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
     });
   }, [customers, inputText, isTyping]);
 
+  const hasExactMatch = useMemo(() => {
+    if (!inputText.trim()) return false;
+    const query = normalizeText(inputText);
+    return customers.some((c) => normalizeText(c.name) === query || normalizeText(c.code) === query);
+  }, [customers, inputText]);
+
   // Reset highlight index khi filtered list đổi
   useEffect(() => {
     setHighlightedIndex(0);
@@ -103,9 +121,13 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
         setIsTyping(false);
-        // Khôi phục lại text hiển thị của khách hàng đã chọn
+        // Khôi phục lại text hiển thị của khách hàng đã chọn hoặc giữ nguyên tên khách hàng mới
         if (selectedCustomer) {
-          setInputText(`${selectedCustomer.name} (${selectedCustomer.code}) - ${selectedCustomer.phone}`);
+          setInputText(formatCustomerDisplay(selectedCustomer));
+        } else if (allowCustomName) {
+          const trimmed = inputText.trim();
+          setInputText(trimmed);
+          onCustomNameChange?.(trimmed);
         } else {
           setInputText('');
         }
@@ -114,12 +136,24 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [selectedCustomer]);
+  }, [selectedCustomer, allowCustomName, inputText, onCustomNameChange]);
 
-  // Xử lý khi người dùng chọn 1 khách hàng
+  // Xử lý khi người dùng chọn 1 khách hàng có sẵn
   const handleSelect = (customer: Customer) => {
     onChange(customer.id, customer);
-    setInputText(`${customer.name} (${customer.code}) - ${customer.phone}`);
+    onCustomNameChange?.(customer.name);
+    setInputText(formatCustomerDisplay(customer));
+    setIsTyping(false);
+    setIsOpen(false);
+  };
+
+  // Xử lý khi người dùng xác nhận giữ tên khách hàng mới chưa có trong danh sách
+  const handleSelectCustomName = () => {
+    const trimmed = inputText.trim();
+    if (!trimmed) return;
+    onChange('');
+    onCustomNameChange?.(trimmed);
+    setInputText(trimmed);
     setIsTyping(false);
     setIsOpen(false);
   };
@@ -128,6 +162,7 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChange('');
+    onCustomNameChange?.('');
     setInputText('');
     setIsTyping(true);
     setIsOpen(true);
@@ -157,16 +192,22 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
       e.preventDefault();
       if (filteredCustomers.length > 0 && filteredCustomers[highlightedIndex]) {
         handleSelect(filteredCustomers[highlightedIndex]);
+      } else if (allowCustomName && inputText.trim()) {
+        handleSelectCustomName();
       }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       setIsOpen(false);
       setIsTyping(false);
       if (selectedCustomer) {
-        setInputText(`${selectedCustomer.name} (${selectedCustomer.code}) - ${selectedCustomer.phone}`);
+        setInputText(formatCustomerDisplay(selectedCustomer));
+      } else if (allowCustomName) {
+        setInputText(inputText.trim());
       }
     }
   };
+
+  const effectiveRequiredValue = value || (allowCustomName ? (customName || inputText).trim() : '');
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -175,7 +216,7 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
         type="text"
         tabIndex={-1}
         required={required}
-        value={value || ''}
+        value={effectiveRequiredValue}
         onChange={() => {}}
         style={{
           opacity: 0,
@@ -209,9 +250,16 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
             setIsTyping(true);
           }}
           onChange={(e) => {
-            setInputText(e.target.value);
+            const nextVal = e.target.value;
+            setInputText(nextVal);
             setIsTyping(true);
             if (!isOpen) setIsOpen(true);
+            if (allowCustomName) {
+              if (value) {
+                onChange('');
+              }
+              onCustomNameChange?.(nextVal);
+            }
           }}
           onKeyDown={handleKeyDown}
           className={`w-full pl-3 pr-16 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#E53935] focus:ring-1 focus:ring-[#E53935] transition-all bg-white text-gray-900 ${
@@ -221,7 +269,7 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
 
         {/* Nút Xóa (Clear) & Nút Mũi tên (Chevron) */}
         <div className="absolute right-2 flex items-center gap-1 text-gray-400">
-          {(value || (isTyping && inputText)) && !disabled && (
+          {(value || inputText) && !disabled && (
             <button
               type="button"
               tabIndex={-1}
@@ -271,14 +319,38 @@ export const CustomerAutocompleteInput: React.FC<CustomerAutocompleteInputProps>
             <span className="text-[10px] text-gray-400">↑↓ chọn, Enter xác nhận</span>
           </div>
 
+          {/* Tùy chọn thêm nhanh khách hàng mới nếu tên chưa có trong danh sách */}
+          {allowCustomName && isTyping && inputText.trim() && !hasExactMatch && (
+            <div
+              onClick={handleSelectCustomName}
+              className="px-3 py-2 bg-emerald-50/70 hover:bg-emerald-100/80 border-b border-emerald-100 cursor-pointer transition-colors flex items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                  <Plus size={14} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-emerald-900 truncate">
+                    Thêm khách hàng mới: &ldquo;{inputText.trim()}&rdquo;
+                  </p>
+                  <p className="text-[11px] text-emerald-700">
+                    Tự động lưu vào trang Khách hàng khi tạo đơn
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Danh sách các khách hàng */}
           <div ref={listRef} className="overflow-y-auto max-h-[235px] divide-y divide-gray-50">
             {filteredCustomers.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-gray-500">
                 <Building2 className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                <p className="font-medium text-gray-700">Không tìm thấy khách hàng nào</p>
+                <p className="font-medium text-gray-700">Không tìm thấy khách hàng có sẵn</p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Thử tìm kiếm với tên, mã KH, số điện thoại hoặc địa chỉ khác
+                  {allowCustomName && inputText.trim()
+                    ? `Hệ thống sẽ tự động tạo khách hàng "${inputText.trim()}" khi lưu đơn hàng`
+                    : 'Thử tìm kiếm với tên, mã KH, số điện thoại hoặc địa chỉ khác'}
                 </p>
               </div>
             ) : (

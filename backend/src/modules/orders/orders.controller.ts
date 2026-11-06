@@ -41,15 +41,16 @@ export class OrdersController {
   async createOrder(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      const { customerId, quotationId, deliveryAddress, contactPerson, phone, orderDate, deliveryDate, deliveryStatus, paymentStatus, invoiceStatus, paidAmount, notes, vatRate, useCreditBalance, items } = req.body;
+      const { customerId, customerName, quotationId, deliveryAddress, contactPerson, phone, orderDate, deliveryDate, deliveryStatus, paymentStatus, invoiceStatus, paidAmount, notes, vatRate, useCreditBalance, items } = req.body;
 
-      if (!customerId || !items || !Array.isArray(items) || items.length === 0) {
-        return errorResponse(res, 'Vui lòng chọn khách hàng và ít nhất 1 sản phẩm', 400);
+      if ((!customerId && (!customerName || !String(customerName).trim())) || !items || !Array.isArray(items) || items.length === 0) {
+        return errorResponse(res, 'Vui lòng chọn hoặc nhập tên khách hàng và ít nhất 1 sản phẩm', 400);
       }
 
       const result = await ordersService.createOrder(
         {
           customerId,
+          customerName,
           quotationId,
           deliveryAddress,
           contactPerson,
@@ -77,7 +78,8 @@ export class OrdersController {
   async updateOrder(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const result = await ordersService.updateOrder(id, req.body);
+      const user = (req as any).user;
+      const result = await ordersService.updateOrder(id, req.body, user?.id);
       return successResponse(res, result, 'Cập nhật đơn hàng thành công');
     } catch (error: any) {
       return errorResponse(res, error.message || 'Lỗi cập nhật đơn hàng', 400);

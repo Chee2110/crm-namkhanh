@@ -1,4 +1,77 @@
 import { prisma } from '../../config/db';
+import { ensureCustomerConstraintsRelaxed, generateUniqueCustomerCode } from '../customers/customers.service';
+
+async function resolveOrCreateOrderCustomer(
+  data: {
+    customerId?: string;
+    customerName?: string;
+    phone?: string;
+    contactPerson?: string;
+    deliveryAddress?: string;
+  },
+  creatorId?: string
+) {
+  await ensureCustomerConstraintsRelaxed();
+
+  const rawId = data.customerId ? String(data.customerId).trim() : '';
+  if (rawId) {
+    const byId = await prisma.customer.findUnique({ where: { id: rawId } });
+    if (byId) return byId;
+  }
+
+  const cleanName = String(data.customerName || rawId || '').trim();
+  if (!cleanName) {
+    throw new Error('Vui lòng chọn hoặc nhập tên khách hàng');
+  }
+
+  // Kiểm tra nếu đã có khách hàng trùng tên chính xác (không phân biệt hoa thường)
+  const existingByName = await prisma.customer.findFirst({
+    where: { name: { equals: cleanName, mode: 'insensitive' } }
+  });
+  if (existingByName) {
+    return existingByName;
+  }
+
+  const code = await generateUniqueCustomerCode(prisma);
+  const cleanPhone = data.phone ? String(data.phone).trim() : '';
+  const cleanContact = data.contactPerson ? String(data.contactPerson).trim() : '';
+  const cleanAddr = data.deliveryAddress ? String(data.deliveryAddress).trim() : '';
+
+  const newCustomer = await prisma.customer.create({
+    data: {
+      code,
+      name: cleanName,
+      phone: (cleanPhone || null) as any,
+      address: cleanAddr || null,
+      deliveryAddress: cleanAddr || null,
+      contactPerson: cleanContact || null,
+      contactPhone: cleanPhone || null,
+      customerType: 'ENTERPRISE',
+      source: 'SELF_FOUND',
+      managerId: creatorId || null,
+      status: 'ACTIVE',
+      creditLimit: 50000000,
+      maxDebtDays: 30
+    }
+  });
+
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: creatorId || null,
+        action: 'CREATE',
+        entityType: 'Customer',
+        entityId: newCustomer.id,
+        newValue: {
+          title: `Khởi tạo hồ sơ khách hàng: ${newCustomer.name}`,
+          notes: `Mã: ${newCustomer.code} • Tạo tự động từ trang Đơn hàng`
+        }
+      }
+    });
+  } catch (_) {}
+
+  return newCustomer;
+}
 
 export async function generateOrderCode(tx?: any, dateInput?: Date | string): Promise<string> {
   const client = tx || prisma;
@@ -231,7 +304,8 @@ export class OrdersService {
 
   async createOrder(
     data: {
-      customerId: string;
+      customerId?: string;
+      customerName?: string;
       quotationId?: string;
       deliveryAddress?: string;
       contactPerson?: string;
@@ -261,8 +335,7 @@ export class OrdersService {
       throw new Error('Đơn hàng phải có ít nhất 1 sản phẩm / dòng hàng hóa');
     }
 
-    const customer = await prisma.customer.findUnique({ where: { id: data.customerId } });
-    if (!customer) throw new Error('Không tìm thấy khách hàng được chọn');
+    const customer = await resolveOrCreateOrderCustomer(data, creatorId);
 
     const code = await generateOrderCode(undefined, data.orderDate);
 
@@ -320,7 +393,7 @@ export class OrdersService {
       // Giảm trừ creditBalance của khách hàng nếu có sử dụng
       if (creditDeducted > 0) {
         await tx.customer.update({
-          where: { id: data.customerId },
+          where: { id: customer.id },
           data: {
             creditBalance: {
               decrement: creditDeducted
@@ -344,7 +417,7 @@ export class OrdersService {
       const newOrder = await tx.order.create({
         data: {
           code,
-          customerId: data.customerId,
+          customerId: customer.id,
           quotationId: data.quotationId || null,
           managerId: creatorId || null,
           orderDate: data.orderDate ? new Date(data.orderDate) : new Date(),
@@ -396,7 +469,7 @@ export class OrdersService {
     });
   }
 
-  async updateOrder(id: string, data: any) {
+  async updateOrder(id: string, data: any, creatorId?: string) {
     const order = await prisma.order.findUnique({
       where: { id },
       include: { items: true }
@@ -415,7 +488,10 @@ export class OrdersService {
       deliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : order.deliveryDate
     };
 
-    if (data.customerId) updateData.customerId = data.customerId;
+    if (data.customerId || (data.customerName && String(data.customerName).trim())) {
+      const resolvedCust = await resolveOrCreateOrderCustomer(data, creatorId);
+      updateData.customerId = resolvedCust.id;
+    }
     if (data.quotationId !== undefined) updateData.quotationId = data.quotationId || null;
     if (data.orderDate) updateData.orderDate = new Date(data.orderDate);
     if (data.deliveryStatus) updateData.deliveryStatus = data.deliveryStatus;

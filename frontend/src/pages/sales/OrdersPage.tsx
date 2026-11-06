@@ -539,6 +539,7 @@ export const OrdersPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [createData, setCreateData] = useState({
     customerId: '',
+    customerName: '',
     quotationId: '',
     orderDate: new Date().toISOString().split('T')[0],
     deliveryDate: '',
@@ -640,6 +641,7 @@ export const OrdersPage: React.FC = () => {
       setCreateData((prev) => ({
         ...prev,
         customerId,
+        customerName: cust.name || '',
         deliveryAddress: cust.deliveryAddress || cust.address || '',
         contactPerson: cust.contactPerson || '',
         phone: cust.phone || ''
@@ -767,6 +769,7 @@ export const OrdersPage: React.FC = () => {
     setEditingOrder(order);
     setCreateData({
       customerId: order.customerId,
+      customerName: order.customer?.name || '',
       quotationId: order.quotationId || '',
       orderDate: order.orderDate ? new Date(order.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       deliveryDate: order.deliveryDate ? new Date(order.deliveryDate).toISOString().split('T')[0] : '',
@@ -806,8 +809,8 @@ export const OrdersPage: React.FC = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (!createData.customerId) {
-      setFormError('Vui lòng chọn khách hàng đặt đơn');
+    if (!createData.customerId && !createData.customerName.trim()) {
+      setFormError('Vui lòng chọn hoặc nhập tên khách hàng đặt đơn');
       return;
     }
     const validItems = createData.items.filter(
@@ -823,6 +826,7 @@ export const OrdersPage: React.FC = () => {
       if (editingOrder) {
         await api.put(`/orders/${editingOrder.id}`, {
           ...createData,
+          customerName: createData.customerName.trim(),
           items: validItems,
           orderDate: createData.orderDate ? new Date(createData.orderDate) : undefined,
           deliveryDate: createData.deliveryDate ? new Date(createData.deliveryDate) : undefined,
@@ -832,6 +836,7 @@ export const OrdersPage: React.FC = () => {
       } else {
         await api.post('/orders', {
           ...createData,
+          customerName: createData.customerName.trim(),
           items: validItems,
           orderDate: createData.orderDate ? new Date(createData.orderDate) : undefined,
           deliveryDate: createData.deliveryDate ? new Date(createData.deliveryDate) : undefined,
@@ -845,6 +850,7 @@ export const OrdersPage: React.FC = () => {
       setEditingOrder(null);
       setCreateData({
         customerId: '',
+        customerName: '',
         quotationId: '',
         orderDate: new Date().toISOString().split('T')[0],
         deliveryDate: '',
@@ -871,6 +877,7 @@ export const OrdersPage: React.FC = () => {
   const handleCancelCreate = () => {
     const isDirty = Boolean(
       createData.customerId ||
+      createData.customerName.trim() ||
       createData.items.some((it) => it.productId || it.productCode) ||
       createData.deliveryAddress ||
       createData.contactPerson ||
@@ -891,6 +898,7 @@ export const OrdersPage: React.FC = () => {
     setEditingOrder(null);
     setCreateData({
       customerId: '',
+      customerName: '',
       quotationId: '',
       orderDate: new Date().toISOString().split('T')[0],
       deliveryDate: '',
@@ -1494,9 +1502,12 @@ export const OrdersPage: React.FC = () => {
                 <CustomerAutocompleteInput
                   value={createData.customerId}
                   onChange={(customerId) => handleCustomerSelect(customerId)}
+                  allowCustomName
+                  customName={createData.customerName}
+                  onCustomNameChange={(name) => setCreateData((prev) => ({ ...prev, customerName: name }))}
                   customers={customers}
                   required
-                  placeholder="-- Chọn khách hàng --"
+                  placeholder="-- Chọn hoặc nhập tên khách hàng --"
                 />
               </div>
 
@@ -2104,6 +2115,7 @@ export const OrdersPage: React.FC = () => {
                 setEditingOrder(null);
                 setCreateData({
                   customerId: '',
+                  customerName: '',
                   quotationId: '',
                   orderDate: new Date().toISOString().split('T')[0],
                   deliveryDate: '',

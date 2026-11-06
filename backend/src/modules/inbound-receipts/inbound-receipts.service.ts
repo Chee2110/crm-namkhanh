@@ -44,6 +44,34 @@ export interface CreateInboundReceiptDTO {
 
 export class InboundReceiptsService {
   /**
+   * Tìm sản phẩm tương ứng trong kho theo productId, mã SKU (không phân biệt hoa/thường) hoặc tên sản phẩm
+   */
+  private async findMatchingProduct(
+    tx: Prisma.TransactionClient,
+    item: { productId?: string | null; productCode?: string | null; productName?: string | null }
+  ) {
+    if (item.productId) {
+      const byId = await tx.product.findUnique({ where: { id: item.productId } });
+      if (byId) return byId;
+    }
+    const cleanCode = item.productCode?.trim();
+    if (cleanCode && cleanCode !== 'N/A' && cleanCode !== 'SKU-NEW') {
+      const byCode = await tx.product.findFirst({
+        where: { code: { equals: cleanCode, mode: 'insensitive' } }
+      });
+      if (byCode) return byCode;
+    }
+    const cleanName = item.productName?.trim();
+    if (cleanName) {
+      const byName = await tx.product.findFirst({
+        where: { name: { equals: cleanName, mode: 'insensitive' } }
+      });
+      if (byName) return byName;
+    }
+    return null;
+  }
+
+  /**
    * Sinh mã phiếu nhập tự động: PNK-YYYY-XXXX (ví dụ: PNK-2026-0001)
    */
   async getNextCode(): Promise<string> {
@@ -397,26 +425,23 @@ export class InboundReceiptsService {
     updateData.status = targetStatus;
 
     return await prisma.$transaction(async (tx) => {
+      let stockSyncDiffSummary = '';
+
       // Nếu có cập nhật danh sách mặt hàng
       if (data.items && Array.isArray(data.items)) {
-        // 1. Nếu phiếu cũ đã ở trạng thái APPROVED, hoàn tác số lượng tồn kho cũ trước khi áp danh sách mới
+        // 1. Ghi nhận số lượng cũ theo từng sản phẩm (nếu phiếu cũ đã ở trạng thái APPROVED)
+        const oldQtyByProduct = new Map<string, { qty: number; name: string; unit: string }>();
         if (existing.status === 'APPROVED') {
           for (const oldItem of existing.items) {
             const oldQty = oldItem.acceptedQuantity > 0 ? oldItem.acceptedQuantity : oldItem.actualQuantity;
             if (oldQty > 0) {
-              const oldProd = oldItem.productId
-                ? await tx.product.findUnique({ where: { id: oldItem.productId } })
-                : (oldItem.productCode && oldItem.productCode !== 'N/A'
-                    ? await tx.product.findUnique({ where: { code: oldItem.productCode } })
-                    : null);
+              const oldProd = await this.findMatchingProduct(tx, oldItem);
               if (oldProd) {
-                await tx.product.update({
-                  where: { id: oldProd.id },
-                  data: {
-                    stockQuantity: {
-                      decrement: oldQty
-                    }
-                  }
+                const prev = oldQtyByProduct.get(oldProd.id);
+                oldQtyByProduct.set(oldProd.id, {
+                  qty: (prev?.qty || 0) + oldQty,
+                  name: oldItem.productName || oldProd.name,
+                  unit: oldItem.unit || oldProd.unit
                 });
               }
             }
@@ -429,23 +454,8 @@ export class InboundReceiptsService {
         let subtotal = 0;
         const vatRate = data.vatRate !== undefined ? Number(data.vatRate) : existing.vatRate;
 
-        // Tự động tìm và liên kết với sản phẩm cũ trong kho nếu có mã code tương ứng
-        const productCodesToMatch = data.items
-          .filter((i) => !i.productId && i.productCode && i.productCode.trim() !== 'N/A')
-          .map((i) => i.productCode.trim());
-
-        let existingProductsByCode: Record<string, string> = {};
-        if (productCodesToMatch.length > 0) {
-          const foundProds = await tx.product.findMany({
-            where: { code: { in: productCodesToMatch } },
-            select: { id: true, code: true }
-          });
-          foundProds.forEach((p) => {
-            existingProductsByCode[p.code] = p.id;
-          });
-        }
-
-        const formattedItems = data.items.map((item) => {
+        const formattedItems: any[] = [];
+        for (const item of data.items) {
           const expQty = Math.max(0, Number(item.expectedQuantity) || 1);
           const actQty = Math.max(0, Number(item.actualQuantity) !== undefined ? Number(item.actualQuantity) : expQty);
           const accQty = Math.max(0, Number(item.acceptedQuantity) !== undefined ? Number(item.acceptedQuantity) : actQty);
@@ -459,15 +469,16 @@ export class InboundReceiptsService {
 
           subtotal += amount;
 
-          const pCode = item.productCode?.trim() || 'N/A';
-          const resolvedProductId = item.productId || (pCode !== 'N/A' ? existingProductsByCode[pCode] || null : null);
+          const matchedProd = await this.findMatchingProduct(tx, item);
+          const pCode = item.productCode?.trim() || matchedProd?.code || 'N/A';
+          const resolvedProductId = matchedProd?.id || item.productId || null;
 
-          return {
+          formattedItems.push({
             receiptId: id,
             productId: resolvedProductId,
             productCode: pCode,
-            productName: item.productName?.trim() || 'Hàng hóa',
-            unit: item.unit?.trim() || 'Cái',
+            productName: item.productName?.trim() || matchedProd?.name || 'Hàng hóa',
+            unit: item.unit?.trim() || matchedProd?.unit || 'Cái',
             expectedQuantity: expQty,
             actualQuantity: actQty,
             acceptedQuantity: accQty,
@@ -485,32 +496,70 @@ export class InboundReceiptsService {
             locationBin: item.locationBin?.trim() || null,
             qualityStatus: item.qualityStatus || 'PASSED',
             qualityNotes: item.qualityNotes?.trim() || null
-          };
-        });
+          });
+        }
 
         await tx.inboundReceiptItem.createMany({ data: formattedItems });
 
-        // 3. Nếu trạng thái là APPROVED, cộng số lượng mới vào tồn kho
-        if (targetStatus === 'APPROVED') {
-          for (const newItem of formattedItems) {
-            const newQty = newItem.acceptedQuantity > 0 ? newItem.acceptedQuantity : newItem.actualQuantity;
-            if (newQty > 0) {
-              const newProd = newItem.productId
-                ? await tx.product.findUnique({ where: { id: newItem.productId } })
-                : (newItem.productCode && newItem.productCode !== 'N/A'
-                    ? await tx.product.findUnique({ where: { code: newItem.productCode } })
-                    : null);
-              if (newProd) {
-                await tx.product.update({
-                  where: { id: newProd.id },
-                  data: {
-                    stockQuantity: {
-                      increment: newQty
-                    }
-                  }
+        // 3. Nếu trạng thái là APPROVED (hoặc phiếu cũ đã APPROVED), chỉ cộng/trừ đúng phần chênh lệch (newQty - oldQty) và mặc định cập nhật giá vốn
+        if (existing.status === 'APPROVED' || targetStatus === 'APPROVED') {
+          const newQtyByProduct = new Map<string, { qty: number; unitPrice: number; name: string; unit: string }>();
+
+          if (targetStatus === 'APPROVED') {
+            for (const newItem of formattedItems) {
+              const newQty = newItem.acceptedQuantity > 0 ? newItem.acceptedQuantity : newItem.actualQuantity;
+              if (newItem.productId && newQty > 0) {
+                const prev = newQtyByProduct.get(newItem.productId);
+                newQtyByProduct.set(newItem.productId, {
+                  qty: (prev?.qty || 0) + newQty,
+                  unitPrice: Number(newItem.unitPrice) || prev?.unitPrice || 0,
+                  name: newItem.productName,
+                  unit: newItem.unit
                 });
               }
             }
+          }
+
+          const allProductIds = new Set<string>([
+            ...Array.from(oldQtyByProduct.keys()),
+            ...Array.from(newQtyByProduct.keys())
+          ]);
+
+          const diffParts: string[] = [];
+
+          for (const prodId of allProductIds) {
+            const oldEntry = oldQtyByProduct.get(prodId);
+            const newEntry = newQtyByProduct.get(prodId);
+            const oldQty = oldEntry?.qty || 0;
+            const newQty = newEntry?.qty || 0;
+            const diffQty = newQty - oldQty;
+
+            const prodUpdate: any = {};
+            if (diffQty > 0) {
+              prodUpdate.stockQuantity = { increment: diffQty };
+              diffParts.push(`${newEntry?.name || oldEntry?.name} (+${diffQty})`);
+            } else if (diffQty < 0) {
+              prodUpdate.stockQuantity = { decrement: Math.abs(diffQty) };
+              diffParts.push(`${newEntry?.name || oldEntry?.name} (${diffQty})`);
+            }
+
+            // Mặc định luôn cập nhật giá vốn theo đơn giá nhập kho mới nhất
+            if (newEntry && newEntry.unitPrice > 0) {
+              prodUpdate.costPrice = new Prisma.Decimal(newEntry.unitPrice);
+            }
+
+            if (Object.keys(prodUpdate).length > 0) {
+              await tx.product.update({
+                where: { id: prodId },
+                data: prodUpdate
+              });
+            }
+          }
+
+          if (diffParts.length > 0) {
+            stockSyncDiffSummary = ` (Đồng bộ chênh lệch tồn kho: ${diffParts.join(', ')})`;
+          } else {
+            stockSyncDiffSummary = ' (Đã đồng bộ giá vốn & tồn kho)';
           }
         }
 
@@ -539,7 +588,7 @@ export class InboundReceiptsService {
           receiptId: id,
           action: 'UPDATE',
           title: 'Cập nhật thông tin phiếu nhập kho',
-          description: `Chỉnh sửa thông tin phiếu ${updated.code}${existing.status === 'APPROVED' ? ' (Đã tự động đồng bộ lại số lượng tồn kho)' : ''}`,
+          description: `Chỉnh sửa thông tin phiếu ${updated.code}${stockSyncDiffSummary}`,
           performedById: currentUserId
         }
       });
@@ -705,30 +754,34 @@ export class InboundReceiptsService {
         }
       });
 
-      // 2. Tự động cộng số lượng nhập vào tồn kho (Product.stockQuantity)
+      // 2. Tự động cộng số lượng nhập vào tồn kho (Product.stockQuantity) & mặc định cập nhật giá vốn
       let totalAddedQuantity = 0;
       const updatedProductsSummary: string[] = [];
+      const shouldUpdateCostPrice = options?.updateCostPrice !== false;
 
       for (const item of receipt.items) {
         const qtyToAdd = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
         if (qtyToAdd <= 0) continue;
 
-        // Tìm sản phẩm theo productId hoặc theo productCode nếu là hàng hóa cũ đã có trong kho
-        let product = item.productId
-          ? await tx.product.findUnique({ where: { id: item.productId } })
-          : (item.productCode && item.productCode !== 'N/A'
-              ? await tx.product.findUnique({ where: { code: item.productCode } })
-              : null);
+        // Tìm sản phẩm theo productId, mã SKU hoặc tên sản phẩm
+        const product = await this.findMatchingProduct(tx, item);
 
         if (product) {
+          if (!item.productId) {
+            await tx.inboundReceiptItem.update({
+              where: { id: item.id },
+              data: { productId: product.id }
+            });
+          }
+
           const updateProductData: any = {
             stockQuantity: {
               increment: qtyToAdd
             }
           };
 
-          // Nếu người duyệt muốn cập nhật giá vốn theo đơn giá nhập mới nhất
-          if (options?.updateCostPrice && Number(item.unitPrice) > 0) {
+          // Mặc định tự động cập nhật giá vốn theo đơn giá nhập kho này
+          if (shouldUpdateCostPrice && Number(item.unitPrice) > 0) {
             updateProductData.costPrice = item.unitPrice;
           }
 
@@ -831,11 +884,7 @@ export class InboundReceiptsService {
         for (const item of receipt.items) {
           const qtyToDeduct = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
           if (qtyToDeduct > 0) {
-            let product = item.productId
-              ? await tx.product.findUnique({ where: { id: item.productId } })
-              : (item.productCode && item.productCode !== 'N/A'
-                  ? await tx.product.findUnique({ where: { code: item.productCode } })
-                  : null);
+            const product = await this.findMatchingProduct(tx, item);
 
             if (product) {
               await tx.product.update({
@@ -890,11 +939,7 @@ export class InboundReceiptsService {
         for (const item of receipt.items) {
           const qtyToDeduct = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
           if (qtyToDeduct > 0) {
-            let product = item.productId
-              ? await tx.product.findUnique({ where: { id: item.productId } })
-              : (item.productCode && item.productCode !== 'N/A'
-                  ? await tx.product.findUnique({ where: { code: item.productCode } })
-                  : null);
+            const product = await this.findMatchingProduct(tx, item);
 
             if (product) {
               await tx.product.update({

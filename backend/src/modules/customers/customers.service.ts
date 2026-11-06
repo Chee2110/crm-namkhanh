@@ -85,6 +85,47 @@ const SOURCE_ALIASES: Record<string, string> = {
   khac: 'OTHER'
 };
 
+let constraintsRelaxed = false;
+export async function ensureCustomerConstraintsRelaxed(): Promise<void> {
+  if (constraintsRelaxed) return;
+  constraintsRelaxed = true;
+  try {
+    await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "customers_phone_key";`);
+    await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "customers_tax_code_key";`);
+  } catch (_) {}
+}
+
+export async function generateUniqueCustomerCode(tx?: any, requestedCode?: string): Promise<string> {
+  const client = tx || prisma;
+  const cleanReq = requestedCode ? String(requestedCode).trim().toUpperCase() : '';
+  if (cleanReq) {
+    const existing = await client.customer.findUnique({ where: { code: cleanReq } });
+    if (!existing) return cleanReq;
+  }
+
+  const allCodes = await client.customer.findMany({
+    where: { code: { startsWith: 'KH' } },
+    select: { code: true }
+  });
+
+  let maxSeq = 0;
+  for (const c of allCodes) {
+    const m = /^KH(\d+)$/i.exec(String(c.code || ''));
+    if (m) {
+      const seq = parseInt(m[1], 10);
+      if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+    }
+  }
+
+  let nextSeq = maxSeq + 1;
+  let code = `KH${String(nextSeq).padStart(4, '0')}`;
+  while (await client.customer.findUnique({ where: { code } })) {
+    nextSeq++;
+    code = `KH${String(nextSeq).padStart(4, '0')}`;
+  }
+  return code;
+}
+
 export class CustomersService {
   async getCustomers(params: {
     search?: string;
@@ -250,48 +291,35 @@ export class CustomersService {
     },
     creatorId: string
   ) {
+    await ensureCustomerConstraintsRelaxed();
+
+    const cleanName = String(data.name || '').trim();
+    if (!cleanName) {
+      throw new Error('Tên khách hàng là bắt buộc');
+    }
+
     const cleanPhone = data.phone ? String(data.phone).trim() : '';
     const cleanContactPhone = data.contactPhone ? String(data.contactPhone).trim() : '';
-
-    // 1. Kiểm tra trùng SĐT (chỉ kiểm tra khi có nhập SĐT)
-    if (cleanPhone) {
-      const existPhone = await prisma.customer.findUnique({ where: { phone: cleanPhone } });
-      if (existPhone) {
-        throw new Error(`Số điện thoại [${cleanPhone}] đã tồn tại cho khách hàng "${existPhone.name}" (${existPhone.code})`);
-      }
-    }
-
-    // 2. Kiểm tra trùng Mã số thuế
     const cleanTaxCode = data.taxCode ? String(data.taxCode).trim() : '';
-    if (cleanTaxCode) {
-      const existTax = await prisma.customer.findUnique({ where: { taxCode: cleanTaxCode } });
-      if (existTax) {
-        throw new Error(`Mã số thuế [${cleanTaxCode}] đã tồn tại cho khách hàng "${existTax.name}" (${existTax.code})`);
-      }
-    }
 
-    // Tự sinh mã KH nếu chưa có
-    let code = data.code ? String(data.code).trim() : '';
-    if (!code) {
-      const count = await prisma.customer.count();
-      code = `KH${String(count + 1).padStart(4, '0')}`;
-    }
+    // Tự sinh mã KH duy nhất nếu chưa có hoặc bị trùng
+    const code = await generateUniqueCustomerCode(prisma, data.code);
 
     const newCustomer = await prisma.customer.create({
       data: {
         code,
-        name: data.name,
+        name: cleanName,
         phone: (cleanPhone || null) as any,
         taxCode: cleanTaxCode || null,
-        address: data.address,
-        deliveryAddress: data.deliveryAddress || data.address,
+        address: data.address || null,
+        deliveryAddress: data.deliveryAddress || data.address || null,
         customerType: data.customerType || 'ENTERPRISE',
         source: data.source || 'SELF_FOUND',
-        contactPerson: data.contactPerson,
+        contactPerson: data.contactPerson || null,
         contactPhone: cleanContactPhone || null,
-        email: data.email,
-        notes: data.notes,
-        managerId: data.managerId || creatorId,
+        email: data.email || null,
+        notes: data.notes || null,
+        managerId: data.managerId || creatorId || null,
         status: data.status || 'ACTIVE',
         creditLimit: data.creditLimit !== undefined ? Number(data.creditLimit) : 50000000,
         maxDebtDays: data.maxDebtDays !== undefined ? Number(data.maxDebtDays) : 30
@@ -322,26 +350,10 @@ export class CustomersService {
   }
 
   async updateCustomer(id: string, data: any) {
+    await ensureCustomerConstraintsRelaxed();
+
     const customer = await prisma.customer.findUnique({ where: { id } });
     if (!customer) throw new Error('Không tìm thấy khách hàng');
-
-    // Kiểm tra trùng SĐT nếu thay đổi và có giá trị
-    const nextPhone = data.phone !== undefined ? String(data.phone || '').trim() : undefined;
-    if (nextPhone && nextPhone !== customer.phone) {
-      const existPhone = await prisma.customer.findUnique({ where: { phone: nextPhone } });
-      if (existPhone && existPhone.id !== id) {
-        throw new Error(`Số điện thoại [${nextPhone}] đã tồn tại cho khách hàng "${existPhone.name}"`);
-      }
-    }
-
-    // Kiểm tra trùng MST nếu thay đổi
-    const nextTaxCode = data.taxCode !== undefined ? String(data.taxCode || '').trim() : undefined;
-    if (nextTaxCode && nextTaxCode !== customer.taxCode) {
-      const existTax = await prisma.customer.findUnique({ where: { taxCode: nextTaxCode } });
-      if (existTax && existTax.id !== id) {
-        throw new Error(`Mã số thuế [${nextTaxCode}] đã tồn tại cho khách hàng "${existTax.name}"`);
-      }
-    }
 
     // Chỉ cập nhật các trường có trong bảng customers (bỏ qua trường phụ trợ của form như contactPosition)
     const allowedFields = [
@@ -404,18 +416,14 @@ export class CustomersService {
    * - Lỗi được ghi nhận theo từng dòng, các dòng hợp lệ vẫn được lưu
    */
   async importCustomers(rows: ImportCustomerRow[], creatorId: string) {
+    await ensureCustomerConstraintsRelaxed();
+
     const [existingCustomers, users] = await Promise.all([
       prisma.customer.findMany({ select: { code: true, phone: true, taxCode: true, name: true } }),
       prisma.user.findMany({ select: { id: true, fullName: true, code: true, email: true } })
     ]);
 
     const usedCodes = new Set(existingCustomers.map((c: any) => String(c.code).toUpperCase()));
-    const phoneOwner = new Map<string, string>();
-    const taxOwner = new Map<string, string>();
-    existingCustomers.forEach((c: any) => {
-      if (c.phone) phoneOwner.set(c.phone, `${c.name} (${c.code})`);
-      if (c.taxCode) taxOwner.set(c.taxCode, `${c.name} (${c.code})`);
-    });
 
     // Số thứ tự tự sinh nối tiếp mã KH lớn nhất đang có trong hệ thống
     let maxSeq = 0;
@@ -459,50 +467,32 @@ export class CustomersService {
 
         const contactPhone = normalizePhone(r.contactPhone);
         const phone = normalizePhone(r.phone) || contactPhone;
-        if (phone && phoneOwner.has(phone)) {
-          throw new Error(`SĐT [${phone}] đã tồn tại cho khách hàng "${phoneOwner.get(phone)}"`);
-        }
-
         const taxCode = normalizeTaxCode(r.taxCode);
-        if (taxCode && taxOwner.has(taxCode)) {
-          throw new Error(`MST [${taxCode}] đã tồn tại cho khách hàng "${taxOwner.get(taxCode)}"`);
-        }
 
         let customerType = 'ENTERPRISE';
         if (cleanText(r.customerType)) {
           const mapped = CUSTOMER_TYPE_ALIASES[normalizeKey(r.customerType)];
-          if (!mapped) {
-            throw new Error(
-              `Loại khách hàng "${cleanText(r.customerType)}" không hợp lệ (Doanh nghiệp / Trường học / Cơ quan - Tổ chức / Hộ kinh doanh / Cá nhân)`
-            );
+          if (mapped) {
+            customerType = mapped;
           }
-          customerType = mapped;
         }
 
         let source = 'SELF_FOUND';
         if (cleanText(r.source)) {
           const mapped = SOURCE_ALIASES[normalizeKey(r.source)];
-          if (!mapped) {
-            throw new Error(
-              `Nguồn gốc "${cleanText(r.source)}" không hợp lệ (Tự tìm kiếm / Được giới thiệu / Mạng xã hội - Web / Hội thảo - Triển lãm / Khác)`
-            );
+          if (mapped) {
+            source = mapped;
           }
-          source = mapped;
         }
 
         let managerId = creatorId;
         if (cleanText(r.manager)) {
           const found = userLookup.get(normalizeKey(r.manager));
-          if (!found) throw new Error(`Không tìm thấy nhân viên phụ trách "${cleanText(r.manager)}"`);
-          managerId = found;
+          if (found) managerId = found;
         }
 
         let code = cleanText(r.code).toUpperCase();
-        if (code) {
-          if (fileCodes.has(code)) throw new Error(`Mã KH [${code}] bị trùng trong file`);
-          if (existingCustomers.some((c: any) => String(c.code).toUpperCase() === code)) {
-            throw new Error(`Mã KH [${code}] đã tồn tại trong hệ thống`);
-          }
+        if (code && !fileCodes.has(code) && !existingCustomers.some((c: any) => String(c.code).toUpperCase() === code)) {
           fileCodes.add(code);
         } else {
           code = nextCode();
@@ -528,8 +518,6 @@ export class CustomersService {
           }
         });
 
-        if (phone) phoneOwner.set(phone, `${name} (${code})`);
-        if (taxCode) taxOwner.set(taxCode, `${name} (${code})`);
         created.push({ rowNumber, code, name });
       } catch (err: any) {
         failed.push({ rowNumber, name, message: err?.message || 'Lỗi lưu khách hàng' });

@@ -398,23 +398,67 @@ export const InboundReceiptsPage: React.FC = () => {
   // Nếu đang ở chế độ tạo/sửa phiếu, hiển thị giao diện trang riêng biệt
   if (isCreatePage) {
     return (
-      <InboundReceiptCreatePage
-        editingReceipt={editingReceipt}
-        warehouses={warehouses}
-        suppliers={suppliers}
-        onBack={() => {
-          setIsCreatePage(false);
-          setEditingReceipt(null);
-        }}
-        onSuccess={() => {
-          setIsCreatePage(false);
-          setEditingReceipt(null);
-          loadReceipts();
-        }}
-        onDelete={canDelete && editingReceipt ? () => {
-          setDeleteConfirm({ isOpen: true, receipt: editingReceipt });
-        } : undefined}
-      />
+      <>
+        <InboundReceiptCreatePage
+          editingReceipt={editingReceipt}
+          warehouses={warehouses}
+          suppliers={suppliers}
+          onBack={() => {
+            setIsCreatePage(false);
+            setEditingReceipt(null);
+          }}
+          onSuccess={() => {
+            setIsCreatePage(false);
+            setEditingReceipt(null);
+            loadReceipts();
+          }}
+          onDelete={
+            canDelete && editingReceipt
+              ? () => {
+                  setDeleteConfirm({ isOpen: true, receipt: editingReceipt });
+                }
+              : undefined
+          }
+        />
+
+        {deleteConfirm.isOpen && deleteConfirm.receipt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+              <div className="flex items-center gap-3 text-red-600">
+                <div className="p-2 bg-red-50 rounded-xl">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">Xóa phiếu nhập kho</h3>
+              </div>
+              <p className="text-xs text-slate-600">
+                Bạn có chắc chắn muốn xóa vĩnh viễn phiếu nhập kho{' '}
+                <strong className="text-slate-900 font-mono">{deleteConfirm.receipt.code}</strong>? Thao tác này không thể hoàn tác.
+              </p>
+              {deleteConfirm.receipt.status === 'APPROVED' && (
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 leading-relaxed">
+                  <strong>Lưu ý:</strong> Phiếu này đã nhập kho. Khi xóa, hệ thống sẽ tự động trừ lại số lượng tồn kho tương ứng.
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm({ isOpen: false, receipt: null })}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm"
+                >
+                  Xác nhận xóa
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 

@@ -11,6 +11,7 @@ interface ProductAutocompleteInputProps {
   onClearProduct?: () => void;
   productId?: string | null;
   currentStock?: number;
+  initialApprovedQty?: number;
   unit?: string;
   actualQuantity?: number;
   availableProducts: Product[];
@@ -57,6 +58,7 @@ export const ProductAutocompleteInput: React.FC<ProductAutocompleteInputProps> =
   onClearProduct,
   productId,
   currentStock,
+  initialApprovedQty = 0,
   unit,
   actualQuantity,
   availableProducts = [],
@@ -250,9 +252,22 @@ export const ProductAutocompleteInput: React.FC<ProductAutocompleteInputProps> =
             </span>
           )}
           {currentStock !== undefined && (
-            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-              → Sau nhập: {currentStock + (Number(actualQuantity) || 0)} {unit || ''}
-            </span>
+            initialApprovedQty > 0 ? (
+              (() => {
+                const diffQty = (Number(actualQuantity) || 0) - initialApprovedQty;
+                const afterStock = currentStock + diffQty;
+                const diffText = diffQty >= 0 ? `+${diffQty}` : `${diffQty}`;
+                return (
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                    → Sau sửa: {afterStock} {unit || ''} ({diffText})
+                  </span>
+                );
+              })()
+            ) : (
+              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                → Sau nhập: {currentStock + (Number(actualQuantity) || 0)} {unit || ''} (+{Number(actualQuantity) || 0})
+              </span>
+            )
           )}
         </div>
       ) : (

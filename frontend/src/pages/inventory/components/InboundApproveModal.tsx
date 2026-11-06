@@ -29,7 +29,6 @@ export const InboundApproveModal: React.FC<InboundApproveModalProps> = ({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [updateCostPrice, setUpdateCostPrice] = useState(false);
   const [notes, setNotes] = useState('');
 
   const totalAcceptedQty = receipt.items.reduce(
@@ -42,7 +41,7 @@ export const InboundApproveModal: React.FC<InboundApproveModalProps> = ({
       setLoading(true);
       setError(null);
       const res = await api.post<InboundReceipt>(`/inbound-receipts/${receipt.id}/approve`, {
-        updateCostPrice,
+        updateCostPrice: true,
         notes: notes.trim() || undefined
       });
 
@@ -165,21 +164,16 @@ export const InboundApproveModal: React.FC<InboundApproveModalProps> = ({
             </div>
           </div>
 
-          {/* Tùy chọn cập nhật giá vốn */}
-          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-xs space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={updateCostPrice}
-                onChange={(e) => setUpdateCostPrice(e.target.checked)}
-                className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
-              />
+          {/* Thông tin tự động cập nhật giá vốn mặc định */}
+          <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs space-y-1">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
               <span className="font-semibold text-gray-800">
-                Đồng thời cập nhật giá vốn sản phẩm (Cost Price) theo đơn giá nhập kho này
+                Đồng thời tự động cập nhật giá vốn sản phẩm (Cost Price) theo đơn giá nhập kho này
               </span>
-            </label>
+            </div>
             <p className="text-[11px] text-gray-500 pl-6">
-              (Nếu tích chọn, giá vốn trong danh mục sản phẩm sẽ tự động cập nhật theo đơn giá mua mới nhất)
+              (Giá vốn trong danh mục sản phẩm sẽ tự động cập nhật theo đơn giá mua mới nhất của phiếu nhập)
             </p>
           </div>
 

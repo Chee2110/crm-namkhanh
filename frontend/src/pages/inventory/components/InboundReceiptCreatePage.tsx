@@ -72,6 +72,7 @@ interface FormItem {
   qualityStatus: 'PASSED' | 'CONDITIONAL' | 'FAILED';
   qualityNotes: string;
   currentStock?: number;
+  initialApprovedQty?: number;
 }
 
 export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> = ({
@@ -145,11 +146,19 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
       setItems(
         editingReceipt.items.map((it) => {
           const matched = availableProducts.find(
-            (p) => p.id === it.productId || (it.productCode && p.code === it.productCode)
+            (p) =>
+              p.id === it.productId ||
+              (it.productCode && p.code.toLowerCase() === it.productCode.trim().toLowerCase())
           );
+          const approvedQty =
+            editingReceipt.status === 'APPROVED'
+              ? it.acceptedQuantity > 0
+                ? it.acceptedQuantity
+                : it.actualQuantity
+              : 0;
           return {
             id: it.id,
-            productId: it.productId,
+            productId: it.productId || matched?.id || null,
             productCode: it.productCode,
             productName: it.productName,
             unit: it.unit,
@@ -174,7 +183,8 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
             locationBin: it.locationBin || '',
             qualityStatus: it.qualityStatus || 'PASSED',
             qualityNotes: it.qualityNotes || '',
-            currentStock: matched?.stockQuantity !== undefined ? matched.stockQuantity : undefined
+            currentStock: matched?.stockQuantity !== undefined ? matched.stockQuantity : undefined,
+            initialApprovedQty: approvedQty
           };
         })
       );
@@ -227,6 +237,30 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
 
     setError(null);
   }, [editingReceipt, warehouses]);
+
+  // Đồng bộ tồn kho hiện tại cho các dòng mặt hàng khi danh mục sản phẩm tải xong
+  useEffect(() => {
+    if (availableProducts.length === 0) return;
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.currentStock !== undefined && it.productId) return it;
+        const matched = availableProducts.find(
+          (p) =>
+            (it.productId && p.id === it.productId) ||
+            (it.productCode &&
+              it.productCode !== 'SKU-NEW' &&
+              p.code.toLowerCase() === it.productCode.trim().toLowerCase()) ||
+            (it.productName && p.name.toLowerCase() === it.productName.trim().toLowerCase())
+        );
+        if (!matched) return it;
+        return {
+          ...it,
+          productId: it.productId || matched.id,
+          currentStock: matched.stockQuantity
+        };
+      })
+    );
+  }, [availableProducts]);
 
   // Thêm dòng mặt hàng mới
   const handleAddItem = () => {
@@ -968,6 +1002,7 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
                       onClearProduct={() => handleClearSelectedProduct(idx)}
                       productId={item.productId}
                       currentStock={item.currentStock}
+                      initialApprovedQty={item.initialApprovedQty}
                       unit={item.unit}
                       actualQuantity={item.actualQuantity}
                       availableProducts={availableProducts}

@@ -836,39 +836,14 @@ export const CustomersPage: React.FC = () => {
     }
   };
 
-  // Check trùng SĐT và MST ngay khi gõ
   const handlePhoneChange = (val: string) => {
     setFormData((prev) => ({ ...prev, phone: val }));
-    const trimmed = val.trim();
-    if (trimmed) {
-      const match = customers.find(
-        (c) => c.phone === trimmed && (!editingId || c.id !== editingId)
-      );
-      if (match) {
-        setPhoneWarning(`SĐT [${trimmed}] đã thuộc về khách hàng "${match.name}" (${match.code})`);
-      } else {
-        setPhoneWarning(null);
-      }
-    } else {
-      setPhoneWarning(null);
-    }
+    setPhoneWarning(null);
   };
 
   const handleTaxChange = (val: string) => {
     setFormData((prev) => ({ ...prev, taxCode: val }));
-    const trimmed = val.trim();
-    if (trimmed) {
-      const match = customers.find(
-        (c) => c.taxCode === trimmed && (!editingId || c.id !== editingId)
-      );
-      if (match) {
-        setTaxWarning(`Mã số thuế [${trimmed}] đã thuộc về khách hàng "${match.name}" (${match.code})`);
-      } else {
-        setTaxWarning(null);
-      }
-    } else {
-      setTaxWarning(null);
-    }
+    setTaxWarning(null);
   };
 
   const openAddModal = () => {
@@ -946,18 +921,15 @@ export const CustomersPage: React.FC = () => {
       return;
     }
     const finalPhone = formData.phone.trim() || formData.contactPhone.trim();
-    if (phoneWarning || taxWarning) {
-      setFormError('Vui lòng kiểm tra lại cảnh báo trùng lặp trước khi lưu');
-      return;
-    }
 
     try {
       setIsSubmitting(true);
       const submitData = {
         ...formData,
+        name: formData.name.trim(),
         phone: finalPhone,
         contactPhone: formData.contactPhone.trim(),
-        code: formData.code.trim() || `KH${String(customers.length + 1).padStart(4, '0')}`
+        code: formData.code.trim() || undefined
       };
       if (editingId) {
         await api.put(`/customers/${editingId}`, submitData);
@@ -2842,7 +2814,7 @@ export const CustomersPage: React.FC = () => {
                     </div>
 
                     <div className="customer-modal-field">
-                      <label className="customer-modal-label"><span className="req">*</span>Tên người liên hệ</label>
+                      <label className="customer-modal-label">Tên người liên hệ</label>
                       <input
                         type="text"
                         className="customer-modal-input"

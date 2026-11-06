@@ -321,8 +321,8 @@ model Customer {
   id              String                    @id @default(uuid())
   code            String                    @unique // KH001, KH002...
   name            String                    // Tên công ty / khách hàng
-  phone           String?                   @unique // Check trùng SĐT (nếu có)
-  taxCode         String?                   @unique @map("tax_code") // Check trùng MST
+  phone           String?                   // Số điện thoại (nếu có)
+  taxCode         String?                   @map("tax_code") // Mã số thuế (nếu có)
   address         String?
   deliveryAddress String?                   @map("delivery_address")
   customerType    String                    @default("ENTERPRISE") @map("customer_type") // ENTERPRISE, HOUSEHOLD, ORGANIZATION, SCHOOL, INDIVIDUAL
