@@ -403,6 +403,10 @@ export interface Quotation {
   vatRate: number;
   vatAmount: number;
   totalAmount: number;
+  paidAmount?: number;
+  remainingAmount?: number;
+  paymentDays?: number;
+  paymentDate?: string | null;
   notes?: string | null;
   items: QuotationItem[];
   createdAt: string;
@@ -891,6 +895,10 @@ export interface InboundReceipt {
   vatRate: number;
   vatAmount: number;
   totalAmount: number;
+  paidAmount?: number;
+  remainingAmount?: number;
+  paymentDays?: number;
+  paymentDate?: string | null;
   notes?: string | null;
   createdById?: string | null;
   createdBy?: { id: string; fullName: string; code: string; email?: string } | null;
@@ -916,6 +924,7 @@ export interface InboundReceiptKPIs {
   approvedReceipts: number;
   rejectedReceipts: number;
   totalValue: number;
+  totalDebt?: number;
   totalItemsAccepted: number;
 }
 

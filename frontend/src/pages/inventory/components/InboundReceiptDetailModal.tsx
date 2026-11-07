@@ -428,6 +428,28 @@ export const InboundReceiptDetailModal: React.FC<InboundReceiptDetailModalProps>
                       {Number(receipt.totalAmount).toLocaleString('vi-VN')} đ
                     </span>
                   </div>
+                  <div className="pt-2 border-t border-dashed border-gray-200 space-y-1.5">
+                    <div className="flex justify-between items-center text-gray-600">
+                      <span>Đã trả:</span>
+                      <span className="font-bold text-emerald-600">
+                        {Number(receipt.paidAmount || 0).toLocaleString('vi-VN')} đ
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-gray-700 font-bold">
+                      <span>Còn phải trả:</span>
+                      <span className={Math.max(0, Number(receipt.totalAmount || 0) - Number(receipt.paidAmount || 0)) > 0 ? 'text-[#E53935]' : 'text-emerald-700'}>
+                        {Math.max(0, Number(receipt.totalAmount || 0) - Number(receipt.paidAmount || 0)).toLocaleString('vi-VN')} đ
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-gray-600">
+                      <span>Ngày trả tiền:</span>
+                      <span className="font-semibold text-gray-900">
+                        {receipt.paymentDate
+                          ? new Date(receipt.paymentDate).toLocaleDateString('vi-VN')
+                          : 'Chưa hẹn'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

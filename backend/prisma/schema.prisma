@@ -734,6 +734,10 @@ model InboundReceipt {
   vatRate         Int                     @default(0) @map("vat_rate")
   vatAmount       Decimal                 @default(0) @map("vat_amount") @db.Decimal(15, 2)
   totalAmount     Decimal                 @default(0) @map("total_amount") @db.Decimal(15, 2)
+  paidAmount      Decimal                 @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  remainingAmount Decimal                 @default(0) @map("remaining_amount") @db.Decimal(15, 2)
+  paymentDays     Int                     @default(0) @map("payment_days")
+  paymentDate     DateTime?               @map("payment_date") @db.Date
   notes           String?                 @db.Text
 
   // Thông tin kiểm hàng & phê duyệt

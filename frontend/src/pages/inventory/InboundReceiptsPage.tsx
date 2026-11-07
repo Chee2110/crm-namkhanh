@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   PackagePlus,
   Plus,
@@ -47,6 +47,183 @@ import { InboundPrintModal } from './components/InboundPrintModal';
 import { useTableResize } from '../../hooks/useTableResize';
 import { ColumnCustomizerDropdown } from '../../components/common/ColumnCustomizerDropdown';
 import { withActionsLast } from '../../utils/columnOrder';
+import { formatVND, formatNumber, parseNumberFromFormatted } from '../../utils/formatCurrency';
+
+interface InlineInboundPaidInputProps {
+  receiptId: string;
+  totalAmount: number;
+  paidAmount: number;
+  canEdit: boolean;
+  onSave: (receiptId: string, newPaid: number) => Promise<void>;
+}
+
+const InlineInboundPaidInput: React.FC<InlineInboundPaidInputProps> = ({
+  receiptId,
+  totalAmount,
+  paidAmount,
+  canEdit,
+  onSave
+}) => {
+  const [val, setVal] = useState<string>(() => (paidAmount > 0 ? formatNumber(paidAmount) : '0'));
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setVal(paidAmount > 0 ? formatNumber(paidAmount) : '0');
+    }
+  }, [paidAmount, isFocused]);
+
+  const commitChange = () => {
+    setIsFocused(false);
+    const parsed = parseNumberFromFormatted(val);
+    const maxVal = Number(totalAmount || 0);
+    const validPaid = maxVal > 0 ? Math.max(0, Math.min(maxVal, parsed)) : Math.max(0, parsed);
+    setVal(formatNumber(validPaid));
+    if (validPaid !== Number(paidAmount)) {
+      onSave(receiptId, validPaid);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      setVal(paidAmount > 0 ? formatNumber(paidAmount) : '0');
+      setIsFocused(false);
+      e.currentTarget.blur();
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const raw = input.value;
+    const cursorPos = input.selectionStart || 0;
+
+    if (raw === '' || raw === '-') {
+      setVal('');
+      return;
+    }
+
+    const digitsBeforeCursor = raw.slice(0, cursorPos).replace(/\D/g, '').length;
+    const cleanDigits = raw.replace(/\D/g, '');
+    if (!cleanDigits) {
+      setVal('');
+      return;
+    }
+
+    const num = parseInt(cleanDigits, 10) || 0;
+    const formatted = formatNumber(num);
+    setVal(formatted);
+
+    requestAnimationFrame(() => {
+      if (!inputRef.current) return;
+      let digitsCount = 0;
+      let newPos = 0;
+      for (let i = 0; i < formatted.length; i++) {
+        if (/\d/.test(formatted[i])) {
+          digitsCount++;
+        }
+        if (digitsCount === digitsBeforeCursor) {
+          newPos = i + 1;
+          break;
+        }
+      }
+      if (digitsBeforeCursor === 0) newPos = 0;
+      if (newPos > formatted.length) newPos = formatted.length;
+      inputRef.current.setSelectionRange(newPos, newPos);
+    });
+  };
+
+  if (!canEdit) {
+    return <span className="font-semibold text-emerald-600 tabular-nums">{formatVND(paidAmount)}</span>;
+  }
+
+  return (
+    <div
+      className="inline-flex items-center justify-center relative w-full max-w-[125px]"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="numeric"
+        value={val}
+        title="Bấm để sửa trực tiếp số tiền đã trả (Enter để lưu)"
+        onFocus={(e) => {
+          setIsFocused(true);
+          e.target.select();
+        }}
+        onChange={handleChange}
+        onBlur={commitChange}
+        onKeyDown={handleKeyDown}
+        className={`w-full text-center text-xs font-bold text-emerald-600 tabular-nums py-1 px-1.5 rounded-md transition-all ${
+          isFocused
+            ? 'bg-white border-2 border-emerald-500 shadow-xs ring-2 ring-emerald-100 outline-none'
+            : 'bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-200/80 hover:border-emerald-400 cursor-text'
+        }`}
+      />
+    </div>
+  );
+};
+
+interface InlinePaymentDateInputProps {
+  receiptId: string;
+  paymentDate?: string | null;
+  canEdit: boolean;
+  onSave: (receiptId: string, newDate: string | null) => Promise<void>;
+}
+
+const InlinePaymentDateInput: React.FC<InlinePaymentDateInputProps> = ({
+  receiptId,
+  paymentDate,
+  canEdit,
+  onSave
+}) => {
+  const formatDateValue = (d?: string | null) => {
+    if (!d) return '';
+    try {
+      return new Date(d).toISOString().split('T')[0];
+    } catch {
+      return '';
+    }
+  };
+
+  const [val, setVal] = useState<string>(() => formatDateValue(paymentDate));
+
+  useEffect(() => {
+    setVal(formatDateValue(paymentDate));
+  }, [paymentDate]);
+
+  if (!canEdit) {
+    return (
+      <span className="font-semibold text-slate-700 tabular-nums">
+        {paymentDate ? new Date(paymentDate).toLocaleDateString('vi-VN') : '-'}
+      </span>
+    );
+  }
+
+  return (
+    <div
+      className="inline-flex items-center justify-center relative"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <input
+        type="date"
+        value={val}
+        title="Chọn ngày trả tiền"
+        onChange={(e) => {
+          const newDate = e.target.value;
+          setVal(newDate);
+          onSave(receiptId, newDate || null);
+        }}
+        className="w-[125px] text-center text-xs font-semibold text-slate-800 tabular-nums py-1 px-1.5 rounded-md transition-all bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 focus:bg-white focus:border-blue-500 focus:outline-none cursor-pointer"
+      />
+    </div>
+  );
+};
 
 export const InboundReceiptsPage: React.FC = () => {
   const { user, hasPermission } = useAuth();
@@ -105,6 +282,9 @@ export const InboundReceiptsPage: React.FC = () => {
     'warehouse',
     'itemsCount',
     'totalAmount',
+    'paidAmount',
+    'remainingAmount',
+    'paymentDate',
     'createdByName',
     'status',
     'actions'
@@ -119,6 +299,9 @@ export const InboundReceiptsPage: React.FC = () => {
     warehouse: 'Kho nhận',
     itemsCount: 'Số SP / SL',
     totalAmount: 'Tổng tiền (VNĐ)',
+    paidAmount: 'Đã trả',
+    remainingAmount: 'Còn phải trả',
+    paymentDate: 'Ngày trả tiền',
     createdByName: 'Người lập',
     status: 'Trạng thái',
     actions: 'Thao tác'
@@ -133,6 +316,9 @@ export const InboundReceiptsPage: React.FC = () => {
     warehouse: true,
     itemsCount: true,
     totalAmount: true,
+    paidAmount: true,
+    remainingAmount: true,
+    paymentDate: true,
     createdByName: true,
     status: true,
     actions: true
@@ -141,13 +327,16 @@ export const InboundReceiptsPage: React.FC = () => {
   const defaultInboundWidths: Record<string, number> = {
     stt: 55,
     code: 140,
-    receiptDate: 110,
-    type: 130,
-    supplier: 230,
-    warehouse: 160,
-    itemsCount: 120,
+    receiptDate: 105,
+    type: 125,
+    supplier: 210,
+    warehouse: 145,
+    itemsCount: 110,
     totalAmount: 140,
-    createdByName: 125,
+    paidAmount: 135,
+    remainingAmount: 140,
+    paymentDate: 140,
+    createdByName: 120,
     status: 130,
     actions: 140
   };
@@ -161,6 +350,9 @@ export const InboundReceiptsPage: React.FC = () => {
     warehouse: 110,
     itemsCount: 85,
     totalAmount: 100,
+    paidAmount: 100,
+    remainingAmount: 105,
+    paymentDate: 115,
     createdByName: 90,
     status: 100,
     actions: 120
@@ -168,7 +360,7 @@ export const InboundReceiptsPage: React.FC = () => {
 
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_inbound_visible_cols_v1');
+      const saved = localStorage.getItem('namkhanh_inbound_visible_cols_v3');
       return saved ? { ...defaultVisibleCols, ...JSON.parse(saved) } : defaultVisibleCols;
     } catch {
       return defaultVisibleCols;
@@ -177,7 +369,7 @@ export const InboundReceiptsPage: React.FC = () => {
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('namkhanh_inbound_col_order_v1');
+      const saved = localStorage.getItem('namkhanh_inbound_col_order_v3');
       return saved ? withActionsLast(JSON.parse(saved), defaultColOrder) : defaultColOrder;
     } catch {
       return defaultColOrder;
@@ -185,7 +377,7 @@ export const InboundReceiptsPage: React.FC = () => {
   });
 
   const { columnWidths, startResize, resetWidths, getTableWidth } = useTableResize({
-    tableKey: 'inbound_receipts_v1',
+    tableKey: 'inbound_receipts_v3',
     defaultWidths: defaultInboundWidths,
     minWidth: 50,
     minWidths: minInboundWidths
@@ -195,7 +387,7 @@ export const InboundReceiptsPage: React.FC = () => {
     const normalized = withActionsLast(newOrder, defaultColOrder);
     setColumnOrder(normalized);
     try {
-      localStorage.setItem('namkhanh_inbound_col_order_v1', JSON.stringify(normalized));
+      localStorage.setItem('namkhanh_inbound_col_order_v3', JSON.stringify(normalized));
     } catch (e) {
       console.error(e);
     }
@@ -205,7 +397,7 @@ export const InboundReceiptsPage: React.FC = () => {
     const updated = { ...visibleColumns, [colKey]: !visibleColumns[colKey] };
     setVisibleColumns(updated);
     try {
-      localStorage.setItem('namkhanh_inbound_visible_cols_v1', JSON.stringify(updated));
+      localStorage.setItem('namkhanh_inbound_visible_cols_v3', JSON.stringify(updated));
     } catch (e) {
       console.error(e);
     }
@@ -216,8 +408,8 @@ export const InboundReceiptsPage: React.FC = () => {
     setColumnOrder(defaultColOrder);
     resetWidths();
     try {
-      localStorage.removeItem('namkhanh_inbound_visible_cols_v1');
-      localStorage.removeItem('namkhanh_inbound_col_order_v1');
+      localStorage.removeItem('namkhanh_inbound_visible_cols_v3');
+      localStorage.removeItem('namkhanh_inbound_col_order_v3');
     } catch (e) {
       console.error(e);
     }
@@ -361,6 +553,54 @@ export const InboundReceiptsPage: React.FC = () => {
     }
   };
 
+  // Cập nhật nhanh số tiền Đã trả hoặc Ngày trả tiền ngay trên bảng
+  const handleInlineUpdatePaid = async (receiptId: string, newPaid: number) => {
+    try {
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      let shouldSetToday = false;
+
+      setReceipts((prev) =>
+        prev.map((r) => {
+          if (r.id !== receiptId) return r;
+          const total = Number(r.totalAmount || 0);
+          const rem = Math.max(0, total - newPaid);
+          const isPaidInFull = total > 0 && newPaid >= total;
+          if (isPaidInFull) {
+            shouldSetToday = true;
+          }
+          return {
+            ...r,
+            paidAmount: newPaid,
+            remainingAmount: rem,
+            paymentDate: isPaidInFull ? todayStr : r.paymentDate
+          };
+        })
+      );
+
+      const payload: Record<string, any> = { paidAmount: newPaid };
+      if (shouldSetToday) {
+        payload.paymentDate = todayStr;
+      }
+      await api.put(`/inbound-receipts/${receiptId}`, payload);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Cập nhật số tiền đã trả thất bại');
+      loadReceipts();
+    }
+  };
+
+  const handleInlineUpdatePaymentDate = async (receiptId: string, newDate: string | null) => {
+    try {
+      setReceipts((prev) =>
+        prev.map((r) => (r.id === receiptId ? { ...r, paymentDate: newDate } : r))
+      );
+      await api.put(`/inbound-receipts/${receiptId}`, { paymentDate: newDate });
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Cập nhật ngày trả tiền thất bại');
+      loadReceipts();
+    }
+  };
+
   // Xuất file CSV danh sách phiếu nhập
   const handleExportListCSV = () => {
     const lines = [
@@ -368,15 +608,18 @@ export const InboundReceiptsPage: React.FC = () => {
       `Thời gian xuất: ${new Date().toLocaleString('vi-VN')}`,
       `Tổng số phiếu: ${receipts.length}`,
       '',
-      'STT,Mã phiếu,Ngày nhập,Loại nhập,Nhà cung cấp/Nguồn,Kho nhận,Số mặt hàng,Tổng tiền (VNĐ),Người lập,Trạng thái'
+      'STT,Mã phiếu,Ngày nhập,Loại nhập,Nhà cung cấp/Nguồn,Kho nhận,Số mặt hàng,Tổng tiền (VNĐ),Đã trả (VNĐ),Còn phải trả (VNĐ),Ngày trả tiền,Người lập,Trạng thái'
     ];
 
     receipts.forEach((r, idx) => {
       const typeLabel = typeConfig[r.type]?.label || r.type;
       const statusLabel = statusConfig[r.status]?.label || r.status;
       const supplierName = r.supplier?.name || r.sourceName || 'Nhập nội bộ';
+      const paid = Number(r.paidAmount || 0);
+      const rem = Math.max(0, Number(r.totalAmount || 0) - paid);
+      const pDate = r.paymentDate ? new Date(r.paymentDate).toLocaleDateString('vi-VN') : '';
       lines.push(
-        `${idx + 1},"${r.code}","${new Date(r.receiptDate).toLocaleDateString('vi-VN')}","${typeLabel}","${supplierName}","${r.warehouse?.name || ''}",${r.items?.length || 0},${r.totalAmount},"${r.createdBy?.fullName || ''}","${statusLabel}"`
+        `${idx + 1},"${r.code}","${new Date(r.receiptDate).toLocaleDateString('vi-VN')}","${typeLabel}","${supplierName}","${r.warehouse?.name || ''}",${r.items?.length || 0},${r.totalAmount},${paid},${rem},"${pDate}","${r.createdBy?.fullName || ''}","${statusLabel}"`
       );
     });
 
@@ -394,6 +637,17 @@ export const InboundReceiptsPage: React.FC = () => {
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
+
+  // Tổng nợ phải trả (tự động cập nhật tức thì khi sửa Đã trả trên bảng)
+  const totalPayableDebt =
+    receipts.length > 0
+      ? receipts
+          .filter((r) => r.status !== 'CANCELLED' && r.status !== 'REJECTED')
+          .reduce(
+            (sum, r) => sum + Math.max(0, Number(r.totalAmount || 0) - Number(r.paidAmount || 0)),
+            0
+          )
+      : kpis?.totalDebt || 0;
 
   // Nếu đang ở chế độ tạo/sửa phiếu, hiển thị giao diện trang riêng biệt
   if (isCreatePage) {
@@ -523,15 +777,15 @@ export const InboundReceiptsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. TOP KPI CARDS (5 THẺ THỐNG KÊ NGHIỆP VỤ) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+      {/* 2. TOP KPI CARDS (6 THẺ THỐNG KÊ NGHIỆP VỤ) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         {/* Card 1: Tổng số phiếu */}
         <div className="card p-2.5 sm:p-3 rounded-xl border border-slate-100/80 shadow-xs bg-white flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
             <FileSpreadsheet className="w-4 h-4" />
           </div>
-          <div>
-            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Tổng phiếu nhập</div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider truncate">Tổng phiếu nhập</div>
             <div className="text-base font-black text-slate-900 leading-tight">{kpis?.totalReceipts || 0}</div>
           </div>
         </div>
@@ -541,8 +795,8 @@ export const InboundReceiptsPage: React.FC = () => {
           <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold shrink-0">
             <Clock className="w-4 h-4" />
           </div>
-          <div>
-            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Chờ kiểm / Duyệt</div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider truncate">Chờ kiểm / Duyệt</div>
             <div className="text-base font-black text-amber-600 leading-tight">{kpis?.pendingReceipts || 0}</div>
           </div>
         </div>
@@ -552,32 +806,45 @@ export const InboundReceiptsPage: React.FC = () => {
           <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
             <CheckCircle2 className="w-4 h-4" />
           </div>
-          <div>
-            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Đã cộng tồn kho</div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider truncate">Đã cộng tồn kho</div>
             <div className="text-base font-black text-emerald-600 leading-tight">{kpis?.approvedReceipts || 0}</div>
           </div>
         </div>
 
         {/* Card 4: Tổng giá trị hàng nhập */}
         <div className="card p-2.5 sm:p-3 rounded-xl border border-slate-100/80 shadow-xs bg-white flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-red-50 text-[#E53935] flex items-center justify-center font-bold shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center font-bold shrink-0">
             <DollarSign className="w-4 h-4" />
           </div>
-          <div>
-            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Tổng giá trị nhập</div>
-            <div className="text-sm font-black text-[#E53935] truncate max-w-[130px] leading-tight" title={`${(kpis?.totalValue || 0).toLocaleString('vi-VN')} đ`}>
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider truncate">Tổng giá trị nhập</div>
+            <div className="text-sm font-black text-sky-600 truncate leading-tight" title={`${(kpis?.totalValue || 0).toLocaleString('vi-VN')} đ`}>
               {(kpis?.totalValue || 0).toLocaleString('vi-VN')} đ
             </div>
           </div>
         </div>
 
-        {/* Card 5: Tổng số lượng sản phẩm nhập */}
-        <div className="card p-2.5 sm:p-3 rounded-xl border border-slate-100/80 shadow-xs bg-white flex items-center gap-2.5 col-span-2 sm:col-span-1">
+        {/* Card 5: Tổng nợ phải trả */}
+        <div className="card p-2.5 sm:p-3 rounded-xl border border-slate-100/80 shadow-xs bg-white flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-red-50 text-[#E53935] flex items-center justify-center font-bold shrink-0">
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider truncate">Tổng nợ phải trả</div>
+            <div className="text-sm font-black text-[#E53935] truncate leading-tight" title={`${totalPayableDebt.toLocaleString('vi-VN')} đ`}>
+              {totalPayableDebt.toLocaleString('vi-VN')} đ
+            </div>
+          </div>
+        </div>
+
+        {/* Card 6: Tổng số lượng sản phẩm nhập */}
+        <div className="card p-2.5 sm:p-3 rounded-xl border border-slate-100/80 shadow-xs bg-white flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold shrink-0">
             <Boxes className="w-4 h-4" />
           </div>
-          <div>
-            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Tổng SP thực nhận</div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider truncate">Tổng SP thực nhận</div>
             <div className="text-base font-black text-purple-600 leading-tight">
               {(kpis?.totalItemsAccepted || 0).toLocaleString('vi-VN')}
             </div>
@@ -856,10 +1123,55 @@ export const InboundReceiptsPage: React.FC = () => {
                                 );
                               case 'totalAmount':
                                 return (
-                                  <td key={colKey} className="px-3 py-1.5 text-right font-black text-slate-900 whitespace-nowrap overflow-hidden">
+                                  <td key={colKey} className="px-3 py-1.5 text-right font-black text-slate-900 whitespace-nowrap overflow-hidden tabular-nums">
                                     {Number(r.totalAmount).toLocaleString('vi-VN')} đ
                                   </td>
                                 );
+                              case 'paidAmount': {
+                                const paid = Number(r.paidAmount || 0);
+                                return (
+                                  <td
+                                    key={colKey}
+                                    className="px-1.5 py-1 text-center whitespace-nowrap overflow-hidden tabular-nums"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <InlineInboundPaidInput
+                                      receiptId={r.id}
+                                      totalAmount={Number(r.totalAmount || 0)}
+                                      paidAmount={paid}
+                                      canEdit={Boolean(canEdit)}
+                                      onSave={handleInlineUpdatePaid}
+                                    />
+                                  </td>
+                                );
+                              }
+                              case 'remainingAmount': {
+                                const paid = Number(r.paidAmount || 0);
+                                const rem = Math.max(0, Number(r.totalAmount || 0) - paid);
+                                return (
+                                  <td key={colKey} className="px-2.5 py-1.5 text-center font-bold whitespace-nowrap overflow-hidden tabular-nums">
+                                    <span className={rem > 0 ? 'text-[#E53935]' : 'text-emerald-700'}>
+                                      {rem.toLocaleString('vi-VN')} đ
+                                    </span>
+                                  </td>
+                                );
+                              }
+                              case 'paymentDate': {
+                                return (
+                                  <td
+                                    key={colKey}
+                                    className="px-1.5 py-1 text-center whitespace-nowrap overflow-hidden tabular-nums"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <InlinePaymentDateInput
+                                      receiptId={r.id}
+                                      paymentDate={r.paymentDate}
+                                      canEdit={Boolean(canEdit)}
+                                      onSave={handleInlineUpdatePaymentDate}
+                                    />
+                                  </td>
+                                );
+                              }
                               case 'createdByName':
                                 return (
                                   <td key={colKey} className="px-2.5 py-1.5 text-center text-slate-600 truncate overflow-hidden" title={r.createdBy?.fullName || 'Người lập'}>

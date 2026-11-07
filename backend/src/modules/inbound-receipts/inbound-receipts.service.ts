@@ -36,10 +36,36 @@ export interface CreateInboundReceiptDTO {
   documentDate?: string | null;
   status?: string;
   vatRate?: number;
+  paidAmount?: number;
+  paymentDays?: number;
+  paymentDate?: string | null;
   notes?: string | null;
   fileUrl?: string | null;
   fileName?: string | null;
   items: InboundReceiptItemInput[];
+}
+
+let inboundColumnsEnsured = false;
+async function ensureInboundPaymentColumns(): Promise<void> {
+  if (inboundColumnsEnsured) return;
+  inboundColumnsEnsured = true;
+  try {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "inbound_receipts" ADD COLUMN IF NOT EXISTS "paid_amount" DECIMAL(15,2) NOT NULL DEFAULT 0;`
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "inbound_receipts" ADD COLUMN IF NOT EXISTS "remaining_amount" DECIMAL(15,2) NOT NULL DEFAULT 0;`
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "inbound_receipts" ADD COLUMN IF NOT EXISTS "payment_days" INTEGER NOT NULL DEFAULT 0;`
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "inbound_receipts" ADD COLUMN IF NOT EXISTS "payment_date" DATE;`
+    );
+    await prisma.$executeRawUnsafe(
+      `UPDATE "inbound_receipts" SET "remaining_amount" = GREATEST(0, "total_amount" - "paid_amount") WHERE "remaining_amount" = 0 AND "paid_amount" = 0 AND "total_amount" > 0;`
+    );
+  } catch (_) {}
 }
 
 export class InboundReceiptsService {
@@ -111,6 +137,7 @@ export class InboundReceiptsService {
     startDate?: string;
     endDate?: string;
   }) {
+    await ensureInboundPaymentColumns();
     const where: any = {};
 
     if (params.type && params.type !== 'ALL') {
@@ -177,6 +204,8 @@ export class InboundReceiptsService {
       select: {
         status: true,
         totalAmount: true,
+        paidAmount: true,
+        remainingAmount: true,
         items: {
           select: { actualQuantity: true, acceptedQuantity: true }
         }
@@ -190,6 +219,9 @@ export class InboundReceiptsService {
     const totalValue = allMatching
       .filter((r) => r.status === 'APPROVED')
       .reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
+    const totalDebt = allMatching
+      .filter((r) => r.status !== 'CANCELLED' && r.status !== 'REJECTED')
+      .reduce((sum, r) => sum + Math.max(0, Number(r.totalAmount || 0) - Number(r.paidAmount || 0)), 0);
     const totalItemsAccepted = allMatching
       .filter((r) => r.status === 'APPROVED')
       .reduce((sum, r) => sum + r.items.reduce((s2, it) => s2 + it.acceptedQuantity, 0), 0);
@@ -201,6 +233,7 @@ export class InboundReceiptsService {
         approvedReceipts,
         rejectedReceipts,
         totalValue,
+        totalDebt,
         totalItemsAccepted
       },
       receipts
@@ -341,6 +374,15 @@ export class InboundReceiptsService {
 
     const vatAmount = (subtotal * vatRate) / 100;
     const totalAmount = subtotal + vatAmount;
+    const paidAmount = Math.max(0, Number(data.paidAmount) || 0);
+    const remainingAmount = Math.max(0, totalAmount - paidAmount);
+    const paymentDays = Math.max(0, parseInt(String(data.paymentDays ?? 0), 10) || 0);
+    const isPaidInFull = totalAmount > 0 && paidAmount >= totalAmount;
+    const resolvedPaymentDate = data.paymentDate
+      ? new Date(data.paymentDate)
+      : isPaidInFull
+      ? new Date()
+      : null;
 
     return await prisma.$transaction(async (tx) => {
       const receipt = await tx.inboundReceipt.create({
@@ -358,6 +400,10 @@ export class InboundReceiptsService {
           vatRate,
           vatAmount: new Prisma.Decimal(vatAmount),
           totalAmount: new Prisma.Decimal(totalAmount),
+          paidAmount: new Prisma.Decimal(paidAmount),
+          remainingAmount: new Prisma.Decimal(remainingAmount),
+          paymentDays,
+          paymentDate: resolvedPaymentDate,
           notes: data.notes?.trim() || null,
           fileUrl: data.fileUrl || null,
           fileName: data.fileName || null,
@@ -565,11 +611,35 @@ export class InboundReceiptsService {
 
         const vatAmount = (subtotal * vatRate) / 100;
         const totalAmount = subtotal + vatAmount;
+        const nextPaidAmount =
+          data.paidAmount !== undefined ? Math.max(0, Number(data.paidAmount) || 0) : Number(existing.paidAmount || 0);
+        const nextRemainingAmount = Math.max(0, totalAmount - nextPaidAmount);
 
         updateData.subtotal = new Prisma.Decimal(subtotal);
         updateData.vatRate = vatRate;
         updateData.vatAmount = new Prisma.Decimal(vatAmount);
         updateData.totalAmount = new Prisma.Decimal(totalAmount);
+        updateData.paidAmount = new Prisma.Decimal(nextPaidAmount);
+        updateData.remainingAmount = new Prisma.Decimal(nextRemainingAmount);
+        if (totalAmount > 0 && nextPaidAmount >= totalAmount && !data.paymentDate) {
+          updateData.paymentDate = new Date();
+        }
+      } else if (data.paidAmount !== undefined) {
+        const nextPaidAmount = Math.max(0, Number(data.paidAmount) || 0);
+        const currentTotal = Number(existing.totalAmount || 0);
+        const nextRemainingAmount = Math.max(0, currentTotal - nextPaidAmount);
+        updateData.paidAmount = new Prisma.Decimal(nextPaidAmount);
+        updateData.remainingAmount = new Prisma.Decimal(nextRemainingAmount);
+        if (currentTotal > 0 && nextPaidAmount >= currentTotal && !data.paymentDate) {
+          updateData.paymentDate = new Date();
+        }
+      }
+
+      if (data.paymentDays !== undefined) {
+        updateData.paymentDays = Math.max(0, parseInt(String(data.paymentDays), 10) || 0);
+      }
+      if (data.paymentDate !== undefined) {
+        updateData.paymentDate = data.paymentDate ? new Date(data.paymentDate) : null;
       }
 
       const updated = await tx.inboundReceipt.update({
@@ -669,6 +739,8 @@ export class InboundReceiptsService {
 
       const vatAmount = (newSubtotal * receipt.vatRate) / 100;
       const totalAmount = newSubtotal + vatAmount;
+      const currentPaid = Number(receipt.paidAmount || 0);
+      const remainingAmount = Math.max(0, totalAmount - currentPaid);
 
       const updated = await tx.inboundReceipt.update({
         where: { id },
@@ -679,6 +751,7 @@ export class InboundReceiptsService {
           subtotal: new Prisma.Decimal(newSubtotal),
           vatAmount: new Prisma.Decimal(vatAmount),
           totalAmount: new Prisma.Decimal(totalAmount),
+          remainingAmount: new Prisma.Decimal(remainingAmount),
           notes: data.notes !== undefined ? data.notes : receipt.notes
         },
         include: {

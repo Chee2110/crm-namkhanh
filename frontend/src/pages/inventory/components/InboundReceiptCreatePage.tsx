@@ -35,6 +35,7 @@ import {
   InboundReceiptType
 } from '../../../types';
 import { numberToWords } from '../../../utils/numberToWords';
+import { formatNumber, parseNumberFromFormatted } from '../../../utils/formatCurrency';
 import { SelectExistingProductsModal } from './SelectExistingProductsModal';
 import { ImportItemsModal } from '../../../components/common/ImportItemsModal';
 import { ProductAutocompleteInput } from '../../../components/common/ProductAutocompleteInput';
@@ -103,6 +104,8 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
   const [documentDate, setDocumentDate] = useState('');
   const [notes, setNotes] = useState('');
   const [vatRate, setVatRate] = useState<number>(0);
+  const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [paymentDate, setPaymentDate] = useState<string>('');
   const [fileUrl, setFileUrl] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
 
@@ -140,6 +143,12 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
       );
       setNotes(editingReceipt.notes || '');
       setVatRate(editingReceipt.vatRate || 0);
+      setPaidAmount(Number(editingReceipt.paidAmount) || 0);
+      setPaymentDate(
+        editingReceipt.paymentDate
+          ? new Date(editingReceipt.paymentDate).toISOString().split('T')[0]
+          : ''
+      );
       setFileUrl(editingReceipt.fileUrl || '');
       setFileName(editingReceipt.fileName || '');
 
@@ -205,6 +214,8 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
       setDocumentDate('');
       setNotes('');
       setVatRate(0);
+      setPaidAmount(0);
+      setPaymentDate('');
       setFileUrl('');
       setFileName('');
 
@@ -518,6 +529,7 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
   const subtotal = items.reduce((sum, it) => sum + (it.amount || 0), 0);
   const vatAmount = (subtotal * vatRate) / 100;
   const totalAmount = subtotal + vatAmount;
+  const remainingAmount = Math.max(0, totalAmount - (Number(paidAmount) || 0));
   const totalItemsCount = items.length;
   const totalActualQty = items.reduce((s, it) => s + (Number(it.actualQuantity) || 0), 0);
 
@@ -558,6 +570,8 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
       documentDate: documentDate || null,
       status: targetStatus,
       vatRate,
+      paidAmount: Number(paidAmount) || 0,
+      paymentDate: paymentDate || null,
       notes: notes.trim() || null,
       fileUrl: fileUrl || null,
       fileName: fileName || null,
@@ -1159,6 +1173,48 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
 
             <div className="text-[11px] text-slate-500 italic pt-1">
               <strong>Bằng chữ:</strong> {numberToWords(totalAmount)}
+            </div>
+
+            <div className="pt-3 border-t border-dashed border-slate-200 space-y-2.5">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-slate-700">Đã trả (Thanh toán trước):</span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={paidAmount > 0 ? formatNumber(paidAmount) : '0'}
+                    onChange={(e) => {
+                      const parsed = parseNumberFromFormatted(e.target.value);
+                      const nextPaid = totalAmount > 0 ? Math.min(totalAmount, Math.max(0, parsed)) : Math.max(0, parsed);
+                      setPaidAmount(nextPaid);
+                      if (totalAmount > 0 && nextPaid >= totalAmount) {
+                        const now = new Date();
+                        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                        setPaymentDate(todayStr);
+                      }
+                    }}
+                    className="w-36 px-2.5 py-1.5 text-xs border border-emerald-300 rounded-lg font-bold text-emerald-700 text-right focus:outline-none focus:border-emerald-500 bg-emerald-50/30"
+                  />
+                  <span className="text-slate-500 font-semibold">đ</span>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center font-bold text-[#E53935]">
+                <span>Còn phải trả (Công nợ NCC):</span>
+                <span className="text-sm font-black">{remainingAmount.toLocaleString('vi-VN')} đ</span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-slate-700">Ngày trả tiền (Hạn thanh toán):</span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                    className="w-40 px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-bold text-slate-800 text-center focus:outline-none focus:border-red-500"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
