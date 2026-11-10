@@ -65,10 +65,28 @@ async function ensureInboundPaymentColumns(): Promise<void> {
     await prisma.$executeRawUnsafe(
       `UPDATE "inbound_receipts" SET "remaining_amount" = GREATEST(0, "total_amount" - "paid_amount") WHERE "remaining_amount" = 0 AND "paid_amount" = 0 AND "total_amount" > 0;`
     );
+    const colCheck: any[] = await prisma.$queryRawUnsafe(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'inbound_receipts' AND column_name = 'stock_synced';`
+    );
+    if (!colCheck || colCheck.length === 0) {
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "inbound_receipts" ADD COLUMN IF NOT EXISTS "stock_synced" BOOLEAN NOT NULL DEFAULT FALSE;`
+      );
+      await prisma.$executeRawUnsafe(
+        `UPDATE "inbound_receipts" SET "stock_synced" = TRUE WHERE "status" = 'APPROVED';`
+      );
+    }
   } catch (_) {}
 }
 
 export class InboundReceiptsService {
+  /**
+   * Kiểm tra trạng thái phiếu nhập có được tính vào tồn kho hay không
+   * (Cả phiếu đang Chờ kiểm & duyệt CHECKING và Đã nhập kho APPROVED đều được đồng bộ tồn kho)
+   */
+  private isStockActiveStatus(status?: string | null): boolean {
+    return status === 'CHECKING' || status === 'APPROVED';
+  }
   /**
    * Tìm sản phẩm tương ứng trong kho theo productId, mã SKU (không phân biệt hoa/thường) hoặc tên sản phẩm
    */
@@ -187,9 +205,12 @@ export class InboundReceiptsService {
 
   /**
    * Đồng bộ tự động các dòng mặt hàng mới trong phiếu nhập kho cũ chưa được liên kết sang trang Hàng hóa
+   * và đồng bộ tồn kho cho các phiếu CHECKING/APPROVED chưa được cộng tồn
    */
   public async syncUnlinkedInboundItems(): Promise<void> {
     try {
+      await ensureInboundPaymentColumns();
+
       const unlinkedItems = await prisma.inboundReceiptItem.findMany({
         where: { productId: null },
         include: {
@@ -204,65 +225,118 @@ export class InboundReceiptsService {
         }
       });
 
-      if (unlinkedItems.length === 0) return;
+      if (unlinkedItems.length > 0) {
+        await prisma.$transaction(async (tx) => {
+          for (const item of unlinkedItems) {
+            if (!item.receipt || item.receipt.status === 'CANCELLED' || item.receipt.status === 'REJECTED') {
+              continue;
+            }
 
-      await prisma.$transaction(async (tx) => {
-        for (const item of unlinkedItems) {
-          if (!item.receipt || item.receipt.status === 'CANCELLED' || item.receipt.status === 'REJECTED') {
-            continue;
-          }
+            const existedBefore = await this.findMatchingProduct(tx, item);
+            const product =
+              existedBefore ||
+              (await this.findOrCreateProduct(
+                tx,
+                {
+                  productId: item.productId,
+                  productCode: item.productCode,
+                  productName: item.productName,
+                  unit: item.unit,
+                  unitPrice: item.unitPrice,
+                  vatRate: item.vatRate
+                },
+                {
+                  warehouseId: item.receipt.warehouseId,
+                  supplierId: item.receipt.supplierId
+                }
+              ));
 
-          const existedBefore = await this.findMatchingProduct(tx, item);
-          const product =
-            existedBefore ||
-            (await this.findOrCreateProduct(
-              tx,
-              {
-                productId: item.productId,
-                productCode: item.productCode,
-                productName: item.productName,
-                unit: item.unit,
-                unitPrice: item.unitPrice,
-                vatRate: item.vatRate
-              },
-              {
-                warehouseId: item.receipt.warehouseId,
-                supplierId: item.receipt.supplierId
+            if (!product) continue;
+
+            await tx.inboundReceiptItem.update({
+              where: { id: item.id },
+              data: {
+                productId: product.id,
+                productCode:
+                  item.productCode && item.productCode !== 'SKU-NEW' && item.productCode !== 'N/A'
+                    ? item.productCode
+                    : product.code
               }
-            ));
+            });
 
-          if (!product) continue;
-
-          await tx.inboundReceiptItem.update({
-            where: { id: item.id },
-            data: {
-              productId: product.id,
-              productCode:
-                item.productCode && item.productCode !== 'SKU-NEW' && item.productCode !== 'N/A'
-                  ? item.productCode
-                  : product.code
-            }
-          });
-
-          // Nếu phiếu đã APPROVED và mặt hàng này trước đó chưa từng có trong trang Hàng hóa (hoặc chưa cộng tồn), cộng số lượng nhập vào tồn kho
-          if (item.receipt.status === 'APPROVED' && !existedBefore) {
-            const qtyToAdd = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
-            const updateData: any = {};
-            if (qtyToAdd > 0) {
-              updateData.stockQuantity = { increment: qtyToAdd };
-            }
-            if (Number(item.unitPrice) > 0) {
-              updateData.costPrice = item.unitPrice;
-            }
-            if (Object.keys(updateData).length > 0) {
-              await tx.product.update({
-                where: { id: product.id },
-                data: updateData
-              });
+            // Nếu phiếu đã APPROVED (đã đánh dấu stock_synced = true trước đó) nhưng mặt hàng mới này chưa từng có trong trang Hàng hóa, bổ sung tồn kho cho mặt hàng mới đó
+            if (item.receipt.status === 'APPROVED' && !existedBefore) {
+              const qtyToAdd = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
+              const updateData: any = {};
+              if (qtyToAdd > 0) {
+                updateData.stockQuantity = { increment: qtyToAdd };
+              }
+              if (Number(item.unitPrice) > 0) {
+                updateData.costPrice = item.unitPrice;
+              }
+              if (Object.keys(updateData).length > 0) {
+                await tx.product.update({
+                  where: { id: product.id },
+                  data: updateData
+                });
+              }
             }
           }
-        }
-      });
+        });
+      }
+
+      // Đồng bộ tồn kho cho các phiếu CHECKING/APPROVED chưa được đánh dấu stock_synced
+      const unsyncedRows: Array<{ id: string }> = await prisma.$queryRawUnsafe(
+        `SELECT "id" FROM "inbound_receipts" WHERE "status" IN ('CHECKING', 'APPROVED') AND "stock_synced" = FALSE;`
+      );
+
+      if (unsyncedRows && unsyncedRows.length > 0) {
+        const unsyncedIds = unsyncedRows.map((r) => r.id);
+        const receiptsToSync = await prisma.inboundReceipt.findMany({
+          where: { id: { in: unsyncedIds } },
+          include: { items: true }
+        });
+
+        await prisma.$transaction(async (tx) => {
+          for (const rec of receiptsToSync) {
+            for (const item of rec.items) {
+              const qtyToAdd = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
+              if (qtyToAdd <= 0) continue;
+              const product = await this.findOrCreateProduct(
+                tx,
+                {
+                  productId: item.productId,
+                  productCode: item.productCode,
+                  productName: item.productName,
+                  unit: item.unit,
+                  unitPrice: item.unitPrice,
+                  vatRate: item.vatRate
+                },
+                {
+                  warehouseId: rec.warehouseId,
+                  supplierId: rec.supplierId
+                }
+              );
+              if (product) {
+                const updateData: any = {
+                  stockQuantity: { increment: qtyToAdd }
+                };
+                if (Number(item.unitPrice) > 0) {
+                  updateData.costPrice = item.unitPrice;
+                }
+                await tx.product.update({
+                  where: { id: product.id },
+                  data: updateData
+                });
+              }
+            }
+            await tx.$executeRawUnsafe(
+              `UPDATE "inbound_receipts" SET "stock_synced" = TRUE WHERE "id" = $1;`,
+              rec.id
+            );
+          }
+        });
+      }
     } catch (_) {}
   }
 
@@ -562,6 +636,9 @@ export class InboundReceiptsService {
         ? new Date()
         : null;
 
+      const receiptStatus = data.status || 'CHECKING';
+      const isStockActive = this.isStockActiveStatus(receiptStatus);
+
       const receipt = await tx.inboundReceipt.create({
         data: {
           code,
@@ -572,7 +649,7 @@ export class InboundReceiptsService {
           sourceName: data.sourceName?.trim() || null,
           documentNumber: data.documentNumber?.trim() || null,
           documentDate: data.documentDate ? new Date(data.documentDate) : null,
-          status: data.status || 'DRAFT',
+          status: receiptStatus,
           subtotal: new Prisma.Decimal(subtotal),
           vatRate,
           vatAmount: new Prisma.Decimal(vatAmount),
@@ -595,6 +672,29 @@ export class InboundReceiptsService {
           items: true
         }
       });
+
+      // Tự động cộng tồn kho và cập nhật giá vốn ngay khi lập phiếu (nếu không phải bản nháp DRAFT)
+      if (isStockActive) {
+        for (const item of formattedItems) {
+          const qtyToAdd = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
+          if (item.productId && qtyToAdd > 0) {
+            const updateProdData: any = {
+              stockQuantity: { increment: qtyToAdd }
+            };
+            if (Number(item.unitPrice) > 0) {
+              updateProdData.costPrice = item.unitPrice;
+            }
+            await tx.product.update({
+              where: { id: item.productId },
+              data: updateProdData
+            });
+          }
+        }
+        await tx.$executeRawUnsafe(
+          `UPDATE "inbound_receipts" SET "stock_synced" = TRUE WHERE "id" = $1;`,
+          receipt.id
+        );
+      }
 
       // Ghi lịch sử tạo phiếu
       await tx.inboundReceiptHistory.create({
@@ -654,9 +754,12 @@ export class InboundReceiptsService {
 
       // Nếu có cập nhật danh sách mặt hàng
       if (data.items && Array.isArray(data.items)) {
-        // 1. Ghi nhận số lượng cũ theo từng sản phẩm (nếu phiếu cũ đã ở trạng thái APPROVED)
+        const wasStockActive = this.isStockActiveStatus(existing.status);
+        const willBeStockActive = this.isStockActiveStatus(targetStatus);
+
+        // 1. Ghi nhận số lượng cũ theo từng sản phẩm (nếu phiếu cũ đã được tính tồn kho: CHECKING hoặc APPROVED)
         const oldQtyByProduct = new Map<string, { qty: number; name: string; unit: string }>();
-        if (existing.status === 'APPROVED') {
+        if (wasStockActive) {
           for (const oldItem of existing.items) {
             const oldQty = oldItem.acceptedQuantity > 0 ? oldItem.acceptedQuantity : oldItem.actualQuantity;
             if (oldQty > 0) {
@@ -744,11 +847,11 @@ export class InboundReceiptsService {
 
         await tx.inboundReceiptItem.createMany({ data: formattedItems });
 
-        // 3. Nếu trạng thái là APPROVED (hoặc phiếu cũ đã APPROVED), chỉ cộng/trừ đúng phần chênh lệch (newQty - oldQty) và mặc định cập nhật giá vốn
-        if (existing.status === 'APPROVED' || targetStatus === 'APPROVED') {
+        // 3. Tự động đồng bộ tồn kho theo đúng phần chênh lệch (newQty - oldQty) và mặc định cập nhật giá vốn
+        if (wasStockActive || willBeStockActive) {
           const newQtyByProduct = new Map<string, { qty: number; unitPrice: number; name: string; unit: string }>();
 
-          if (targetStatus === 'APPROVED') {
+          if (willBeStockActive) {
             for (const newItem of formattedItems) {
               const newQty = newItem.acceptedQuantity > 0 ? newItem.acceptedQuantity : newItem.actualQuantity;
               if (newItem.productId && newQty > 0) {
@@ -798,6 +901,12 @@ export class InboundReceiptsService {
               });
             }
           }
+
+          await tx.$executeRawUnsafe(
+            `UPDATE "inbound_receipts" SET "stock_synced" = $1 WHERE "id" = $2;`,
+            willBeStockActive,
+            id
+          );
 
           if (diffParts.length > 0) {
             stockSyncDiffSummary = ` (Đồng bộ chênh lệch tồn kho: ${diffParts.join(', ')})`;
@@ -886,6 +995,8 @@ export class InboundReceiptsService {
     },
     currentUserId: string
   ) {
+    await ensureInboundPaymentColumns();
+    await this.syncUnlinkedInboundItems();
     const receipt = await prisma.inboundReceipt.findUnique({
       where: { id },
       include: { items: true }
@@ -899,18 +1010,53 @@ export class InboundReceiptsService {
       throw new Error('Phiếu nhập kho này đã được duyệt và cộng tồn kho');
     }
 
+    const wasStockActive = this.isStockActiveStatus(receipt.status);
+
     return await prisma.$transaction(async (tx) => {
-      // Cập nhật từng item
+      // Cập nhật từng item & đồng bộ chênh lệch tồn kho
       let newSubtotal = 0;
 
       for (const inputItem of data.items) {
         const currentItem = receipt.items.find((it) => it.id === inputItem.id);
         if (!currentItem) continue;
 
+        const oldQty = wasStockActive
+          ? (currentItem.acceptedQuantity > 0 ? currentItem.acceptedQuantity : currentItem.actualQuantity)
+          : 0;
+
         const actualQty = Math.max(0, Number(inputItem.actualQuantity) || 0);
         const acceptedQty = Math.max(0, Number(inputItem.acceptedQuantity) || 0);
         const rejectedQty = Math.max(0, Number(inputItem.rejectedQuantity) || 0);
         const unitPrice = Number(currentItem.unitPrice) || 0;
+
+        const newQty = acceptedQty > 0 ? acceptedQty : actualQty;
+        const diffQty = newQty - oldQty;
+
+        if (diffQty !== 0) {
+          const prod = await this.findOrCreateProduct(
+            tx,
+            {
+              productId: currentItem.productId,
+              productCode: currentItem.productCode,
+              productName: currentItem.productName,
+              unit: currentItem.unit,
+              unitPrice: currentItem.unitPrice,
+              vatRate: currentItem.vatRate
+            },
+            {
+              warehouseId: receipt.warehouseId,
+              supplierId: receipt.supplierId
+            }
+          );
+          if (prod) {
+            await tx.product.update({
+              where: { id: prod.id },
+              data: {
+                stockQuantity: diffQty > 0 ? { increment: diffQty } : { decrement: Math.abs(diffQty) }
+              }
+            });
+          }
+        }
 
         const amount = acceptedQty * unitPrice;
         const total = amount + (amount * currentItem.vatRate) / 100;
@@ -933,6 +1079,11 @@ export class InboundReceiptsService {
           }
         });
       }
+
+      await tx.$executeRawUnsafe(
+        `UPDATE "inbound_receipts" SET "stock_synced" = TRUE WHERE "id" = $1;`,
+        id
+      );
 
       const vatAmount = (newSubtotal * receipt.vatRate) / 100;
       const totalAmount = newSubtotal + vatAmount;
@@ -1026,10 +1177,11 @@ export class InboundReceiptsService {
         }
       });
 
-      // 2. Tự động cộng số lượng nhập vào tồn kho (Product.stockQuantity) & mặc định cập nhật giá vốn
+      // 2. Tự động cộng số lượng nhập vào tồn kho (nếu trước đó là DRAFT chưa cộng tồn) & mặc định cập nhật giá vốn
       let totalAddedQuantity = 0;
       const updatedProductsSummary: string[] = [];
       const shouldUpdateCostPrice = options?.updateCostPrice !== false;
+      const wasAlreadyStockActive = this.isStockActiveStatus(receipt.status);
 
       for (const item of receipt.items) {
         const qtyToAdd = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
@@ -1066,11 +1218,13 @@ export class InboundReceiptsService {
             });
           }
 
-          const updateProductData: any = {
-            stockQuantity: {
+          const updateProductData: any = {};
+
+          if (!wasAlreadyStockActive) {
+            updateProductData.stockQuantity = {
               increment: qtyToAdd
-            }
-          };
+            };
+          }
 
           // Mặc định tự động cập nhật giá vốn theo đơn giá nhập kho này
           if (shouldUpdateCostPrice && Number(item.unitPrice) > 0) {
@@ -1082,15 +1236,22 @@ export class InboundReceiptsService {
             updateProductData.warehouseId = receipt.warehouseId;
           }
 
-          await tx.product.update({
-            where: { id: product.id },
-            data: updateProductData
-          });
+          if (Object.keys(updateProductData).length > 0) {
+            await tx.product.update({
+              where: { id: product.id },
+              data: updateProductData
+            });
+          }
 
           totalAddedQuantity += qtyToAdd;
           updatedProductsSummary.push(`${item.productName} (+${qtyToAdd} ${item.unit})`);
         }
       }
+
+      await tx.$executeRawUnsafe(
+        `UPDATE "inbound_receipts" SET "stock_synced" = TRUE WHERE "id" = $1;`,
+        id
+      );
 
       // 3. Ghi nhận lịch sử duyệt phiếu và cập nhật tồn kho
       await tx.inboundReceiptHistory.create({
@@ -1127,38 +1288,70 @@ export class InboundReceiptsService {
    * Từ chối duyệt phiếu nhập kho
    */
   async rejectReceipt(id: string, reason: string, currentUserId: string) {
-    const receipt = await prisma.inboundReceipt.findUnique({ where: { id } });
+    await ensureInboundPaymentColumns();
+    await this.syncUnlinkedInboundItems();
+    const receipt = await prisma.inboundReceipt.findUnique({
+      where: { id },
+      include: { items: true }
+    });
     if (!receipt) throw new Error('Không tìm thấy phiếu nhập kho');
 
     if (receipt.status === 'APPROVED') {
       throw new Error('Phiếu nhập đã được duyệt thành công, không thể từ chối');
     }
 
-    const updated = await prisma.inboundReceipt.update({
-      where: { id },
-      data: {
-        status: 'REJECTED',
-        rejectedReason: reason.trim()
+    return await prisma.$transaction(async (tx) => {
+      if (this.isStockActiveStatus(receipt.status)) {
+        for (const item of receipt.items) {
+          const qtyToDeduct = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
+          if (qtyToDeduct > 0) {
+            const product = await this.findMatchingProduct(tx, item);
+            if (product) {
+              await tx.product.update({
+                where: { id: product.id },
+                data: {
+                  stockQuantity: {
+                    decrement: qtyToDeduct
+                  }
+                }
+              });
+            }
+          }
+        }
+        await tx.$executeRawUnsafe(
+          `UPDATE "inbound_receipts" SET "stock_synced" = FALSE WHERE "id" = $1;`,
+          id
+        );
       }
-    });
 
-    await prisma.inboundReceiptHistory.create({
-      data: {
-        receiptId: id,
-        action: 'REJECT',
-        title: 'Từ chối duyệt phiếu nhập kho',
-        description: `Lý do từ chối: ${reason.trim()}`,
-        performedById: currentUserId
-      }
-    });
+      const updated = await tx.inboundReceipt.update({
+        where: { id },
+        data: {
+          status: 'REJECTED',
+          rejectedReason: reason.trim()
+        }
+      });
 
-    return updated;
+      await tx.inboundReceiptHistory.create({
+        data: {
+          receiptId: id,
+          action: 'REJECT',
+          title: 'Từ chối duyệt phiếu nhập kho',
+          description: `Lý do từ chối: ${reason.trim()}`,
+          performedById: currentUserId
+        }
+      });
+
+      return updated;
+    });
   }
 
   /**
-   * Hủy phiếu nhập kho (Nếu phiếu đã duyệt, trừ lại số lượng tồn kho tương ứng)
+   * Hủy phiếu nhập kho (Trừ lại số lượng tồn kho tương ứng)
    */
   async cancelReceipt(id: string, reason: string, currentUserId: string) {
+    await ensureInboundPaymentColumns();
+    await this.syncUnlinkedInboundItems();
     const receipt = await prisma.inboundReceipt.findUnique({
       where: { id },
       include: { items: true }
@@ -1171,8 +1364,8 @@ export class InboundReceiptsService {
     }
 
     return await prisma.$transaction(async (tx) => {
-      // Nếu đã từng duyệt kho, cần hoàn tác trừ lại số lượng tồn kho đã cộng
-      if (receipt.status === 'APPROVED') {
+      // Hoàn tác trừ lại số lượng tồn kho đã cộng
+      if (this.isStockActiveStatus(receipt.status)) {
         for (const item of receipt.items) {
           const qtyToDeduct = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
           if (qtyToDeduct > 0) {
@@ -1190,6 +1383,10 @@ export class InboundReceiptsService {
             }
           }
         }
+        await tx.$executeRawUnsafe(
+          `UPDATE "inbound_receipts" SET "stock_synced" = FALSE WHERE "id" = $1;`,
+          id
+        );
       }
 
       const updated = await tx.inboundReceipt.update({
@@ -1205,7 +1402,7 @@ export class InboundReceiptsService {
           receiptId: id,
           action: 'CANCEL',
           title: 'Hủy phiếu nhập kho',
-          description: `Đã hủy phiếu nhập kho ${receipt.code}. Lý do: ${reason.trim()}${receipt.status === 'APPROVED' ? ' (Đã hoàn tác trừ lại số lượng tồn kho)' : ''}`,
+          description: `Đã hủy phiếu nhập kho ${receipt.code}. Lý do: ${reason.trim()}${this.isStockActiveStatus(receipt.status) ? ' (Đã hoàn tác trừ lại số lượng tồn kho)' : ''}`,
           performedById: currentUserId
         }
       });
@@ -1216,9 +1413,11 @@ export class InboundReceiptsService {
 
   /**
    * Xóa phiếu nhập kho
-   * Nếu phiếu đã duyệt (APPROVED), tự động trừ lại số lượng tồn kho tương ứng
+   * Tự động trừ lại số lượng tồn kho tương ứng của phiếu nhập
    */
   async deleteReceipt(id: string, currentUserId: string) {
+    await ensureInboundPaymentColumns();
+    await this.syncUnlinkedInboundItems();
     const receipt = await prisma.inboundReceipt.findUnique({
       where: { id },
       include: { items: true }
@@ -1226,8 +1425,8 @@ export class InboundReceiptsService {
     if (!receipt) throw new Error('Không tìm thấy phiếu nhập kho');
 
     return await prisma.$transaction(async (tx) => {
-      // Nếu phiếu đã từng duyệt kho, hoàn tác trừ lại số lượng tồn kho đã cộng
-      if (receipt.status === 'APPROVED') {
+      // Nếu phiếu đã được tính tồn kho (CHECKING hoặc APPROVED), hoàn tác trừ lại số lượng tồn kho đã cộng
+      if (this.isStockActiveStatus(receipt.status)) {
         for (const item of receipt.items) {
           const qtyToDeduct = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
           if (qtyToDeduct > 0) {

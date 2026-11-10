@@ -155,7 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'quotations',
-          label: 'Quản lý Báo giá',
+          label: 'Báo giá',
           icon: FileSpreadsheet,
           theme: {
             accent: '#7C3AED',     // 3. Violet (Tím Oải Hương)
@@ -166,7 +166,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'orders',
-          label: 'Quản lý Đơn hàng',
+          label: 'Đơn hàng',
           icon: ShoppingCart,
           badge: pendingOrdersCount && pendingOrdersCount > 0 ? `${pendingOrdersCount} đơn chờ` : undefined,
           theme: {
@@ -228,7 +228,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'inbound-receipts',
-          label: 'Quản lý Nhập kho',
+          label: 'Nhập kho',
           icon: PackagePlus,
           badge: pendingInboundCount && pendingInboundCount > 0 ? `${pendingInboundCount} chờ duyệt` : undefined,
           theme: {
@@ -240,7 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'warehouses',
-          label: 'Quản lý kho vật lý',
+          label: 'Kho vật lý',
           icon: Warehouse,
           theme: {
             accent: '#2563EB',     // 10. Royal Blue (Xanh Dương Đậm)
@@ -251,7 +251,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'products',
-          label: 'Quản lý hàng hóa',
+          label: 'Hàng hóa',
           icon: Package,
           badge: lowStockCount && lowStockCount > 0 ? `${lowStockCount} sắp hết` : undefined,
           theme: {
@@ -302,7 +302,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'users',
-          label: 'Quản lý người dùng',
+          label: 'Người dùng',
           icon: Users,
           theme: {
             accent: '#DB2777',     // 15. Pink (Hồng Cánh Sen)
@@ -352,7 +352,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'finances',
-          label: 'Quản lý Thu - Chi & Dòng tiền',
+          label: 'Thu - Chi & Dòng tiền',
           icon: Receipt,
           theme: {
             accent: '#10B981',     // 19. Mint Emerald (Xanh Tài Chính)

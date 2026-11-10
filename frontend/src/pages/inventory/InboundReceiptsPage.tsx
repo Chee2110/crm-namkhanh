@@ -688,9 +688,9 @@ export const InboundReceiptsPage: React.FC = () => {
                 Bạn có chắc chắn muốn xóa vĩnh viễn phiếu nhập kho{' '}
                 <strong className="text-slate-900 font-mono">{deleteConfirm.receipt.code}</strong>? Thao tác này không thể hoàn tác.
               </p>
-              {deleteConfirm.receipt.status === 'APPROVED' && (
+              {(deleteConfirm.receipt.status === 'APPROVED' || deleteConfirm.receipt.status === 'CHECKING') && (
                 <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 leading-relaxed">
-                  <strong>Lưu ý:</strong> Phiếu này đã nhập kho. Khi xóa, hệ thống sẽ tự động trừ lại số lượng tồn kho tương ứng.
+                  <strong>Lưu ý:</strong> Khi xóa phiếu này, hệ thống sẽ tự động trừ lại số lượng tồn kho tương ứng.
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">

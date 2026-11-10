@@ -160,7 +160,7 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
               (it.productCode && p.code.toLowerCase() === it.productCode.trim().toLowerCase())
           );
           const approvedQty =
-            editingReceipt.status === 'APPROVED'
+            editingReceipt.status === 'APPROVED' || editingReceipt.status === 'CHECKING'
               ? it.acceptedQuantity > 0
                 ? it.acceptedQuantity
                 : it.actualQuantity
