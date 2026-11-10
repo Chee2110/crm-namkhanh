@@ -474,12 +474,45 @@ export const InboundReceiptCreatePage: React.FC<InboundReceiptCreatePageProps> =
       const copy = [...prev];
       const it = { ...copy[index], [field]: value };
 
+      if (field === 'productName') {
+        const cleanName = String(value || '').trim().toLowerCase();
+        const matched = cleanName
+          ? availableProducts.find((p) => p.name.trim().toLowerCase() === cleanName)
+          : undefined;
+        if (matched) {
+          it.productId = matched.id;
+          it.productCode = matched.code;
+          it.unit = matched.unit || it.unit;
+          it.currentStock = matched.stockQuantity || 0;
+          if (!it.unitPrice && Number(matched.costPrice) > 0) {
+            it.unitPrice = Number(matched.costPrice);
+          }
+        } else if (it.productId) {
+          const oldProd = availableProducts.find((p) => p.id === it.productId);
+          it.productId = null;
+          it.currentStock = undefined;
+          if (oldProd && it.productCode === oldProd.code) {
+            it.productCode = '';
+          }
+        }
+      } else if (field === 'productCode') {
+        const cleanCode = String(value || '').trim().toLowerCase();
+        const matched = cleanCode
+          ? availableProducts.find((p) => p.code.trim().toLowerCase() === cleanCode)
+          : undefined;
+        if (!matched && it.productId) {
+          it.productId = null;
+          it.currentStock = undefined;
+        }
+      }
+
       if (
         field === 'actualQuantity' ||
         field === 'expectedQuantity' ||
         field === 'acceptedQuantity' ||
         field === 'unitPrice' ||
-        field === 'vatRate'
+        field === 'vatRate' ||
+        field === 'productName'
       ) {
         const actQty = Number(it.actualQuantity) || 0;
         const accQty = field === 'acceptedQuantity' ? Number(value) : actQty;

@@ -1,5 +1,6 @@
 import { prisma } from '../../config/db';
 import { slugifyGroupCode } from '../product-groups/product-groups.service';
+import { inboundReceiptsService } from '../inbound-receipts/inbound-receipts.service';
 
 function normalizeLabel(val?: string | null): string {
   if (!val) return '';
@@ -22,6 +23,7 @@ export class ProductsService {
     status?: string;
     lowStock?: boolean;
   }) {
+    await inboundReceiptsService.syncUnlinkedInboundItems();
     const where: any = {};
     if (params?.category) where.category = params.category;
     if (params?.categoryId) where.categoryId = params.categoryId;

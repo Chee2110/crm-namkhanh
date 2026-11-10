@@ -98,6 +98,175 @@ export class InboundReceiptsService {
   }
 
   /**
+   * Tự động sinh mã sản phẩm mới (SP001, SP002...) nếu mặt hàng mới chưa có mã SKU hoặc đang để mặc định SKU-NEW / N/A
+   */
+  private async generateNextProductCode(tx: Prisma.TransactionClient, rawCode?: string | null): Promise<string> {
+    const clean = rawCode?.trim().toUpperCase();
+    if (clean && clean !== 'N/A' && clean !== 'SKU-NEW') {
+      const existing = await tx.product.findFirst({
+        where: { code: { equals: clean, mode: 'insensitive' } }
+      });
+      if (!existing) {
+        return clean;
+      }
+    }
+
+    const allProds = await tx.product.findMany({
+      select: { code: true }
+    });
+    let maxNum = 0;
+    for (const p of allProds) {
+      const m = p.code.match(/^SP[-_]?(\d+)$/i);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (!isNaN(n) && n > maxNum) maxNum = n;
+      }
+    }
+    let nextNum = maxNum + 1;
+    while (true) {
+      const candidate = `SP${String(nextNum).padStart(3, '0')}`;
+      const conflict = await tx.product.findFirst({
+        where: { code: { equals: candidate, mode: 'insensitive' } }
+      });
+      if (!conflict) return candidate;
+      nextNum++;
+    }
+  }
+
+  /**
+   * Tìm sản phẩm trong danh mục Hàng hóa; nếu chưa có thì tự động tạo mới trên trang Hàng hóa (stockQuantity khởi tạo = 0)
+   */
+  private async findOrCreateProduct(
+    tx: Prisma.TransactionClient,
+    item: {
+      productId?: string | null;
+      productCode?: string | null;
+      productName?: string | null;
+      unit?: string | null;
+      unitPrice?: number | Prisma.Decimal;
+      vatRate?: number;
+    },
+    meta: {
+      warehouseId?: string | null;
+      supplierId?: string | null;
+    }
+  ) {
+    const existing = await this.findMatchingProduct(tx, item);
+    if (existing) {
+      return existing;
+    }
+
+    const cleanName = item.productName?.trim();
+    if (!cleanName) {
+      return null;
+    }
+
+    const finalCode = await this.generateNextProductCode(tx, item.productCode);
+    const unitPriceNum = Math.max(0, Number(item.unitPrice) || 0);
+    const cleanUnit = item.unit?.trim() || 'Cái';
+    const vatRate = item.vatRate !== undefined ? Number(item.vatRate) : 8;
+
+    return await tx.product.create({
+      data: {
+        code: finalCode,
+        name: cleanName,
+        category: 'Văn phòng phẩm',
+        unit: cleanUnit,
+        costPrice: new Prisma.Decimal(unitPriceNum),
+        sellingPrice: new Prisma.Decimal(unitPriceNum),
+        vatRate,
+        stockQuantity: 0,
+        minStockLevel: 0,
+        maxStockLevel: 1000,
+        warehouseId: meta.warehouseId || null,
+        supplierId: meta.supplierId || null,
+        status: 'ACTIVE'
+      }
+    });
+  }
+
+  /**
+   * Đồng bộ tự động các dòng mặt hàng mới trong phiếu nhập kho cũ chưa được liên kết sang trang Hàng hóa
+   */
+  public async syncUnlinkedInboundItems(): Promise<void> {
+    try {
+      const unlinkedItems = await prisma.inboundReceiptItem.findMany({
+        where: { productId: null },
+        include: {
+          receipt: {
+            select: {
+              id: true,
+              status: true,
+              warehouseId: true,
+              supplierId: true
+            }
+          }
+        }
+      });
+
+      if (unlinkedItems.length === 0) return;
+
+      await prisma.$transaction(async (tx) => {
+        for (const item of unlinkedItems) {
+          if (!item.receipt || item.receipt.status === 'CANCELLED' || item.receipt.status === 'REJECTED') {
+            continue;
+          }
+
+          const existedBefore = await this.findMatchingProduct(tx, item);
+          const product =
+            existedBefore ||
+            (await this.findOrCreateProduct(
+              tx,
+              {
+                productId: item.productId,
+                productCode: item.productCode,
+                productName: item.productName,
+                unit: item.unit,
+                unitPrice: item.unitPrice,
+                vatRate: item.vatRate
+              },
+              {
+                warehouseId: item.receipt.warehouseId,
+                supplierId: item.receipt.supplierId
+              }
+            ));
+
+          if (!product) continue;
+
+          await tx.inboundReceiptItem.update({
+            where: { id: item.id },
+            data: {
+              productId: product.id,
+              productCode:
+                item.productCode && item.productCode !== 'SKU-NEW' && item.productCode !== 'N/A'
+                  ? item.productCode
+                  : product.code
+            }
+          });
+
+          // Nếu phiếu đã APPROVED và mặt hàng này trước đó chưa từng có trong trang Hàng hóa (hoặc chưa cộng tồn), cộng số lượng nhập vào tồn kho
+          if (item.receipt.status === 'APPROVED' && !existedBefore) {
+            const qtyToAdd = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
+            const updateData: any = {};
+            if (qtyToAdd > 0) {
+              updateData.stockQuantity = { increment: qtyToAdd };
+            }
+            if (Number(item.unitPrice) > 0) {
+              updateData.costPrice = item.unitPrice;
+            }
+            if (Object.keys(updateData).length > 0) {
+              await tx.product.update({
+                where: { id: product.id },
+                data: updateData
+              });
+            }
+          }
+        }
+      });
+    } catch (_) {}
+  }
+
+  /**
    * Sinh mã phiếu nhập tự động: PNK-YYYY-XXXX (ví dụ: PNK-2026-0001)
    */
   async getNextCode(): Promise<string> {
@@ -138,6 +307,7 @@ export class InboundReceiptsService {
     endDate?: string;
   }) {
     await ensureInboundPaymentColumns();
+    await this.syncUnlinkedInboundItems();
     const where: any = {};
 
     if (params.type && params.type !== 'ALL') {
@@ -313,78 +483,85 @@ export class InboundReceiptsService {
     let subtotal = 0;
     const vatRate = Number(data.vatRate) || 0;
 
-    // Tự động tìm và liên kết với sản phẩm cũ trong kho nếu có mã code tương ứng
-    const productCodesToMatch = data.items
-      .filter((i) => !i.productId && i.productCode && i.productCode.trim() !== 'N/A')
-      .map((i) => i.productCode.trim());
-
-    let existingProductsByCode: Record<string, string> = {};
-    if (productCodesToMatch.length > 0) {
-      const foundProds = await prisma.product.findMany({
-        where: { code: { in: productCodesToMatch } },
-        select: { id: true, code: true }
-      });
-      foundProds.forEach((p) => {
-        existingProductsByCode[p.code] = p.id;
-      });
-    }
-
-    const formattedItems = data.items.map((item) => {
-      const expQty = Math.max(0, Number(item.expectedQuantity) || 1);
-      const actQty = Math.max(0, Number(item.actualQuantity) !== undefined ? Number(item.actualQuantity) : expQty);
-      const accQty = Math.max(0, Number(item.acceptedQuantity) !== undefined ? Number(item.acceptedQuantity) : actQty);
-      const rejQty = Math.max(0, Number(item.rejectedQuantity) || 0);
-      const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
-
-      // Thành tiền tính theo số lượng thực tế nhận được (hoặc số lượng chấp nhận)
-      const qtyForAmount = accQty > 0 ? accQty : actQty;
-      const amount = qtyForAmount * unitPrice;
-      const itemVat = Number(item.vatRate) || vatRate;
-      const total = amount + (amount * itemVat) / 100;
-
-      subtotal += amount;
-
-      const pCode = item.productCode?.trim() || 'N/A';
-      const resolvedProductId = item.productId || (pCode !== 'N/A' ? existingProductsByCode[pCode] || null : null);
-
-      return {
-        productId: resolvedProductId,
-        productCode: pCode,
-        productName: item.productName?.trim() || 'Hàng hóa',
-        unit: item.unit?.trim() || 'Cái',
-        expectedQuantity: expQty,
-        actualQuantity: actQty,
-        acceptedQuantity: accQty,
-        rejectedQuantity: rejQty,
-        unitPrice: new Prisma.Decimal(unitPrice),
-        amount: new Prisma.Decimal(amount),
-        vatRate: itemVat,
-        total: new Prisma.Decimal(total),
-        batchNumber: item.batchNumber?.trim() || null,
-        productionDate: item.productionDate ? new Date(item.productionDate) : null,
-        expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
-        locationArea: item.locationArea?.trim() || null,
-        locationRack: item.locationRack?.trim() || null,
-        locationShelf: item.locationShelf?.trim() || null,
-        locationBin: item.locationBin?.trim() || null,
-        qualityStatus: item.qualityStatus || 'PASSED',
-        qualityNotes: item.qualityNotes?.trim() || null
-      };
-    });
-
-    const vatAmount = (subtotal * vatRate) / 100;
-    const totalAmount = subtotal + vatAmount;
-    const paidAmount = Math.max(0, Number(data.paidAmount) || 0);
-    const remainingAmount = Math.max(0, totalAmount - paidAmount);
-    const paymentDays = Math.max(0, parseInt(String(data.paymentDays ?? 0), 10) || 0);
-    const isPaidInFull = totalAmount > 0 && paidAmount >= totalAmount;
-    const resolvedPaymentDate = data.paymentDate
-      ? new Date(data.paymentDate)
-      : isPaidInFull
-      ? new Date()
-      : null;
-
     return await prisma.$transaction(async (tx) => {
+      const formattedItems: any[] = [];
+
+      for (const item of data.items) {
+        const expQty = Math.max(0, Number(item.expectedQuantity) || 1);
+        const actQty = Math.max(0, Number(item.actualQuantity) !== undefined ? Number(item.actualQuantity) : expQty);
+        const accQty = Math.max(0, Number(item.acceptedQuantity) !== undefined ? Number(item.acceptedQuantity) : actQty);
+        const rejQty = Math.max(0, Number(item.rejectedQuantity) || 0);
+        const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
+
+        // Thành tiền tính theo số lượng thực tế nhận được (hoặc số lượng chấp nhận)
+        const qtyForAmount = accQty > 0 ? accQty : actQty;
+        const amount = qtyForAmount * unitPrice;
+        const itemVat = Number(item.vatRate) || vatRate;
+        const total = amount + (amount * itemVat) / 100;
+
+        subtotal += amount;
+
+        // Tự động tìm sản phẩm có sẵn hoặc tạo mới sản phẩm trong trang Hàng hóa nếu chưa có
+        const matchedProd = await this.findOrCreateProduct(
+          tx,
+          {
+            productId: item.productId,
+            productCode: item.productCode,
+            productName: item.productName,
+            unit: item.unit,
+            unitPrice,
+            vatRate: itemVat
+          },
+          {
+            warehouseId: data.warehouseId,
+            supplierId: data.supplierId || null
+          }
+        );
+
+        const rawCode = item.productCode?.trim();
+        const pCode =
+          rawCode && rawCode !== 'SKU-NEW' && rawCode !== 'N/A'
+            ? rawCode.toUpperCase()
+            : matchedProd?.code || 'N/A';
+        const resolvedProductId = matchedProd?.id || item.productId || null;
+
+        formattedItems.push({
+          productId: resolvedProductId,
+          productCode: pCode,
+          productName: item.productName?.trim() || matchedProd?.name || 'Hàng hóa',
+          unit: item.unit?.trim() || matchedProd?.unit || 'Cái',
+          expectedQuantity: expQty,
+          actualQuantity: actQty,
+          acceptedQuantity: accQty,
+          rejectedQuantity: rejQty,
+          unitPrice: new Prisma.Decimal(unitPrice),
+          amount: new Prisma.Decimal(amount),
+          vatRate: itemVat,
+          total: new Prisma.Decimal(total),
+          batchNumber: item.batchNumber?.trim() || null,
+          productionDate: item.productionDate ? new Date(item.productionDate) : null,
+          expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
+          locationArea: item.locationArea?.trim() || null,
+          locationRack: item.locationRack?.trim() || null,
+          locationShelf: item.locationShelf?.trim() || null,
+          locationBin: item.locationBin?.trim() || null,
+          qualityStatus: item.qualityStatus || 'PASSED',
+          qualityNotes: item.qualityNotes?.trim() || null
+        });
+      }
+
+      const vatAmount = (subtotal * vatRate) / 100;
+      const totalAmount = subtotal + vatAmount;
+      const paidAmount = Math.max(0, Number(data.paidAmount) || 0);
+      const remainingAmount = Math.max(0, totalAmount - paidAmount);
+      const paymentDays = Math.max(0, parseInt(String(data.paymentDays ?? 0), 10) || 0);
+      const isPaidInFull = totalAmount > 0 && paidAmount >= totalAmount;
+      const resolvedPaymentDate = data.paymentDate
+        ? new Date(data.paymentDate)
+        : isPaidInFull
+        ? new Date()
+        : null;
+
       const receipt = await tx.inboundReceipt.create({
         data: {
           code,
@@ -438,6 +615,8 @@ export class InboundReceiptsService {
    * Cập nhật thông tin phiếu nhập kho (hỗ trợ tất cả trạng thái; nếu đã APPROVED sẽ tự động đồng bộ lại tồn kho theo chênh lệch)
    */
   async updateReceipt(id: string, data: Partial<CreateInboundReceiptDTO>, currentUserId: string) {
+    await ensureInboundPaymentColumns();
+    await this.syncUnlinkedInboundItems();
     const existing = await prisma.inboundReceipt.findUnique({
       where: { id },
       include: { items: true }
@@ -515,8 +694,26 @@ export class InboundReceiptsService {
 
           subtotal += amount;
 
-          const matchedProd = await this.findMatchingProduct(tx, item);
-          const pCode = item.productCode?.trim() || matchedProd?.code || 'N/A';
+          const matchedProd = await this.findOrCreateProduct(
+            tx,
+            {
+              productId: item.productId,
+              productCode: item.productCode,
+              productName: item.productName,
+              unit: item.unit,
+              unitPrice,
+              vatRate: itemVat
+            },
+            {
+              warehouseId: data.warehouseId || existing.warehouseId,
+              supplierId: data.supplierId !== undefined ? data.supplierId : existing.supplierId
+            }
+          );
+          const rawCode = item.productCode?.trim();
+          const pCode =
+            rawCode && rawCode !== 'SKU-NEW' && rawCode !== 'N/A'
+              ? rawCode.toUpperCase()
+              : matchedProd?.code || 'N/A';
           const resolvedProductId = matchedProd?.id || item.productId || null;
 
           formattedItems.push({
@@ -785,6 +982,8 @@ export class InboundReceiptsService {
     currentUserId: string,
     options?: { updateCostPrice?: boolean; notes?: string }
   ) {
+    await ensureInboundPaymentColumns();
+    await this.syncUnlinkedInboundItems();
     const receipt = await prisma.inboundReceipt.findUnique({
       where: { id },
       include: {
@@ -836,14 +1035,34 @@ export class InboundReceiptsService {
         const qtyToAdd = item.acceptedQuantity > 0 ? item.acceptedQuantity : item.actualQuantity;
         if (qtyToAdd <= 0) continue;
 
-        // Tìm sản phẩm theo productId, mã SKU hoặc tên sản phẩm
-        const product = await this.findMatchingProduct(tx, item);
+        // Tìm sản phẩm theo productId, mã SKU hoặc tên sản phẩm; nếu chưa có trên trang Hàng hóa thì tự động tạo mới
+        const product = await this.findOrCreateProduct(
+          tx,
+          {
+            productId: item.productId,
+            productCode: item.productCode,
+            productName: item.productName,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
+            vatRate: item.vatRate
+          },
+          {
+            warehouseId: receipt.warehouseId,
+            supplierId: receipt.supplierId
+          }
+        );
 
         if (product) {
-          if (!item.productId) {
+          if (!item.productId || item.productCode === 'SKU-NEW' || item.productCode === 'N/A') {
             await tx.inboundReceiptItem.update({
               where: { id: item.id },
-              data: { productId: product.id }
+              data: {
+                productId: product.id,
+                productCode:
+                  item.productCode && item.productCode !== 'SKU-NEW' && item.productCode !== 'N/A'
+                    ? item.productCode
+                    : product.code
+              }
             });
           }
 
